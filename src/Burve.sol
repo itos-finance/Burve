@@ -27,6 +27,8 @@ contract Burve is ERC20 {
         uint128[] calldata _dist
     ) {
         innerPool = IUniswapV3Pool(pool);
+        token0 = innerPool.token0();
+        token1 = innerPool.token1();
         if (_breaks.length != _dist.length + 1)
             revert MismatchedRangeLengths(_breaks.length - 1, dist.length);
 
