@@ -8,4 +8,6 @@ contract BurveTest is Test {
     Burve public burve;
 
     function setUp() public {}
+
+    function testBasic() public {}
 }
