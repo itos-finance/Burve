@@ -45,7 +45,7 @@ contract Burve is ERC20 {
     function mint(address recipient, uint128 liq) external {
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 amount = shift96(liq * distX96[i], true);
-            innerpool.mint(
+            innerPool.mint(
                 recipient,
                 breaks[i],
                 breaks[i + 1],
@@ -53,12 +53,19 @@ contract Burve is ERC20 {
                 abi.encode(msg.sender)
             );
         }
+        _mint(recipient, liq);
     }
 
     function burn(uint128 liq) external {
+        _burn(msg.sender, liq);
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 amount = shift96(liq * distX96[i], false);
-            innerpool.burn(breaks[i], breaks[i + 1], amount);
+            (uint256 x, uint256 y) = innerPool.burn(
+                breaks[i],
+                breaks[i + 1],
+                amount
+            );
+            innerPool.collect(msg.sender, breaks[i], breaks[i + 1], x, y);
         }
     }
 
