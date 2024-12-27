@@ -58,7 +58,7 @@ contract Burve is ERC20 {
     function burn(uint128 liq) external {
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 amount = shift96(liq * distX96[i], false);
-            innerpool.mint(breaks[i], breaks[i + 1], amount);
+            innerpool.burn(breaks[i], breaks[i + 1], amount);
         }
     }
 
