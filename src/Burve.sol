@@ -46,7 +46,7 @@ contract Burve is ERC20 {
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 amount = shift96(liq * distX96[i], true);
             innerPool.mint(
-                recipient,
+                address(this),
                 breaks[i],
                 breaks[i + 1],
                 amount,
