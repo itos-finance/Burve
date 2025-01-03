@@ -5,20 +5,34 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
 import {TransferHelper} from "./TransferHelper.sol";
 
+/// Defines the tick range of an AMM position.
+struct TickRange {
+    /// Lower tick of the range.
+    int24 lower;
+    /// Upper tick of the range.
+    int24 upper;
+}
+
 contract Burve is ERC20 {
     /// The wrapped pool
     IUniswapV3Pool public innerPool;
     address public token0;
     address public token1;
-    /// The n+1 tick boundaries for our n ranges.
-    int24[] public breaks;
+
+    /// The n ranges.
+    TickRange[] public ranges;
+
     /// The relative liquidity for our n ranges.
     uint256[] public distX96;
 
     uint256 private constant X96MASK = (1 << 96) - 1;
 
-    /// Thrown when the number of ranges implied by breaks is different from the number implied by dists.
-    error MismatchedRangeLengths(uint256 breakLength, uint256 distLength);
+    /// Thrown when the number of ranges and number of weights do not match.
+    error MismatchedRangeWeightLengths(
+        uint256 rangeLength,
+        uint256 weightLength
+    );
+
     /// If you burn too much liq at once, we can't collect that amount in one call.
     /// Please split up into multiple calls.
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
@@ -45,62 +59,76 @@ contract Burve is ERC20 {
         );
     }
 
-    /// @param _pool The pool we're wrapping and depositing into
-    /// @param _breaks n+1 sorted tick entries definiting the n ranges
-    /// @param _dist n weights defining the relative liquidity deposits in the n rnages
+    /// @param _pool The pool we are wrapping
+    /// @param _ranges the n ranges
+    /// @param _weights n weights defining the relative liquidity for each ranges
     constructor(
         address _pool,
-        int24[] memory _breaks,
-        uint128[] memory _dist
+        TickRange[] memory _ranges,
+        uint128[] memory _weights
     ) ERC20(get_name(_pool), get_symbol(_pool)) {
         innerPool = IUniswapV3Pool(_pool);
         token0 = innerPool.token0();
         token1 = innerPool.token1();
-        if (_breaks.length != _dist.length + 1)
-            revert MismatchedRangeLengths(_breaks.length - 1, _dist.length);
 
-        for (uint256 i = 0; i < _breaks.length; ++i) {
-            breaks.push(_breaks[i]);
+        if (_ranges.length != _weights.length)
+            revert MismatchedRangeWeightLengths(
+                _ranges.length,
+                _weights.length
+            );
+
+        for (uint256 i = 0; i < _ranges.length; ++i) {
+            ranges.push(_ranges[i]);
         }
+
         uint256 sum = 0;
-        for (uint256 j = 0; j < _dist.length; ++j) {
-            sum += _dist[j];
+        for (uint256 i = 0; i < _weights.length; ++i) {
+            sum += _weights[i];
         }
-        for (uint256 k = 0; k < _dist.length; ++k) {
-            distX96.push((_dist[k] << 96) / sum);
+
+        for (uint256 i = 0; i < _weights.length; ++i) {
+            distX96.push((_weights[i] << 96) / sum);
         }
     }
 
     function mint(address recipient, uint128 liq) external {
         for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
             uint128 amount = uint128(shift96(liq * distX96[i], true));
+
             innerPool.mint(
                 address(this),
-                breaks[i],
-                breaks[i + 1],
+                range.lower,
+                range.upper,
                 amount,
                 abi.encode(msg.sender)
             );
         }
+
         _mint(recipient, liq);
     }
 
     function burn(uint128 liq) external {
         _burn(msg.sender, liq);
+
         for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
             uint128 amount = uint128(shift96(liq * distX96[i], false));
+
             (uint256 x, uint256 y) = innerPool.burn(
-                breaks[i],
-                breaks[i + 1],
+                range.lower,
+                range.upper,
                 amount
             );
+
             if (x > type(uint128).max) revert TooMuchBurnedAtOnce(liq, x, true);
             if (y > type(uint128).max)
                 revert TooMuchBurnedAtOnce(liq, y, false);
+
             innerPool.collect(
                 msg.sender,
-                breaks[i],
-                breaks[i + 1],
+                range.lower,
+                range.upper,
                 uint128(x),
                 uint128(y)
             );
