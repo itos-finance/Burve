@@ -23,13 +23,13 @@ contract Burve is ERC20 {
     /// The n ranges.
     TickRange[] public ranges;
 
-    /// The relative liquidity for our n ranges.
+    /// The relative liquidity for our n (pool) or 1 + n (island) ranges.
     /// If there is an island that distribution lies at index 0.
     uint256[] public distX96;
 
     uint256 private constant X96MASK = (1 << 96) - 1;
 
-    /// Thrown when island specific logic are invoked but the contract was not initialized with an island.
+    /// Thrown when island specific logic is invoked but the contract was not initialized with an island.
     error NoIsland();
 
     /// Thrown when the number of ranges and number of weights do not match.
@@ -43,27 +43,36 @@ contract Burve is ERC20 {
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
 
     /// @param _island The island we are wrapping
+    /// @param _ranges the n ranges
+    /// @param _weights 1 + n weights defining the relative liquidity for each range. 
+    ///         The first weight at index 0 is for the island.
     constructor(
         address _island,
-        uint128 _islandWeight,
         TickRange[] memory _ranges,
         uint128[] memory _weights
     ) ERC20(nameFromIsland(_island), symbolFromIsland(_island)) {
         island = IKodiakIsland(_island);
         pool = island.pool();
+
+        if (_ranges.length + 1 != _weights.length) {
+            revert MismatchedRangeWeightLengths(
+                _ranges.length + 1,
+                _weights.length
+            );
+        }
+
+        _init(_ranges, _weights);
     }
 
     /// @param _pool The pool we are wrapping
     /// @param _ranges the n ranges
-    /// @param _weights n weights defining the relative liquidity for each ranges
+    /// @param _weights n weights defining the relative liquidity for each range.
     constructor(
         address _pool,
         TickRange[] memory _ranges,
         uint128[] memory _weights
     ) ERC20(nameFromPool(_pool), symbolFromPool(_pool)) {
-        innerPool = IUniswapV3Pool(_pool);
-        token0 = innerPool.token0();
-        token1 = innerPool.token1();
+        pool = IUniswapV3Pool(_pool);
 
         if (_ranges.length != _weights.length)
             revert MismatchedRangeWeightLengths(
@@ -71,22 +80,32 @@ contract Burve is ERC20 {
                 _weights.length
             );
 
+        _init(_ranges, _weights);
+    }
+
+    /// @notice initializes shared state between the two constructors.
+    function _init(TickRange[] memory _ranges, uint128[] memory _weights) private {
+        token0 = pool.token0();
+        token1 = pool.token1();
+
+        // copy ranges to storage
         for (uint256 i = 0; i < _ranges.length; ++i) {
             ranges.push(_ranges[i]);
         }
 
+        // compute total sum of weights
         uint256 sum = 0;
         for (uint256 i = 0; i < _weights.length; ++i) {
             sum += _weights[i];
         }
 
+        // calculate distribution for each weighted position
         for (uint256 i = 0; i < _weights.length; ++i) {
             distX96.push((_weights[i] << 96) / sum);
         }
     }
 
-    function _init() public {}
-
+    /// @notice mints liquidity for the recipient
     function mint(address recipient, uint128 liq) external {
         uint256 i = 0; 
 
@@ -118,6 +137,7 @@ contract Burve is ERC20 {
         _mint(recipient, liq);
     }
 
+    /// @notice burns liquidity for the msg.sender
     function burn(uint128 liq) external {
         _burn(msg.sender, liq);
 
@@ -183,6 +203,8 @@ contract Burve is ERC20 {
 
     /* internal helpers */
 
+    /// @notice Calculates the amount of shares in the island for the given liquidity.
+    /// @notice Calculates the 
     function islandLiqToShares(uint128 liq) internal returns (uint256 shares) {
         if (address(island) == address(0x0)) {
             revert NoIsland();
@@ -201,21 +223,16 @@ contract Burve is ERC20 {
         (,, shares) = island.getMintAmounts(amount0, amount1);
     }
 
-    /**
-     * @notice helper function to convert the amount of liquidity to
-     * amount0 and amount1
-     * @param sqrtRatioX96 price from slot0
-     * @param tickLower bound
-     * @param tickUpper bound
-     * @param liquidity to find amounts for
-     * @param roundUp round amounts up
-     */
+    /// @notice Converts the amount of liquidity to amount0 and amount1.
+    /// @param sqrtRatioX96 The price from slot0.
+    /// @param tickLower The lower bound.
+    /// @param tickUpper The upper bound.
+    /// @param liquidity The liquidity to find amounts for.
     function getAmountsFromLiquidity(
         uint160 sqrtRatioX96,
         int24 tickLower,
         int24 tickUpper,
         uint128 liquidity,
-        bool roundUp
     ) internal pure returns (uint256 amount0, uint256 amount1) {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
@@ -224,10 +241,9 @@ contract Burve is ERC20 {
             sqrtRatioAX96,
             sqrtRatioBX96,
             liquidity,
-            roundUp
+            false
         );
     }
-
 
     function shift96(
         uint256 a,
@@ -237,6 +253,9 @@ contract Burve is ERC20 {
         if (roundUp && (a & X96MASK) > 0) b += 1;
     }
 
+    /// @notice Computes the name for the ERC20 token given the pool address.
+    /// @param pool The pool address.
+    /// @return name The name of the ERC20 token.
     function nameFromPool(
         address pool
     ) private view returns (string memory name) {
@@ -250,6 +269,9 @@ contract Burve is ERC20 {
         );
     }
 
+    /// @notice Computes the symbol for the ERC20 token given the pool address.
+    /// @param pool The pool address.
+    /// @return sym The symbol of the ERC20 token.
     function symbolFromPool(
         address pool
     ) private view returns (string memory sym) {
@@ -263,12 +285,18 @@ contract Burve is ERC20 {
         );
     }
 
+    /// @notice Computes the name for the ERC20 token given the island address.
+    /// @param island The island address.
+    /// @return name The name of the ERC20 token.
     function nameFromIsland(
         address island
     ) private view returns (string memory name) {
         return nameFromPool(IKodiakIsland(island).pool());
     }
 
+    /// @notice Computes the symbol for the ERC20 token given the island address.
+    /// @param island The island address.
+    /// @return sym The symbol of the ERC20 token.
     function symbolFromIsland(
         address island
     ) private view returns (string memory sym) {
