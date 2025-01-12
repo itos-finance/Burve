@@ -15,24 +15,22 @@ struct TickRange {
 
 contract Burve is ERC20 {
     IKodiakIsland public island;
+
     IUniswapV3Pool public pool;
-
-    ////////////////////////////////////////////////
-
-    /// The wrapped pool
-    IUniswapV3Pool public innerPool;
     address public token0;
     address public token1;
 
     /// The n ranges.
     TickRange[] public ranges;
 
-    /// The relative liquidity for the island.
-    uint256 public islandDistX96;
     /// The relative liquidity for our n ranges.
+    /// If there is an island that distribution lies at index 0.
     uint256[] public distX96;
 
     uint256 private constant X96MASK = (1 << 96) - 1;
+
+    /// Thrown when island specific logic are invoked but the contract was not initialized with an island.
+    error NoIsland();
 
     /// Thrown when the number of ranges and number of weights do not match.
     error MismatchedRangeWeightLengths(
@@ -90,53 +88,52 @@ contract Burve is ERC20 {
     function _init() public {}
 
     function mint(address recipient, uint128 liq) external {
-        // mint the island position if it exists
+        uint256 i = 0; 
+
+        // mint the island
         if (island != address(0)) {
-            uint128 amount = uint128(shift96(liq * distX96[i], true));
-            _mintIsland(recipient, amount);
+            uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
+            uint256 shares = islandLiqToShares(liqAmount);
+            island.mint(shares, recipient);
+
+            ++i;
         }
 
         // mint the V3 ranges
-        for (uint256 i = 0; i < distX96.length; ++i) {
+        while (i < distX96.length) {
             TickRange memory range = ranges[i];
-            uint128 amount = uint128(shift96(liq * distX96[i], true));
+            uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
 
             innerPool.mint(
                 address(this),
                 range.lower,
                 range.upper,
-                amount,
+                liqAmount,
                 abi.encode(msg.sender)
             );
+
+            ++i;
         }
 
         _mint(recipient, liq);
     }
 
-    function _mintIsland(address recipient, uint128 liq) private {
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        (
-            uint256 islandAmount0,
-            uint256 islandAmount1
-        ) = getAmountsFromLiquidity(
-                sqrtRatioX96,
-                island.lowerTick(),
-                island.upperTick(),
-                islandLiq,
-                false
-            );
-
-        (, , uint256 mintAmount) = island.getMintAmounts(
-            islandAmount0,
-            islandAmount1
-        );
-        island.mint(mintAmount, recipient);
-    }
-
     function burn(uint128 liq) external {
         _burn(msg.sender, liq);
 
-        for (uint256 i = 0; i < distX96.length; ++i) {
+        uint256 i = 0;
+
+        // burn the island
+        if (island != address(0x0)) {
+            uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
+            uint256 shares = islandLiqToShares(liqAmount);
+            island.burnAmount(shares, msg.sender);
+
+            ++i;
+        }
+
+        // burn the V3 ranges
+        while (i < distX96.length) {
             TickRange memory range = ranges[i];
             uint128 amount = uint128(shift96(liq * distX96[i], false));
 
@@ -157,6 +154,8 @@ contract Burve is ERC20 {
                 uint128(x),
                 uint128(y)
             );
+
+            ++i;
         }
     }
 
@@ -183,6 +182,52 @@ contract Burve is ERC20 {
     }
 
     /* internal helpers */
+
+    function islandLiqToShares(uint128 liq) internal returns (uint256 shares) {
+        if (address(island) == address(0x0)) {
+            revert NoIsland();
+        }
+
+        (uint160 sqrtRatioX96,,,,,,) = pool.slot0();
+
+        (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
+            sqrtRatioX96,
+            island.lowerTick(),
+            island.upperTick(),
+            islandLiq,
+            false
+        );
+
+        (,, shares) = island.getMintAmounts(amount0, amount1);
+    }
+
+    /**
+     * @notice helper function to convert the amount of liquidity to
+     * amount0 and amount1
+     * @param sqrtRatioX96 price from slot0
+     * @param tickLower bound
+     * @param tickUpper bound
+     * @param liquidity to find amounts for
+     * @param roundUp round amounts up
+     */
+    function getAmountsFromLiquidity(
+        uint160 sqrtRatioX96,
+        int24 tickLower,
+        int24 tickUpper,
+        uint128 liquidity,
+        bool roundUp
+    ) internal pure returns (uint256 amount0, uint256 amount1) {
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+        (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtRatioX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            liquidity,
+            roundUp
+        );
+    }
+
 
     function shift96(
         uint256 a,
