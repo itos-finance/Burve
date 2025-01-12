@@ -14,6 +14,11 @@ struct TickRange {
 }
 
 contract Burve is ERC20 {
+    IKodiakIsland public island;
+    IUniswapV3Pool public pool;
+
+    ////////////////////////////////////////////////
+
     /// The wrapped pool
     IUniswapV3Pool public innerPool;
     address public token0;
@@ -22,6 +27,8 @@ contract Burve is ERC20 {
     /// The n ranges.
     TickRange[] public ranges;
 
+    /// The relative liquidity for the island.
+    uint256 public islandDistX96;
     /// The relative liquidity for our n ranges.
     uint256[] public distX96;
 
@@ -37,26 +44,15 @@ contract Burve is ERC20 {
     /// Please split up into multiple calls.
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
 
-    function get_name(address pool) private view returns (string memory name) {
-        address t0 = IUniswapV3Pool(pool).token0();
-        address t1 = IUniswapV3Pool(pool).token1();
-        name = string.concat(
-            ERC20(t0).name(),
-            "-",
-            ERC20(t1).name(),
-            "-Stable-KodiakLP"
-        );
-    }
-
-    function get_symbol(address pool) private view returns (string memory sym) {
-        address t0 = IUniswapV3Pool(pool).token0();
-        address t1 = IUniswapV3Pool(pool).token1();
-        sym = string.concat(
-            ERC20(t0).symbol(),
-            "-",
-            ERC20(t1).symbol(),
-            "-SLP-KDK"
-        );
+    /// @param _island The island we are wrapping
+    constructor(
+        address _island,
+        uint128 _islandWeight,
+        TickRange[] memory _ranges,
+        uint128[] memory _weights
+    ) ERC20(nameFromIsland(_island), symbolFromIsland(_island)) {
+        island = IKodiakIsland(_island);
+        pool = island.pool();
     }
 
     /// @param _pool The pool we are wrapping
@@ -66,7 +62,7 @@ contract Burve is ERC20 {
         address _pool,
         TickRange[] memory _ranges,
         uint128[] memory _weights
-    ) ERC20(get_name(_pool), get_symbol(_pool)) {
+    ) ERC20(nameFromPool(_pool), symbolFromPool(_pool)) {
         innerPool = IUniswapV3Pool(_pool);
         token0 = innerPool.token0();
         token1 = innerPool.token1();
@@ -91,7 +87,16 @@ contract Burve is ERC20 {
         }
     }
 
+    function _init() public {}
+
     function mint(address recipient, uint128 liq) external {
+        // mint the island position if it exists
+        if (island != address(0)) {
+            uint128 amount = uint128(shift96(liq * distX96[i], true));
+            _mintIsland(recipient, amount);
+        }
+
+        // mint the V3 ranges
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
             uint128 amount = uint128(shift96(liq * distX96[i], true));
@@ -106,6 +111,26 @@ contract Burve is ERC20 {
         }
 
         _mint(recipient, liq);
+    }
+
+    function _mintIsland(address recipient, uint128 liq) private {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        (
+            uint256 islandAmount0,
+            uint256 islandAmount1
+        ) = getAmountsFromLiquidity(
+                sqrtRatioX96,
+                island.lowerTick(),
+                island.upperTick(),
+                islandLiq,
+                false
+            );
+
+        (, , uint256 mintAmount) = island.getMintAmounts(
+            islandAmount0,
+            islandAmount1
+        );
+        island.mint(mintAmount, recipient);
     }
 
     function burn(uint128 liq) external {
@@ -165,5 +190,43 @@ contract Burve is ERC20 {
     ) internal pure returns (uint256 b) {
         b = a >> 96;
         if (roundUp && (a & X96MASK) > 0) b += 1;
+    }
+
+    function nameFromPool(
+        address pool
+    ) private view returns (string memory name) {
+        address t0 = IUniswapV3Pool(pool).token0();
+        address t1 = IUniswapV3Pool(pool).token1();
+        name = string.concat(
+            ERC20(t0).name(),
+            "-",
+            ERC20(t1).name(),
+            "-Stable-KodiakLP"
+        );
+    }
+
+    function symbolFromPool(
+        address pool
+    ) private view returns (string memory sym) {
+        address t0 = IUniswapV3Pool(pool).token0();
+        address t1 = IUniswapV3Pool(pool).token1();
+        sym = string.concat(
+            ERC20(t0).symbol(),
+            "-",
+            ERC20(t1).symbol(),
+            "-SLP-KDK"
+        );
+    }
+
+    function nameFromIsland(
+        address island
+    ) private view returns (string memory name) {
+        return nameFromPool(IKodiakIsland(island).pool());
+    }
+
+    function symbolFromIsland(
+        address island
+    ) private view returns (string memory sym) {
+        symbolFromPool(IKodiakIsland(island).pool());
     }
 }
