@@ -6,6 +6,8 @@ pragma solidity >=0.4.0;
 /// @notice Facilitates multiplication and division that can have overflow of an intermediate value without any loss of precision
 /// @dev Handles "phantom overflow" i.e., allows multiplication and division where an intermediate value overflows 256 bits
 library FullMath {
+    uint256 constant X128 = 1 << 128;
+
     /// @notice Calculates floor(a×b÷denominator) with full precision. Throws if result overflows a uint256 or denominator == 0
     /// @param a The multiplicand
     /// @param b The multiplier
@@ -126,6 +128,64 @@ library FullMath {
         }
     }
 
+    /// A slightly optimized version of mulDiv for when we want to divide a by b (where b > a) and get an X256 result.
+    /// @custom:gas 518
+    function mulDivX256(
+        uint256 num,
+        uint256 denominator
+    ) internal pure returns (uint256 result) {
+        require(denominator > num, "0");
+
+        ///////////////////////////////////////////////
+        // 512 by 256 division.
+        ///////////////////////////////////////////////
+
+        // Make division exact by subtracting out the remainder.
+        uint256 remainder;
+        assembly {
+            remainder := mulmod(num, X128, denominator)
+            remainder := mulmod(remainder, X128, denominator)
+        }
+        // Subtract out the remainder. Now remainder holds the fractional portion.
+        assembly {
+            num := sub(num, 1)
+            remainder := sub(0, remainder)
+        }
+
+        // Factor powers of two out of denominator
+        // Compute largest power of two divisor of denominator.
+        // Always >= 1.
+        uint256 twos = uint256(-int256(denominator)) & denominator;
+        assembly {
+            remainder := div(remainder, twos)
+        }
+        assembly {
+            denominator := div(denominator, twos)
+        }
+
+        // Shift in bits from the whole into the fraction. For this we need
+        // to flip `twos` such that it is 2**256 / twos.
+        // If twos is zero, then it becomes one
+        assembly {
+            twos := add(div(sub(0, twos), twos), 1)
+        }
+        unchecked {
+            remainder |= num * twos;
+
+            // Follow Remco Bloeman's inversion process.
+            uint256 inv = (3 * denominator) ^ 2;
+            inv *= 2 - denominator * inv; // inverse mod 2**8
+            inv *= 2 - denominator * inv; // inverse mod 2**16
+            inv *= 2 - denominator * inv; // inverse mod 2**32
+            inv *= 2 - denominator * inv; // inverse mod 2**64
+            inv *= 2 - denominator * inv; // inverse mod 2**128
+            inv *= 2 - denominator * inv; // inverse mod 2**256
+            // We know the result is entirely fractional.
+            result = remainder * inv;
+        }
+        return result;
+    }
+
     /// Calculates a 512 bit product of two 256 bit numbers.
     /// @return r0 The lower 256 bits of the result.
     /// @return r1 The higher 256 bits of the result.
@@ -165,7 +225,7 @@ library FullMath {
 
     /// Multiply two numbers and divide out by 128 bits to get a 256 bit number.
     /// @dev Be careful when using this. If there is overflow you won't be warned.
-    function mul128(
+    function mulX128(
         uint256 a,
         uint256 b,
         bool roundUp
@@ -181,7 +241,7 @@ library FullMath {
     }
 
     /// Multiply two 256 bit number and shift the result by 256
-    function mul256(
+    function mulX256(
         uint256 a,
         uint256 b,
         bool roundUp

@@ -5,10 +5,10 @@ import {TickMath} from "v3-core/contracts/libraries/TickMath.sol";
 import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 /**
-    One HomSet contains all the information needed to handle a swap.
+    Contains all information relation to the pool used to swap between two vertices.
  */
 
-struct HomSet {
+struct Edge {
     IUniswapV3Pool uniPool;
     // Ticks
     int24 narrowLow;
@@ -18,9 +18,9 @@ struct HomSet {
     uint256 amplitude; // The scaling factor between narrow and wide liquidity. Narrow liq = A * wide liq.
 }
 
-using HomSetImpl for HomSet global;
+using EdgeImpl for Edge global;
 
-library HomSetImpl {
+library EdgeImpl {
     function getImplied(
         HomSet storage self,
         uint128 balance0,
@@ -32,7 +32,7 @@ library HomSetImpl {
     {
         // We're actually somewhat restrictive on these token amounts.
         // It's mostly okay because we focus on handling stables and blue chips derivatives.
-        // If someone had 2^128 of a stable even with 1e18 decimals, money would be meaningless.
+        // If someone actually had 2^128 of a stable, even with 1e18 decimals, all money would be worthless.
         uint160 sqrtPa = getSqrtRatioAtTick(self.narrowLow);
         uint160 invSqrtPb = getSqrtRatioAtTick(-self.narrowHigh);
         // These balances will only take up 128 bits.

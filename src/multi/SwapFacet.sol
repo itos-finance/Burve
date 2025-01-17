@@ -44,9 +44,12 @@ library SwapFacet {
 
         uint128 balance0 = Store.vertex(token0).balance(VertexId.wrap(token1));
         uint128 balance1 = Store.vertex(token1).balance(VertexId.wrap(token0));
-        HomSet storage hom = Store.homSet(token0, token1);
-        (narrowLowTick, narrowHighTick) = (hom.narrowLow, hom.narrowHigh);
-        (sqrtPriceX96, narrowLiq, wideLiq) = hom.getImplied(balance0, balance1);
+        Edge storage edge = Store.edges(token0, token1);
+        (narrowLowTick, narrowHighTick) = (edge.narrowLow, edge.narrowHigh);
+        (sqrtPriceX96, narrowLiq, wideLiq) = edge.getImplied(
+            balance0,
+            balance1
+        );
     }
 
     // Called by the unipool when it exchanges one token balance for another.
@@ -56,8 +59,8 @@ library SwapFacet {
         address outToken,
         uint256 outAmount
     ) internal {
-        HomSet storage hom = Store.homSet(inToken, outToken);
-        require(address(hom.uniPool) == msg.sender);
+        Edge storage edge = Store.edges(inToken, outToken);
+        require(address(edge.uniPool) == msg.sender);
 
         // We send out the outtoken, and give the intoken to the appropriate closures.
         ClosureDist memory dist = Store.vertex(outToken).homSubtract(

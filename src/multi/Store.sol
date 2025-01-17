@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {VaultE4626} from "./vertex/E4626.sol";
-import {Vertex, VertexId, SubVertexId, SubVertex} from "./Vertex.sol";
+import {VaultStorage} from "./VaultProxy.sol";
+import {Vertex, VertexId} from "./Vertex.sol";
 import {TokenRegistry} from "./Token.sol";
-import {HomSet} from "./HomSet.sol";
+import {Edge} from "./Edge.sol";
 
 struct Storage {
     TokenRegistry tokenReg;
+    VaultStorage _vaults;
     // Graph elements
     mapping(VertexId => Vertex) vertices;
-    mapping(address => mapping(address => HomSet)) homSets; // Mapping from token,token to uniswap pool.
-    // Vaults
-    mapping(address => VaultE4626) e4626s;
+    mapping(address => mapping(address => Edge)) edges; // Mapping from token,token to uniswap pool.
 }
 
 library Store {
@@ -30,18 +29,6 @@ library Store {
         return load().vertices[vid];
     }
 
-    function subVertex(
-        SubVertexId svid
-    ) internal view returns (SubVertex storage sv) {
-        return load().subVertices[svid];
-    }
-
-    function E4626s(
-        address vault
-    ) internal view returns (VaultE4626 storage vaultProxy) {
-        return load().e4626s[vault];
-    }
-
     function tokenRegistry()
         internal
         view
@@ -50,13 +37,17 @@ library Store {
         return load().tokenReg;
     }
 
-    function homSet(
+    function edge(
         address token0,
         address token1
-    ) internal view returns (HomSet storage _homSet) {
+    ) internal view returns (Edge storage _edge) {
         if (token0 > token1) {
             (token0, token1) = (token1, token0);
         }
-        return load().homSets[token0][token1];
+        return load().edges[token0][token1];
+    }
+
+    function vaults() internal view returns (VaultStorage storage v) {
+        return load()._vaults;
     }
 }

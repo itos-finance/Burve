@@ -1,53 +1,69 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-uint256 constant MAX_SUBS = 16;
+import {TokenRegLib, MAX_TOKENS} from "./Token.sol";
+import {VaultProxyLib, VaultType} from "./VaultProxy.sol";
 
-type VertexId is address;
-
-import {SubVertex, VaultType} from "./SubVertex.sol";
+type VertexId is uint16;
+function newVertexId(uint8 idx) returns (VertexId) {
+    // We sanitize the idx beforehand for efficiency reasons.
+    return VertexId.wrap(1 << idx);
+}
+function newVertexId(address token) returns (VertexId) {
+    return newVertexId(TokenRegLib.getIdx(token));
+}
 
 /**
  * Vertices supply tokens to the trading pools. These track how the tokens they hold are split across subvertices.
  * The subvertices track how their tokens are split across closures.
  */
 struct Vertex {
-    VertexId token;
-    // The tokens available at this vertex are the sum of all the tokens in these subvertices
-    SubVertex[] subs;
+    VertexId vid;
+    mapping(VertexId => ClosureId[]) homs;
+    mapping(VertexId => mapping(ClosureId => bool)) homSet;
 }
 
-using VertexIdImpl for VertexId global;
 using VertexImpl for Vertex global;
-
-library VertexIdImpl {
-    function join(
-        VertexId self,
-        uint8 idx
-    ) internal returns (SubVertexId subId) {
-        uint8 base = Store.tokenRegistry().tokenIdx[VertexId.unwrap(self)];
-        subId = SubVertexId.unwrap((idx << 4) + base);
-    }
-}
 
 /* A vertex encapsulates the information of a single token */
 library VertexImpl {
+    /// Thrown when we try to subtract an amount too large for the edge in question.
+    error InsufficientWithdraw(
+        VertexId source,
+        VertexId other,
+        uint256 total, // The total balance stored.
+        uint256 available, // How much we can withdraw now.
+        uint256 requested // The amount we want to withdraw now.
+    );
+
     /* Admin */
 
-    function init(Vertex storage self, address token) internal {
-        self.token = VertexId.wrap(token);
-    }
-
-    function addSubVertex(
+    function init(
         Vertex storage self,
+        address token,
         address vault,
         VaultType vType
     ) internal {
-        uint256 idx = self.subs.length;
-        if (idx + 1 >= MAX_SUBS)
-            revert AtSubVertexCapacity(VertexId.unwrap(self.token));
-        self.subs.push();
-        self.subs[idx].init(subId, vault, vType);
+        self.vid = newVertexId(token);
+        VaultProxyLib.init(self.vid, token, vault, vType);
+    }
+
+    // Add this closure to the appropriate homsets for this vertex
+    function ensureClosure(Vertex storage self, ClosureId closure) internal {
+        if (!closure.contains(self.vid)) return;
+        uint256 n = TokenRegLib.numVertices();
+        for (uint8 i = 0; i < n; ++i) {
+            VertexId neighbor = newVertexId(i);
+            if (neighbor == self.vid) continue;
+            if (closure.contains(neighbor)) {
+                if (self.homSet[neighbor][closure]) {
+                    // We've already added this closure
+                    return;
+                }
+                self.homSet[neighbor][closure] = true;
+                self.homs[neighbor].push(closure);
+            }
+        }
     }
 
     /* Graph Operations */
@@ -58,27 +74,32 @@ library VertexImpl {
         VertexId other,
         uint256 amount
     ) internal returns (ClosureDist memory dist) {
-        uint256 totalBalance = 0;
-        uint256[] balances = new uint256[](self.subs.length);
-        for (uint256 i = 0; i < self.subs.length; ++i) {
-            balances[i] = self.subs[i].balance(other);
-            totalBalance += balances[i];
+        ClosureId[] storage homs = self.homs[other];
+        // Once we have a vault pointer, no reentrancy is allowed.
+        VaultPointer memory vProxy = VaultLib.get(self.vid);
+        dist = newClosureDist(homs);
+
+        for (uint256 i = 0; i < homs.length; ++i) {
+            uint256 bal = vProxy.balance(homs[i]);
+            dist.add(i, bal);
         }
-        uint256 cumAllocation;
-        for (uint256 i = 0; i < balances.length; ++i) {
-            uint256 allocation;
-            totalBalance -= balances[i];
-            if (totalBalance == 0) {
-                // This could happen before the last subvertex
-                allocation = amount - cumAllocation;
-                self.vaults.homSubtract(other, allocation, dist);
-                break;
-            } else {
-                allocation = FullMath.mulDiv(amount, balances[i], totalBalance);
-                cumAllocation += allocation;
-                self.vaults.homSubtract(other, allocation, dist);
-            }
+
+        uint256 withdrawable = vProxy.withdrawable();
+        if (withdrawable < amount || dist.total < amount) {
+            revert InsufficientWithdraw(
+                self.vid,
+                other,
+                dist.total,
+                withdrawable,
+                amount
+            );
         }
+        dist.normalize();
+
+        for (uint256 i = 0; i < homs.length; ++i) {
+            vProxy.withdraw(homs[i], dist.scale(i, amount));
+        }
+        vProxy.commit(); // Commit our changes.
     }
 
     /// Adds a token balance to this node, splitting the tokens across the subvertices.
@@ -87,14 +108,13 @@ library VertexImpl {
         ClosureDist memory dist,
         uint128 amount
     ) internal {
-        (ClosureDist[] memory subDists, uint256[] splitX256) = dist.groupBy(
-            self.token
-        );
-        for (uint256 i = 0; i < self.subDists.length; ++i) {
-            uint256 subAmount = FullMath.mulX256(splitX256, amount);
-            SubVertexId subId = subDists[i].getSubVertexId();
-            self.subs[subId.idx()].homAdd(subDists[i], subAmount);
+        // Once we have a vault pointer, no reentrancy is allowed.
+        VaultPointer memory vProxy = VaultLib.get(self.vid);
+        ClosureId[] storage closures = dist.getClosures();
+        for (uint256 i = 0; i < dist.closures.length; ++i) {
+            vProxy.deposit(closures[i], dist.scale(i, amount));
         }
+        vProxy.commit();
     }
 
     /// Returns the total balance of all closures linking these two vertices.
@@ -102,8 +122,12 @@ library VertexImpl {
         Vertex storage self,
         VertexId other
     ) internal view returns (uint256 amount) {
-        for (uint256 i = 0; i < self.subs.length; ++i) {
-            amount += self.subs[i].balance(other);
+        VaultPointer memory vProxy = VaultLib.get(self.vid);
+        Closure[] storage homs = self.homs[other];
+
+        for (uint256 i = 0; i < homs.length; ++i) {
+            amount += vProxy.balance(homs[i]);
         }
+        // Nothing to commit.
     }
 }

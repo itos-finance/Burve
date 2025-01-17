@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Store} from "./Storage.sol";
 
-uint256 constant MAX_TOKENS = 32;
+uint256 constant MAX_TOKENS = 16;
 
 struct TokenRegistry {
     address[] tokens;
@@ -35,4 +35,14 @@ library TokenRegistryImpl {
     }
 
     /// We don't deregister tokens, but we can halt tokens through the vertex.
+}
+
+library TokenRegLib {
+    function numVertices() internal view returns (uint8 n) {
+        return uint8(Store().tokenReg().tokens.length);
+    }
+
+    function getIdx(address token) internal view returns (uint8 idx) {
+        return Store().tokenReg().tokenIdx[token];
+    }
 }
