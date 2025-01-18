@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import "./interfaces/IUniswapV3Factory.sol";
+import "@v3-core/interfaces/IUniswapV3Factory.sol";
 
-import "./UniswapV3PoolDeployer.sol";
-import "./NoDelegateCall.sol";
+import "@v3-core/UniswapV3PoolDeployer.sol";
+import "@v3-core/NoDelegateCall.sol";
 
 import "./BurveV3Pool.sol";
 
@@ -29,12 +29,9 @@ contract UniswapV3Factory is
         owner = msg.sender;
         emit OwnerChanged(address(0), msg.sender);
 
-        feeAmountTickSpacing[500] = 10;
-        emit FeeAmountEnabled(500, 10);
-        feeAmountTickSpacing[3000] = 60;
-        emit FeeAmountEnabled(3000, 60);
-        feeAmountTickSpacing[10000] = 200;
-        emit FeeAmountEnabled(10000, 200);
+        /// note we removed all of the default UniswapV3 fee tiers, rather we are simply hardcode
+        /// a (1,1) fee, tickSpacing pair
+        feeAmountTickSpacing[1] = 1;
     }
 
     /// @inheritdoc IUniswapV3Factory
