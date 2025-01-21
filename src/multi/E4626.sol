@@ -132,12 +132,14 @@ library VaultE4626Impl {
         return self.vault.maxWithdraw(address(this));
     }
 
-    /// Return the amount of tokens owned by
+    /// Return the amount of tokens owned by a closure
     function balance(
         VaultPointer memory self,
+        VaultTemp memory temp,
         ClosureId cid
     ) internal view returns (uint256 amount) {
-        return
-            FullMath.mulDiv(self.shares[cid], temp.vars[0], self.totalShares);
+        uint256 newlyAdding = FullMath.mulX128(temp.vars[1], temp.vars[3]);
+        uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
+        return FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
     }
 }

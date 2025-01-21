@@ -42,8 +42,10 @@ library SwapFacet {
         address token0 = IUniswapV3Pool(msg.sender).token0();
         address token1 = IUniswapV3Pool(msg.sender).token1();
 
-        uint128 balance0 = Store.vertex(token0).balance(VertexId.wrap(token1));
-        uint128 balance1 = Store.vertex(token1).balance(VertexId.wrap(token0));
+        VertexId vid0 = newVertexId(token0);
+        VertexId vid1 = newVertexId(token1);
+        uint128 balance0 = Store.vertex(vid0).balance(vid1);
+        uint128 balance1 = Store.vertex(vid1).balance(vid0);
         Edge storage edge = Store.edges(token0, token1);
         (narrowLowTick, narrowHighTick) = (edge.narrowLow, edge.narrowHigh);
         (sqrtPriceX96, narrowLiq, wideLiq) = edge.getImplied(
@@ -68,5 +70,14 @@ library SwapFacet {
             outAmount
         );
         Store.vertex(inToken).homAdd(dist, amount);
+    }
+
+    function balance(
+        address token,
+        address otherToken
+    ) internal returns (uint256 amount) {
+        VertexId vid = newVertexId(token);
+        VertexId otherVid = newVertexId(otherToken);
+        return Store.vertex(vid).balance(otherVid);
     }
 }

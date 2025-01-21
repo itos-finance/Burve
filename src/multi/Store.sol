@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {AssetStorage} from "./Asset.sol";
 import {VaultStorage} from "./VaultProxy.sol";
 import {Vertex, VertexId} from "./Vertex.sol";
 import {TokenRegistry} from "./Token.sol";
 import {Edge} from "./Edge.sol";
 
 struct Storage {
+    AssetStorage assets;
     TokenRegistry tokenReg;
     VaultStorage _vaults;
     // Graph elements
@@ -49,5 +51,9 @@ library Store {
 
     function vaults() internal view returns (VaultStorage storage v) {
         return load()._vaults;
+    }
+
+    function assets() internal view returns (AssetStorage storage a) {
+        return load().assets;
     }
 }

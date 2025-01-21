@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import { FullMath } from "./FullMath.sol";
 
-type ClosureId is bytes32;
+type ClosureId is uint16;
 
 struct Closure {
     address[] tokens;

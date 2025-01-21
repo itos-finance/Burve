@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import {TickMath} from "v3-core/contracts/libraries/TickMath.sol";
 import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {FullMath} from "./FullMath.sol";
 
 /**
     Contains all information relation to the pool used to swap between two vertices.
@@ -22,7 +23,7 @@ using EdgeImpl for Edge global;
 
 library EdgeImpl {
     function getImplied(
-        HomSet storage self,
+        Edge storage self,
         uint128 balance0,
         uint128 balance1
     )
@@ -48,6 +49,48 @@ library EdgeImpl {
         narrowLiq = wideLiq * amplitude;
     }
 
+    /// Fetch the price implied by these balances on this edge denoted in terms of token1.
+    /// @dev This ALWAYS rounds up due to its usage in Add.
+    /// @param balance0 This is the balance of token0
+    /// @param balance1 This is the balance of token1
+    /// @return priceX128 This is the price denoted with token1 as the numeraire.
+    function getPriceX128(
+        Edge storage self,
+        uint128 balance0,
+        uint128 balance1
+    ) internal view returns (uint256 priceX128) {
+        return
+            getPriceHelper(
+                balance0,
+                balance1,
+                self.narrowLow,
+                self.narrowHigh,
+                self.amplitude,
+                true
+            );
+    }
+
+    /// Fetch the price implied by these balances on this edge denoted in terms of token0.
+    /// @dev This ALWAYS rounds up due to its usage in Add.
+    /// @param balance0 This is the balance of token0
+    /// @param balance1 This is the balance of token1
+    /// @return invPriceX128 This is the price denoted with token0 as the numeraire.
+    function getInvPriceX128(
+        Edge storage self,
+        uint128 balance0,
+        uint128 balance1
+    ) internal view returns (uint256 invPriceX128) {
+        return
+            getPriceHelper(
+                balance1,
+                balance0,
+                -self.narrowHigh,
+                -self.narrowLow,
+                self.amplitude,
+                true
+            );
+    }
+
     /* Helpers */
 
     function sqrt(uint x) returns (uint y) {
@@ -59,5 +102,27 @@ library EdgeImpl {
             y = z;
             z = (x / z + z) / 2;
         }
+    }
+
+    /// Helper for computing the price implied by balance1/balance0
+    function getPriceHelper(
+        uint128 balance0,
+        uint128 balance1,
+        int24 low,
+        int24 high,
+        uint256 amp,
+        bool roundUp
+    ) private pure returns (uint256 priceX128) {
+        uint160 sqrtPa = getSqrtRatioAtTick(low);
+        uint160 invSqrtPb = getSqrtRatioAtTick(high);
+        // See get implied for why this is okay.
+        uint256 yWideX128 = (((uint256(balance1) << 96) + sqrtPa) << 32) /
+            (self.amplitude + 1);
+        uint256 xWideX128 = (((uint256(balance0) << 96) + invSqrtPb) << 32) /
+            (self.amplitude + 1);
+        return
+            roundUp
+                ? FullMath.mulDivRoundingUp(yWideX128, 1 << 128, xWideX128)
+                : FullMath.mulDiv(yWideX128, 1 << 128, xWideX128);
     }
 }
