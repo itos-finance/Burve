@@ -433,6 +433,7 @@ contract UniV3Edge is NoDelegateCall {
             // get the price for the next tick
             step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
 
+            uint24 fee = FeeFacet(address(this)).getDynamicFee(token0, token1);
             // compute values to swap to the target tick, price limit, or point where input/output amount is exhausted
             (
                 state.sqrtPriceX96,

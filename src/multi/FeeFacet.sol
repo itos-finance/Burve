@@ -4,7 +4,8 @@ pragma solidity ^0.8.27;
 import {Store} from "./Store.sol";
 
 /*
- * @notice
+ * A simple facet for managing the fee rate for each edge (pool) in the Burve setup. Fees in burve are
+ * dynamic unlike UniswapV3 where the fees are set at the time of pool deployment.
  */
 library FeeFacet {
     /// @notice emitted when an Admin updates the edge's fee rate for swaps
@@ -14,7 +15,7 @@ library FeeFacet {
      * @notice Admin level function to set the dynmaic fee in bps for a
      * @param token0 related to the pool being set
      * @param token1 related to the pool being set
-     * @param fee to set on an edge
+     * @param fee to set on an edge in bps
      */
     function setDynamicFee(
         address token0,
