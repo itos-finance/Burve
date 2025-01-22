@@ -27,6 +27,8 @@ import "v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import "v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import "v3-core/contracts/interfaces/callback/IUniswapV3FlashCallback.sol";
 
+import {FeeFacet} from "./FeeFacet.sol";
+
 contract UniV3Edge is NoDelegateCall {
     using LowGasSafeMath for uint256;
     using LowGasSafeMath for int256;
@@ -45,7 +47,7 @@ contract UniV3Edge is NoDelegateCall {
     /// @inheritdoc IUniswapV3PoolImmutables
     address public immutable override token1;
     /// @inheritdoc IUniswapV3PoolImmutables
-    uint24 public immutable override fee;
+    // uint24 public immutable override fee; // TODO: remove & replace with fee data from the edge
 
     SwapFacet public immutable simplex;
 

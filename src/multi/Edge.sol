@@ -10,7 +10,10 @@ import {FullMath} from "./FullMath.sol";
  */
 
 struct Edge {
+    // TODO: remove?
     IUniswapV3Pool uniPool;
+    // Dynamically set with the FeeFacet by an admin, used to collect fees on swaps
+    uint24 fee;
     // Ticks
     int24 narrowLow;
     int24 narrowHigh;
