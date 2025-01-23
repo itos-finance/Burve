@@ -2,9 +2,12 @@
 pragma solidity ^0.8.27;
 
 import {VertexId} from "./Vertex.sol";
+<<<<<<< HEAD
 import {VaultE4626, VaultE4626Impl} from "./E4626.sol";
 import {Store} from "./Store.sol";
 import {ClosureId} from "./Closure.sol";
+=======
+>>>>>>> c6e3073 (Adding in Diamond and stripped down UniV3Edge)
 
 // The number of temporary variables used by vaults. See VaultTemp.
 uint256 constant NUM_VAULT_VARS = 4;
@@ -32,7 +35,11 @@ library VaultLib {
         VertexId vid,
         address token,
         address vault,
+<<<<<<< HEAD
         VaultType vType
+=======
+        VaultType vtype
+>>>>>>> c6e3073 (Adding in Diamond and stripped down UniV3Edge)
     ) internal {
         VaultStorage storage vaults = Store.vaults();
         if (vaults.vTypes[vid] != VaultType.UnImplemented)
