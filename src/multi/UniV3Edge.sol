@@ -142,7 +142,7 @@ library UniV3Edge {
                     : step.sqrtPriceNextX96,
                 state.liquidity,
                 state.amountSpecifiedRemaining,
-                edge.fee // ??
+                slot0Start.fee
             );
 
             if (exactInput) {

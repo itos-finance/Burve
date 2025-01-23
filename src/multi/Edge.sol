@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {TickMath} from "v3-core/contracts/libraries/TickMath.sol";
-import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {UniV3Edge} from "./UniV3Edge.sol";
 import {FullMath} from "./FullMath.sol";
 
 /**
@@ -57,6 +57,17 @@ library EdgeImpl {
         uint160 sqrtPriceLimitX96,
         bytes calldata data
     ) internal returns (uint256 amount0, uint256 amount1) {
+        // Prep the swap.
+        UniV3Edge.Slot0 memory slot0 = getSlot0();
+
+        // Calculate the swap amounts and protocolFee
+        (int256 amount0, int256 amount1, uint128 protocolFee) = UniV3Edge.swap(
+            slot0,
+            zeroForOne,
+            amountSpecified,
+            sqrtPriceLimitX96
+        );
+
         // do the transfers and collect payment
         if (zeroForOne) {
             if (amount1 < 0)
@@ -160,6 +171,10 @@ library EdgeImpl {
             balance0,
             balance1
         );
+    }
+
+    function nextTick(int24 currentTick, bool isSell /* same as zeroForOne */) internal returns (int24) {
+        if (currentTick)
     }
 
     // Called by the uniEdge when it exchanges one token balance for another.
