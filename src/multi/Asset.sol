@@ -6,7 +6,9 @@ struct AssetStorage {
     mapping(address => mapping(cid => uint256)) shares;
 }
 
+/// Bookkeeping for Closure ownership.
 library AssetLib {
+    /// Add more shares to a user's closure allocation.
     function add(
         address owner,
         ClosureId cid,
@@ -20,6 +22,7 @@ library AssetLib {
         assets.totalShares[cid] += shares;
     }
 
+    /// Remove shares frmo a user's closure allocation.
     function remove(
         address owner,
         ClosureId cid,

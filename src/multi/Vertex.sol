@@ -19,7 +19,9 @@ function newVertexId(address token) returns (VertexId) {
  */
 struct Vertex {
     VertexId vid;
+    // Stores which closures contain the edge between this vertex and another vertex.
     mapping(VertexId => ClosureId[]) homs;
+    // A quick lookup to know if a closure between this vertex and another is in use.
     mapping(VertexId => mapping(ClosureId => bool)) homSet;
 }
 

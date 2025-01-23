@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 /// The number of temporary variables used by vaults. See VaultTemp.
-uint256 constant NUM_VAULT_VARS = 3;
+uint256 constant NUM_VAULT_VARS = 4;
 
 enum VaultType {
     UnImplemented,

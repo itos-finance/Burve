@@ -10,10 +10,10 @@ import {FullMath} from "./FullMath.sol";
  */
 
 struct Edge {
-    IUniswapV3Pool uniPool;
-    // Ticks
-    int24 narrowLow;
-    int24 narrowHigh;
+    // TODO in the future we may make this a list of amplitudes and ticks.
+    // For now we just use one range.
+    int24 lowTick;
+    int24 highTick;
     // To satisfy price transitivity these ticks must also be transitive.
     // e.g. if narrow low of y/x is -10 then z/y must be 10 in order for z/x to commute.
     uint256 amplitude; // The scaling factor between narrow and wide liquidity. Narrow liq = A * wide liq.
@@ -22,7 +22,22 @@ struct Edge {
 using EdgeImpl for Edge global;
 
 library EdgeImpl {
-    function getImplied(
+    /// Admin function to set edge parameters.
+    /// @dev This is simple because we recalculate the implied price every time.
+    /// Just be sure to set the ticks such that the price diagram commutes.
+    function setRange(
+        Edge storage self,
+        uint256 amplitude,
+        int24 lowTick,
+        int24 highTick
+    ) internal {
+        self.lowTick = lowTick;
+        self.highTick = highTick;
+        self.amplitude = amplitude;
+    }
+
+    /// Called by the UniV3Edge to fetch the information it needs to swap.
+    function getSlot0(
         Edge storage self,
         uint128 balance0,
         uint128 balance1
@@ -34,8 +49,8 @@ library EdgeImpl {
         // We're actually somewhat restrictive on these token amounts.
         // It's mostly okay because we focus on handling stables and blue chips derivatives.
         // If someone actually had 2^128 of a stable, even with 1e18 decimals, all money would be worthless.
-        uint160 sqrtPa = getSqrtRatioAtTick(self.narrowLow);
-        uint160 invSqrtPb = getSqrtRatioAtTick(-self.narrowHigh);
+        uint160 sqrtPa = getSqrtRatioAtTick(self.lowTick);
+        uint160 invSqrtPb = getSqrtRatioAtTick(-self.highTick);
         // These balances will only take up 128 bits.
         uint256 sqrtXWideX64 = sqrt(
             (((uint256(balance0) << 96) + invSqrtPb) << 32) /
@@ -63,8 +78,8 @@ library EdgeImpl {
             getPriceHelper(
                 balance0,
                 balance1,
-                self.narrowLow,
-                self.narrowHigh,
+                self.lowTick,
+                self.highTick,
                 self.amplitude,
                 true
             );
@@ -84,8 +99,8 @@ library EdgeImpl {
             getPriceHelper(
                 balance1,
                 balance0,
-                -self.narrowHigh,
-                -self.narrowLow,
+                -self.highTick,
+                -self.lowTick,
                 self.amplitude,
                 true
             );

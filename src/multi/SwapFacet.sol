@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {Store} from "./Storage.sol";
+import {Store} from "./Store.sol";
 import {VertexId} from "./Vertex.sol";
-import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {UniV3EdgeLib} from "./UniV3Edge.sol";
 
-library SwapFacet {
+contract SwapFacet is ReentrancyGuardTransient {
     function swap(
         address recipient,
         address inToken,
@@ -13,7 +14,7 @@ library SwapFacet {
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96,
         bytes calldata data
-    ) internal {
+    ) external nonReentrant {
         address uniPool = Store.pools(token0, token1);
         bool zeroForOne = inToken < outToken;
         IUniswapV3Pool(unipool).swap(
@@ -47,14 +48,14 @@ library SwapFacet {
         uint128 balance0 = Store.vertex(vid0).balance(vid1);
         uint128 balance1 = Store.vertex(vid1).balance(vid0);
         Edge storage edge = Store.edges(token0, token1);
-        (narrowLowTick, narrowHighTick) = (edge.narrowLow, edge.narrowHigh);
+        (narrowLowTick, narrowHighTick) = (edge.lowTick, edge.highTick);
         (sqrtPriceX96, narrowLiq, wideLiq) = edge.getImplied(
             balance0,
             balance1
         );
     }
 
-    // Called by the unipool when it exchanges one token balance for another.
+    // Called by the uniEdge when it exchanges one token balance for another.
     function exchange(
         address inToken,
         uint256 inAmount,
