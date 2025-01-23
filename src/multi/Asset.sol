@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {ClosureId} from "./Closure.sol";
+
 struct AssetStorage {
     mapping(ClosureId => uint256) totalShares;
     mapping(address => mapping(cid => uint256)) shares;

@@ -10,6 +10,7 @@ import {FullMath} from "./FullMath.sol";
  */
 
 struct Edge {
+    /* Slot 0 and Tick map info */
     // TODO in the future we may make this a list of amplitudes and ticks.
     // For now we just use one range.
     int24 lowTick;
@@ -17,6 +18,17 @@ struct Edge {
     // To satisfy price transitivity these ticks must also be transitive.
     // e.g. if narrow low of y/x is -10 then z/y must be 10 in order for z/x to commute.
     uint256 amplitude; // The scaling factor between narrow and wide liquidity. Narrow liq = A * wide liq.
+    /* non-slot0 info */
+    int24 tickSpacing;
+    uint24 fee; // Fee rate for swaps
+    uint8 feeProtocol; // Fee rate for the protocol
+    // accumulated protocol fees in token0/token1 units
+    ProtocolFees protocolFees;
+}
+
+struct ProtocolFees {
+    uint128 token0;
+    uint128 token1;
 }
 
 using EdgeImpl for Edge global;
@@ -36,11 +48,70 @@ library EdgeImpl {
         self.amplitude = amplitude;
     }
 
+    /// Highest level method used by SwapFacet
+    function swap(
+        Edge storage self,
+        address recipient,
+        bool zeroForOne,
+        uint256 amountSpecified,
+        uint160 sqrtPriceLimitX96,
+        bytes calldata data
+    ) internal returns (uint256 amount0, uint256 amount1) {
+        // do the transfers and collect payment
+        if (zeroForOne) {
+            if (amount1 < 0)
+                TransferHelper.safeTransfer(
+                    slot0Start.token1,
+                    recipient,
+                    uint256(-amount1)
+                );
+
+            uint256 balance0Before = edge.balance0();
+            IUniswapV3SwapCallback(msg.sender).uniswapV3SwapCallback(
+                amount0,
+                amount1,
+                data
+            );
+            require(
+                balance0Before.add(uint256(amount0)) <= edge.balance0(),
+                "IIA"
+            );
+        } else {
+            if (amount0 < 0)
+                TransferHelper.safeTransfer(
+                    token0,
+                    recipient,
+                    uint256(-amount0)
+                );
+
+            uint256 balance1Before = edge.balance1();
+            IUniswapV3SwapCallback(msg.sender).uniswapV3SwapCallback(
+                amount0,
+                amount1,
+                data
+            );
+            require(
+                balance1Before.add(uint256(amount1)) <= edge.balance1(),
+                "IIA"
+            );
+        }
+
+        emit Swap(
+            msg.sender,
+            recipient,
+            amount0,
+            amount1,
+            state.sqrtPriceX96,
+            state.liquidity,
+            state.tick
+        );
+    }
+
+    /* Methods used by the UniV3Edge */
+
     /// Called by the UniV3Edge to fetch the information it needs to swap.
     function getSlot0(
-        Edge storage self,
-        uint128 balance0,
-        uint128 balance1
+        Edge storage self
     )
         internal
         view
@@ -62,6 +133,60 @@ library EdgeImpl {
         sqrtPriceX96 = (sqrtYWideX64 << 96) / sqrtXWideX64;
         wideLiq = (sqrtYWideX64 * sqrtXWideX64) >> 128;
         narrowLiq = wideLiq * amplitude;
+    }
+
+    /// Called by a swap to determine price and liquidity.
+    function slot0()
+        internal
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            uint128 narrowLiq,
+            int24 narrowLowTick,
+            int24 narrowHighTick,
+            uint128 wideLiq
+        )
+    {
+        address token0 = IUniswapV3Pool(msg.sender).token0();
+        address token1 = IUniswapV3Pool(msg.sender).token1();
+
+        VertexId vid0 = newVertexId(token0);
+        VertexId vid1 = newVertexId(token1);
+        uint128 balance0 = Store.vertex(vid0).balance(vid1);
+        uint128 balance1 = Store.vertex(vid1).balance(vid0);
+        Edge storage edge = Store.edges(token0, token1);
+        (narrowLowTick, narrowHighTick) = (edge.lowTick, edge.highTick);
+        (sqrtPriceX96, narrowLiq, wideLiq) = edge.getImplied(
+            balance0,
+            balance1
+        );
+    }
+
+    // Called by the uniEdge when it exchanges one token balance for another.
+    function exchange(
+        address inToken,
+        uint256 inAmount,
+        address outToken,
+        uint256 outAmount
+    ) internal {
+        Edge storage edge = Store.edges(inToken, outToken);
+        require(address(edge.uniPool) == msg.sender);
+
+        // We send out the outtoken, and give the intoken to the appropriate closures.
+        ClosureDist memory dist = Store.vertex(outToken).homSubtract(
+            VertexId.wrap(inToken),
+            outAmount
+        );
+        Store.vertex(inToken).homAdd(dist, amount);
+    }
+
+    function balance(
+        address token,
+        address otherToken
+    ) internal returns (uint256 amount) {
+        VertexId vid = newVertexId(token);
+        VertexId otherVid = newVertexId(otherToken);
+        return Store.vertex(vid).balance(otherVid);
     }
 
     /// Fetch the price implied by these balances on this edge denoted in terms of token1.
