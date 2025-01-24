@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {ClosureId} from "../Closure.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+
 /*
- @notice How liquidity to the entire graph is added and removed. A user
- cannot add tokens or liq to each individual pool or vertex by themselves.
+ @notice The facet for minting and burning liquidity. We will have helper contracts
+ that actually issue the ERC20 through these shares.
 
  @dev To conform to the ERC20 interface, we wrap each subset of tokens
  in their own ERC20 contract with mint functions that call the addLiq and removeLiq
 functions here.
 */
-library LiqFacet {
+contract LiqFacet is ReentrancyGuardTransient {
     error TokenNotInClosure(ClosureId cid, address token);
 
     function addLiq(
@@ -17,7 +20,7 @@ library LiqFacet {
         uint16 _closureId,
         address token,
         uint128 amount
-    ) internal returns (uint256 shares) {
+    ) external nonReentrant returns (uint256 shares) {
         ClosureId cid = ClosureId.wrap(_closureId);
         uint8 idx = TokenRegLib.getIdx(token);
         uint256 n = TokenRegLib.numVertices();
@@ -66,7 +69,7 @@ library LiqFacet {
         uint16 _closureId,
         uint256 shares,
         bytes calldata continuation
-    ) internal {
+    ) external nonReentrant {
         ClosureId cid = ClosureId.wrap(_closureId);
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares);
@@ -87,6 +90,4 @@ library LiqFacet {
         // Do we need a continuation?
         if (continuation.length != 0) recipient.staticcall(continuation);
     }
-
-    function approve(address spender, uint256 amount) external returns (bool);
 }

@@ -6,11 +6,13 @@ import {VaultStorage} from "./VaultProxy.sol";
 import {Vertex, VertexId} from "./Vertex.sol";
 import {TokenRegistry} from "./Token.sol";
 import {Edge} from "./Edge.sol";
+import {SimplexStorage} from "./facets/SimplexFacet.sol";
 
 struct Storage {
     AssetStorage assets;
     TokenRegistry tokenReg;
     VaultStorage _vaults;
+    SimplexStorage simplex;
     // Graph elements
     mapping(VertexId => Vertex) vertices;
     mapping(address => mapping(address => Edge)) edges; // Mapping from token,token to uniswap pool.
@@ -55,5 +57,9 @@ library Store {
 
     function assets() internal view returns (AssetStorage storage a) {
         return load().assets;
+    }
+
+    function simplex() internal view returns (SimplexStorage storage s) {
+        return load().simplex;
     }
 }

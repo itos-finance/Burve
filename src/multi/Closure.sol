@@ -2,16 +2,29 @@
 pragma solidity ^0.8.27;
 
 import { FullMath } from "./FullMath.sol";
+import { VertexId } from "./Vertex.sol";
+import { Store } from "./Store.sol";
+import { TokenRegistry} from "./Token.sol";
 
 type ClosureId is uint16;
 
-struct Closure {
-    address[] tokens;
+using ClosureIdImpl for ClosureId global;
+
+function newClosureId(address[] tokens) returns (ClosureId) {
+    uint16 cid = 0;
+    TokenRegistry storage tokenReg = Store.tokenRegistry();
+    for (uint256 i = 0; i < tokens.length; ++i) {
+        uint16 idx = 1 << tokenReg.tokenIdx[tokens[i]];
+        cid |= cid;
+    }
+    return ClosureId.wrap(cid);
 }
 
-using ClosureImpl for Closure global;
-
-library ClosureImpl {}
+library ClosureIdImpl {
+    function contains(ClosureId self, VertexId vid) internal returns (bool) {
+        return (ClosureId.unwrap(self) & VertexId.unwrap(vid)) != 0;
+    }
+}
 
 // In-memory data structure for stores a probability distribution over closures.
 struct ClosureDist {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {TokenRegLib, MAX_TOKENS} from "./Token.sol";
+import {TokenRegLib} from "./Token.sol";
 import {VaultProxyLib, VaultType} from "./VaultProxy.sol";
 
 type VertexId is uint16;
@@ -19,7 +19,9 @@ function newVertexId(address token) returns (VertexId) {
  */
 struct Vertex {
     VertexId vid;
+    // Stores which closures contain the edge between this vertex and another vertex.
     mapping(VertexId => ClosureId[]) homs;
+    // A quick lookup to know if a closure between this vertex and another is in use.
     mapping(VertexId => mapping(ClosureId => bool)) homSet;
 }
 

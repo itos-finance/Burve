@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-/// The number of temporary variables used by vaults. See VaultTemp.
-uint256 constant NUM_VAULT_VARS = 3;
+import {VertexId} from "./Vertex.sol";
+
+// The number of temporary variables used by vaults. See VaultTemp.
+uint256 constant NUM_VAULT_VARS = 4;
 
 enum VaultType {
     UnImplemented,
@@ -23,7 +25,12 @@ library VaultLib {
     error VaultNotFound(VertexId);
 
     /// Initialize the underlying vault for a vertex.
-    function init(VertexId vid, address token, address vault, VaultType vtype) {
+    function init(
+        VertexId vid,
+        address token,
+        address vault,
+        VaultType vtype
+    ) internal {
         VaultStorage storage vaults = Store.vaults();
         if (vaults.vType[vid] != VaultType.UnImplemented)
             revert VaultExists(vid);

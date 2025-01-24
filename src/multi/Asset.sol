@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {ClosureId} from "./Closure.sol";
+
 struct AssetStorage {
     mapping(ClosureId => uint256) totalShares;
     mapping(address => mapping(cid => uint256)) shares;
 }
 
+/// Bookkeeping for Closure ownership.
 library AssetLib {
+    /// Add more shares to a user's closure allocation.
     function add(
         address owner,
         ClosureId cid,
@@ -20,6 +24,7 @@ library AssetLib {
         assets.totalShares[cid] += shares;
     }
 
+    /// Remove shares frmo a user's closure allocation.
     function remove(
         address owner,
         ClosureId cid,
