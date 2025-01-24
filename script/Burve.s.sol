@@ -1,18 +1,27 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.20;
 
-import {Script, console} from "forge-std/Script.sol";
-import {Burve} from "../src/Burve.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
+import {BurveDeploymentLib} from "../src/deployment/BurveDeployLib.sol";
+import {SimplexDiamond} from "../src/multi/Diamond.sol";
 
-contract BurveDeployScript is Script {
-    Burve public burve;
+contract DeployBurveDiamond is Script {
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
 
-    function setUp() public {}
-
-    function run() public {
-        vm.startBroadcast();
-
-        // burve = new Burve();
+        (
+            address liqFacet,
+            address simplexFacet,
+            address swapFacet
+        ) = BurveDeploymentLib.deployFacets();
+        SimplexDiamond diamond = new SimplexDiamond(
+            liqFacet,
+            simplexFacet,
+            swapFacet
+        );
+        console2.log("Burve deployed at:", address(diamond));
 
         vm.stopBroadcast();
     }

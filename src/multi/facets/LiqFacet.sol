@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ClosureId} from "../Closure.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {ClosureId, SCALE_FACTOR} from "../Closure.sol";
+import {ReentrancyGuard} from "@openzeppelin/utils/ReentrancyGuard.sol";
+import {TokenRegLib, TokenRegistry} from "../Token.sol";
+import {VertexId, newVertexId} from "../Vertex.sol";
+import {VaultLib, VaultPointer} from "../VaultProxy.sol";
+import {Store} from "../Store.sol";
+import {Edge} from "../Edge.sol";
+import {TransferHelper} from "../../TransferHelper.sol";
+import {FullMath} from "../FullMath.sol";
+import {AssetLib} from "../Asset.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -12,7 +20,7 @@ import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/Reentrancy
  in their own ERC20 contract with mint functions that call the addLiq and removeLiq
 functions here.
 */
-contract LiqFacet is ReentrancyGuardTransient {
+contract LiqFacet is ReentrancyGuard {
     error TokenNotInClosure(ClosureId cid, address token);
 
     function addLiq(
@@ -25,16 +33,16 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint8 idx = TokenRegLib.getIdx(token);
         uint256 n = TokenRegLib.numVertices();
 
-        uint128[] memory preBalance = new uint256[](n);
+        uint128[] memory preBalance = new uint128[](n);
         uint128 addedBalance = 0;
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             if (cid.contains(v)) {
                 VaultPointer memory vPtr = VaultLib.get(v);
-                preBalance[i] = vPtr.balance(cid);
+                preBalance[i] = uint128(vPtr.balance(cid));
                 if (i == idx) {
                     vPtr.deposit(cid, amount);
-                    addedBalance = vPtr.balance(cid);
+                    addedBalance = uint128(vPtr.balance(cid));
                     // Commit the deposit.
                     vPtr.commit();
                 }
@@ -45,7 +53,7 @@ contract LiqFacet is ReentrancyGuardTransient {
 
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
-        uint256 tokenBalance = addedBalance + preBalance[i];
+        uint256 tokenBalance = addedBalance + preBalance[idx];
         // We denote value in the given token.
         uint256 cumulativeValue = tokenBalance;
         TokenRegistry storage tokenReg = Store.tokenRegistry();
@@ -54,11 +62,15 @@ contract LiqFacet is ReentrancyGuardTransient {
                 continue;
             } else if (preBalance[i] != 0) {
                 address otherToken = tokenReg.tokens[i];
-                Edge storage e = edge(token, otherToken);
+                Edge storage e = Store.edge(token, otherToken);
                 uint256 priceX128 = (token < otherToken)
-                    ? e.getInvPriceX128(tokenBalance, preBalance[i])
-                    : e.getPriceX128(preBalance[i], tokenBalance);
-                cumulativeValue += FullMath.mulX128(preBalance[i], priceX128);
+                    ? e.getInvPriceX128(uint128(tokenBalance), preBalance[i])
+                    : e.getPriceX128(preBalance[i], uint128(tokenBalance));
+                cumulativeValue += FullMath.mulDiv(
+                    preBalance[i],
+                    priceX128,
+                    SCALE_FACTOR
+                );
             }
         }
         shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
@@ -82,12 +94,15 @@ contract LiqFacet is ReentrancyGuardTransient {
                 vPtr.balance(cid),
                 false
             );
-            vPtr.withdraw(withdraw);
+            vPtr.withdraw(cid, withdraw);
             vPtr.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
         }
         // Do we need a continuation?
-        if (continuation.length != 0) recipient.staticcall(continuation);
+        if (continuation.length != 0) {
+            (bool success, ) = recipient.staticcall(continuation);
+            require(success, "Continuation failed");
+        }
     }
 }

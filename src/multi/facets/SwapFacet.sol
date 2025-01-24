@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import {Edge} from "../Edge.sol";
 
 contract SwapFacet is ReentrancyGuardTransient {
@@ -10,11 +10,11 @@ contract SwapFacet is ReentrancyGuardTransient {
         address recipient,
         address inToken,
         address outToken,
-        int256 amountSpecified,
+        uint256 amountSpecified,
         uint160 sqrtPriceLimitX96,
         bytes calldata data
     ) external nonReentrant {
-        Edge storage edge = Store.edge(token0, token1);
+        Edge storage edge = Store.edge(inToken, outToken);
         bool zeroForOne = inToken < outToken;
         edge.swap(
             recipient,

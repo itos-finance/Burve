@@ -2,6 +2,9 @@
 pragma solidity ^0.8.27;
 
 import {VertexId} from "./Vertex.sol";
+import {VaultE4626, VaultE4626Impl} from "./E4626.sol";
+import {Store} from "./Store.sol";
+import {ClosureId} from "./Closure.sol";
 
 // The number of temporary variables used by vaults. See VaultTemp.
 uint256 constant NUM_VAULT_VARS = 4;
@@ -32,13 +35,13 @@ library VaultLib {
         VaultType vtype
     ) internal {
         VaultStorage storage vaults = Store.vaults();
-        if (vaults.vType[vid] != VaultType.UnImplemented)
+        if (vaults.vTypes[vid] != VaultType.UnImplemented)
             revert VaultExists(vid);
-        vaults.vTypes[vid] = vType;
-        if (vType == VaultType.E4626) {
+        vaults.vTypes[vid] = vtype;
+        if (vtype == VaultType.E4626) {
             vaults.e4626s[vid].init(token, vault);
         } else {
-            revert VaultTypeNotRecognized(vType);
+            revert VaultTypeNotRecognized(vtype);
         }
     }
 
@@ -48,10 +51,11 @@ library VaultLib {
     ) internal view returns (VaultPointer memory vPtr) {
         VaultStorage storage vaults = Store.vaults();
         vPtr.vType = vaults.vTypes[vid];
+        vPtr.vid = vid;
         if (vPtr.vType == VaultType.E4626) {
             VaultE4626 storage v = vaults.e4626s[vid];
             assembly {
-                vPtr.slotAddress := v.slot
+                mstore(add(vPtr, 0), v.slot) // slot_address is the first field at offset 0
             }
             v.fetch(vPtr.temp);
         } else {
@@ -67,9 +71,10 @@ struct VaultTemp {
 
 /// An in-memory struct for dynamically dispatching to different vaultTypes
 struct VaultPointer {
-    bytes32 slotAddress;
+    bytes32 slot_address;
     VaultType vType;
     VaultTemp temp;
+    VertexId vid;
 }
 
 using VaultPointerImpl for VaultPointer global;
@@ -84,7 +89,7 @@ library VaultPointerImpl {
         uint256 amount
     ) internal {
         if (self.vType == VaultType.E4626) {
-            getE4626(self).deposit(self.temp, cid, amount);
+            VaultE4626Impl.deposit(self, self.temp, cid, amount);
         } else {
             revert VaultTypeUnrecognized(self.vType);
         }
@@ -97,7 +102,7 @@ library VaultPointerImpl {
         uint256 amount
     ) internal {
         if (self.vType == VaultType.E4626) {
-            getE4626(self).withdraw(self.temp, cid, amount);
+            VaultE4626Impl.withdraw(self, self.temp, cid, amount);
         } else {
             revert VaultTypeUnrecognized(self.vType);
         }
@@ -110,7 +115,8 @@ library VaultPointerImpl {
         VaultPointer memory self
     ) internal view returns (uint256 _withdrawable) {
         if (self.vType == VaultType.E4626) {
-            return getE4626(self).withdrawable();
+            VaultE4626 storage vault = getE4626(self);
+            return VaultE4626Impl.withdrawable(vault);
         } else {
             revert VaultTypeUnrecognized(self.vType);
         }
@@ -122,7 +128,7 @@ library VaultPointerImpl {
         ClosureId cid
     ) internal view returns (uint256 amount) {
         if (self.vType == VaultType.E4626) {
-            return getE4626(self).balance(self.temp, cid);
+            return VaultE4626Impl.balance(self, self.temp, cid);
         } else {
             revert VaultTypeUnrecognized(self.vType);
         }
@@ -132,7 +138,8 @@ library VaultPointerImpl {
     /// as needed during the commit step.
     function commit(VaultPointer memory self) internal {
         if (self.vType == VaultType.E4626) {
-            getE4626(self).commit(self.temp);
+            VaultE4626 storage vault = getE4626(self);
+            VaultE4626Impl.commit(vault, self.temp);
         } else {
             revert VaultTypeUnrecognized(self.vType);
         }
@@ -144,7 +151,8 @@ library VaultPointerImpl {
         VaultPointer memory self
     ) private view returns (VaultE4626 storage proxy) {
         assembly {
-            proxy.slot := self.slotAddress
+            mstore(0x00, mload(self)) // Load slot_address from first field of VaultPointer
+            proxy.slot := mload(0x00)
         }
     }
 }

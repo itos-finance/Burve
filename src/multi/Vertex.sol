@@ -2,14 +2,16 @@
 pragma solidity ^0.8.27;
 
 import {TokenRegLib} from "./Token.sol";
-import {VaultProxyLib, VaultType} from "./VaultProxy.sol";
+import {VaultLib, VaultType} from "./VaultProxy.sol";
+import {ClosureId, ClosureDist, ClosureDistImpl} from "./Closure.sol";
+import {VaultPointer, VaultTemp} from "./VaultProxy.sol";
 
 type VertexId is uint16;
-function newVertexId(uint8 idx) returns (VertexId) {
+function newVertexId(uint8 idx) pure returns (VertexId) {
     // We sanitize the idx beforehand for efficiency reasons.
-    return VertexId.wrap(1 << idx);
+    return VertexId.wrap(uint16(1 << idx));
 }
-function newVertexId(address token) returns (VertexId) {
+function newVertexId(address token) view returns (VertexId) {
     return newVertexId(TokenRegLib.getIdx(token));
 }
 
@@ -25,7 +27,7 @@ struct Vertex {
     mapping(VertexId => mapping(ClosureId => bool)) homSet;
 }
 
-using VertexImpl for Vertex global;
+using VertexImpl for Vertex;
 
 /* A vertex encapsulates the information of a single token */
 library VertexImpl {
@@ -47,7 +49,7 @@ library VertexImpl {
         VaultType vType
     ) internal {
         self.vid = newVertexId(token);
-        VaultProxyLib.init(self.vid, token, vault, vType);
+        VaultLib.init(self.vid, token, vault, vType);
     }
 
     // Add this closure to the appropriate homsets for this vertex
@@ -56,7 +58,8 @@ library VertexImpl {
         uint256 n = TokenRegLib.numVertices();
         for (uint8 i = 0; i < n; ++i) {
             VertexId neighbor = newVertexId(i);
-            if (neighbor == self.vid) continue;
+            if (VertexId.unwrap(neighbor) == VertexId.unwrap(self.vid))
+                continue;
             if (closure.contains(neighbor)) {
                 if (self.homSet[neighbor][closure]) {
                     // We've already added this closure
@@ -79,27 +82,27 @@ library VertexImpl {
         ClosureId[] storage homs = self.homs[other];
         // Once we have a vault pointer, no reentrancy is allowed.
         VaultPointer memory vProxy = VaultLib.get(self.vid);
-        dist = newClosureDist(homs);
+        dist = ClosureDistImpl.newClosureDist(homs);
 
         for (uint256 i = 0; i < homs.length; ++i) {
             uint256 bal = vProxy.balance(homs[i]);
-            dist.add(i, bal);
+            ClosureDistImpl.add(dist, i, bal);
         }
 
         uint256 withdrawable = vProxy.withdrawable();
-        if (withdrawable < amount || dist.total < amount) {
+        if (withdrawable < amount || dist.totalWeight < amount) {
             revert InsufficientWithdraw(
                 self.vid,
                 other,
-                dist.total,
+                dist.totalWeight,
                 withdrawable,
                 amount
             );
         }
-        dist.normalize();
+        ClosureDistImpl.normalize(dist);
 
         for (uint256 i = 0; i < homs.length; ++i) {
-            vProxy.withdraw(homs[i], dist.scale(i, amount));
+            vProxy.withdraw(homs[i], ClosureDistImpl.scale(dist, i, amount));
         }
         vProxy.commit(); // Commit our changes.
     }
@@ -112,9 +115,9 @@ library VertexImpl {
     ) internal {
         // Once we have a vault pointer, no reentrancy is allowed.
         VaultPointer memory vProxy = VaultLib.get(self.vid);
-        ClosureId[] storage closures = dist.getClosures();
-        for (uint256 i = 0; i < dist.closures.length; ++i) {
-            vProxy.deposit(closures[i], dist.scale(i, amount));
+        ClosureId[] storage closures = ClosureDistImpl.getClosures(dist);
+        for (uint256 i = 0; i < closures.length; ++i) {
+            vProxy.deposit(closures[i], ClosureDistImpl.scale(dist, i, amount));
         }
         vProxy.commit();
     }
@@ -125,7 +128,7 @@ library VertexImpl {
         VertexId other
     ) internal view returns (uint256 amount) {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
-        Closure[] storage homs = self.homs[other];
+        ClosureId[] storage homs = self.homs[other];
 
         for (uint256 i = 0; i < homs.length; ++i) {
             amount += vProxy.balance(homs[i]);

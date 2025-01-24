@@ -2,10 +2,12 @@
 pragma solidity ^0.8.27;
 
 import {ClosureId} from "./Closure.sol";
+import {Store} from "./Store.sol";
+import {FullMath} from "./FullMath.sol";
 
 struct AssetStorage {
     mapping(ClosureId => uint256) totalShares;
-    mapping(address => mapping(cid => uint256)) shares;
+    mapping(address => mapping(ClosureId => uint256)) shares;
 }
 
 /// Bookkeeping for Closure ownership.

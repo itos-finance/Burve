@@ -13,6 +13,8 @@ import "v3-core/contracts/libraries/SwapMath.sol";
 
 import "v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 
+import {Edge} from "./Edge.sol";
+
 library UniV3Edge {
     using LowGasSafeMath for uint256;
     using LowGasSafeMath for int256;
@@ -125,7 +127,7 @@ library UniV3Edge {
             // get the price for the next tick
             step.sqrtPriceNextX96 = TickMath.getSqrtRatioAtTick(step.tickNext);
 
-            uint24 fee = FeeFacet(address(this)).getDynamicFee(token0, token1);
+            // uint24 fee = FeeFacet(address(this)).getDynamicFee(token0, token1);
             // compute values to swap to the target tick, price limit, or point where input/output amount is exhausted
             (
                 state.sqrtPriceX96,
@@ -143,7 +145,7 @@ library UniV3Edge {
                     : step.sqrtPriceNextX96,
                 state.liquidity,
                 state.amountSpecifiedRemaining,
-                slot0Start.fee
+                slot0Start.fee // TODO: this just becomes the dynamic fee
             );
 
             if (exactInput) {

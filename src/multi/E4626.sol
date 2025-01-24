@@ -5,7 +5,8 @@ import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {FullMath} from "./FullMath.sol";
-import {VaultTemp} from "./VaultProxy.sol";
+import {VaultPointer, VaultTemp, VaultStorage} from "./VaultProxy.sol";
+import {Store} from "./Store.sol";
 
 /** A simple e4626 wrapper that tracks ownership by closureId
  * Note that there are plenty of E4626's that have lockups
@@ -83,24 +84,34 @@ library VaultE4626Impl {
     /** Operations used by Vertex */
 
     function deposit(
-        VaultE4626 storage self,
+        VaultPointer memory self,
         VaultTemp memory temp,
         ClosureId cid,
         uint256 amount
     ) internal {
         // TODO we have to discount the new amount in total assets and new shares
         // by any withdrawal fees.
-        uint256 newlyAdding = FullMath.mulX128(temp.vars[1], temp.vars[3]);
+        uint256 newlyAdding = FullMath.mulDiv(
+            temp.vars[1],
+            temp.vars[3],
+            FullMath.X128
+        );
         uint256 totalAssets = temp.vars[0] + newlyAdding;
 
-        uint256 discountedAmount = FullMath.mulX128(amount, temp.vars[3]);
+        uint256 discountedAmount = FullMath.mulDiv(
+            amount,
+            temp.vars[3],
+            FullMath.X128
+        );
+        VaultStorage storage vaults = Store.vaults();
+        VaultE4626 storage vault = vaults.e4626s[self.vid];
         uint256 newShares = FullMath.mulDiv(
-            self.totalShares,
+            vault.totalShares,
             discountedAmount,
             totalAssets
         );
-        self.shares[cid] += newShares;
-        self.totalShares += newShares;
+        vault.shares[cid] += newShares;
+        vault.totalShares += newShares;
         temp.vars[1] += amount;
     }
 
@@ -115,13 +126,15 @@ library VaultE4626Impl {
         // We don't check if we have enough assets for this cid to supply because
         // 1. The shares will underflow if we don't
         // 2. The outer check in vertex should suffice.
+        VaultStorage storage vaults = Store.vaults();
+        VaultE4626 storage vault = vaults.e4626s[self.vid];
         uint256 sharesToRemove = FullMath.mulDiv(
-            self.totalShares,
+            vault.totalShares,
             amount,
             totalAssets
         );
-        self.shares[cid] -= sharesToRemove;
-        self.totalShares -= sharesToRemove;
+        vault.shares[cid] -= sharesToRemove;
+        vault.totalShares -= sharesToRemove;
         temp.vars[2] += amount;
     }
 
@@ -138,8 +151,15 @@ library VaultE4626Impl {
         VaultTemp memory temp,
         ClosureId cid
     ) internal view returns (uint256 amount) {
-        uint256 newlyAdding = FullMath.mulX128(temp.vars[1], temp.vars[3]);
+        uint256 newlyAdding = FullMath.mulDiv(
+            temp.vars[1],
+            temp.vars[3],
+            FullMath.X128
+        );
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
-        return FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
+        VaultStorage storage vaults = Store.vaults();
+        VaultE4626 storage vault = vaults.e4626s[self.vid];
+        return
+            FullMath.mulDiv(vault.shares[cid], totalAssets, vault.totalShares);
     }
 }

@@ -2,6 +2,9 @@
 pragma solidity ^0.8.27;
 
 import {Store} from "./Store.sol";
+import {VaultType} from "./VaultProxy.sol";
+import {newVertexId} from "./Vertex.sol";
+import {Vertex, VertexImpl} from "./Vertex.sol";
 
 uint256 constant MAX_TOKENS = 16;
 
@@ -10,7 +13,7 @@ struct TokenRegistry {
     mapping(address => uint8) tokenIdx;
 }
 
-using TokenRegistryImpl for TokenRegistrar global;
+using TokenRegistryImpl for TokenRegistry global;
 
 library TokenRegistryImpl {
     error AtTokenCapacity();
@@ -30,7 +33,8 @@ library TokenRegistryImpl {
         self.tokenIdx[token] = idx;
         self.tokens.push(token);
         // Init the vertex.
-        Store.vertex(token).init(token);
+        Vertex storage vertex = Store.vertex(newVertexId(token));
+        VertexImpl.init(vertex, token, address(0), VaultType.UnImplemented);
         emit TokenRegistered(token);
     }
 
@@ -39,10 +43,10 @@ library TokenRegistryImpl {
 
 library TokenRegLib {
     function numVertices() internal view returns (uint8 n) {
-        return uint8(Store().tokenReg().tokens.length);
+        return uint8(Store.tokenRegistry().tokens.length);
     }
 
     function getIdx(address token) internal view returns (uint8 idx) {
-        return Store().tokenReg().tokenIdx[token];
+        return Store.tokenRegistry().tokenIdx[token];
     }
 }

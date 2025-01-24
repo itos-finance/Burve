@@ -22,7 +22,7 @@ contract SimplexFacet {
         uint256 amplitude,
         int24 lowTick,
         int24 highTick
-    ) internal {
+    ) external {
         AdminLib.validateOwner();
         Store.simplex().defaultEdge.setRange(amplitude, lowTick, highTick);
     }
@@ -34,7 +34,7 @@ contract SimplexFacet {
         uint256 amplitude,
         int24 lowTick,
         int24 highTick
-    ) internal {
+    ) external {
         AdminLib.validateOwner();
         Store.edge(token0, token1).setRange(amplitude, lowTick, highTick);
     }

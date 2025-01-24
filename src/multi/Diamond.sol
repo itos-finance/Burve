@@ -8,6 +8,13 @@ import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
 
+import {IDiamondCut} from "Commons/Diamond/interfaces/IDiamondCut.sol";
+
+import {IDiamondLoupe} from "Commons/Diamond/interfaces/IDiamondLoupe.sol";
+import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
+import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
+import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
+
 import {SwapFacet} from "./facets/SwapFacet.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
@@ -80,7 +87,7 @@ contract SimplexDiamond is IDiamond {
         {
             bytes4[] memory simplexSelectors = new bytes4[](1);
             simplexSelectors[0] = SimplexFacet.addVertex.selector;
-            simplexSelectors[1] = SimplexFacet.setEdgeDefault.selector;
+            simplexSelectors[1] = SimplexFacet.setDefaultEdge.selector;
             simplexSelectors[2] = SimplexFacet.setEdge.selector;
             cuts[5] = FacetCut({
                 facetAddress: simplexFacet,
@@ -98,6 +105,7 @@ contract SimplexDiamond is IDiamond {
         ds.supportedInterfaces[type(IDiamondLoupe).interfaceId] = true;
         ds.supportedInterfaces[type(IERC173).interfaceId] = true;
 
-        SimplexLib.init();
+        // TODO:
+        // SimplexLib.init();
     }
 }
