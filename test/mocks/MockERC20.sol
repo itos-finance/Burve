@@ -7,9 +7,9 @@ contract MockERC20 is ERC20 {
     constructor(
         string memory name,
         string memory symbol,
-        uint8 decimals
+        uint8 __decimals
     ) ERC20(name, symbol) {
-        _decimals = decimals;
+        _decimals = __decimals;
     }
 
     uint8 private _decimals;

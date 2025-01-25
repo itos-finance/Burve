@@ -135,7 +135,7 @@ library VaultPointerImpl {
     /// Query the total balance of all the given cids.
     function totalBalance(
         VaultPointer memory self,
-        ClosureId[] cids,
+        ClosureId[] storage cids,
         bool roundUp
     ) internal view returns (uint128 amount) {
         if (self.vType == VaultType.E4626) {

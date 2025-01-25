@@ -12,7 +12,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         address outToken,
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
-    ) external nonReentrant {
+    ) external nonReentrant returns (uint256 inAmount, uint256 outAmount) {
         address token0;
         address token1;
         bool zeroForOne;
@@ -25,7 +25,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         }
 
         Edge storage edge = Store.edge(token0, token1);
-        edge.swap(
+        (inAmount, outAmount) = edge.swap(
             token0,
             token1,
             recipient,

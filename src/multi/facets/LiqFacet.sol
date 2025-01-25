@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ClosureId, SCALE_FACTOR} from "../Closure.sol";
+import {ClosureId} from "../Closure.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId} from "../Vertex.sol";

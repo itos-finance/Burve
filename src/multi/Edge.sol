@@ -31,6 +31,18 @@ struct Edge {
 using EdgeImpl for Edge global;
 
 library EdgeImpl {
+    event Swap(
+        address sender,
+        address recipient,
+        address token0,
+        address token1,
+        int256 amount0,
+        int256 amount1,
+        uint160 sqrtPriceX96,
+        uint128 liquidity,
+        int24 tick
+    );
+
     /* Admin function to set edge parameters */
 
     /// @dev This is simple because we recalculate the implied price every time.
@@ -65,7 +77,7 @@ library EdgeImpl {
         bool zeroForOne,
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
-    ) internal returns (uint256 amount0, uint256 amount1) {
+    ) internal returns (uint256 inAmount, uint256 outAmount) {
         // Prep the swap.
         UniV3Edge.Slot0 memory slot0 = getSlot0();
 
@@ -78,9 +90,7 @@ library EdgeImpl {
         );
 
         address inToken;
-        uint256 inAmount;
         address outToken;
-        uint256 outAmount;
         if (zeroForOne) {
             inToken = token0;
             inAmount = uint256(amount0);
@@ -103,12 +113,14 @@ library EdgeImpl {
 
         (uint160 sqrtPriceX96, int24 tick, uint128 liquidity) = calcImpliedPool(
             self,
-            balance0,
-            balance1
+            token0,
+            token1
         );
         emit Swap(
             msg.sender,
             recipient,
+            token0,
+            token1,
             amount0,
             amount1,
             sqrtPriceX96,
@@ -189,13 +201,13 @@ library EdgeImpl {
         if (outAmount > 0)
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
         if (inAmount > 0)
-            TranferHelper.safeTransferFrom(
+            TransferHelper.safeTransferFrom(
                 inToken,
                 msg.sender,
                 address(this),
                 inAmount
             );
-        Store.vertex(inToken).homAdd(dist, amount);
+        Store.vertex(inToken).homAdd(dist, inAmount);
     }
 
     /// Fetch the price, tick, and liquidity implied by the current balances for these tokens.
@@ -226,8 +238,8 @@ library EdgeImpl {
         // We're actually somewhat restrictive on these token amounts.
         // It's mostly okay because we focus on handling stables and blue chips derivatives.
         // If someone actually had 2^128 of a stable, even with 1e18 decimals, all money would be worthless.
-        uint160 sqrtPa = getSqrtRatioAtTick(self.lowTick);
-        uint160 invSqrtPb = getSqrtRatioAtTick(-self.highTick);
+        uint160 sqrtPa = TickMath.getSqrtRatioAtTick(self.lowTick);
+        uint160 invSqrtPb = TickMath.getSqrtRatioAtTick(-self.highTick);
         // These balances will only take up 128 bits.
         uint256 sqrtXWideX64 = sqrt(
             (((uint256(balance0) << 96) + invSqrtPb) << 32) /
@@ -306,13 +318,13 @@ library EdgeImpl {
         uint256 amp,
         bool roundUp
     ) private pure returns (uint256 priceX128) {
-        uint160 sqrtPa = getSqrtRatioAtTick(low);
-        uint160 invSqrtPb = getSqrtRatioAtTick(high);
+        uint160 sqrtPa = TickMath.getSqrtRatioAtTick(low);
+        uint160 invSqrtPb = TickMath.getSqrtRatioAtTick(high);
         // See get implied for why this is okay.
         uint256 yWideX128 = (((uint256(balance1) << 96) + sqrtPa) << 32) /
-            (self.amplitude + 1);
+            (amp + 1);
         uint256 xWideX128 = (((uint256(balance0) << 96) + invSqrtPb) << 32) /
-            (self.amplitude + 1);
+            (amp + 1);
         return
             roundUp
                 ? FullMath.mulDivRoundingUp(yWideX128, 1 << 128, xWideX128)

@@ -87,7 +87,7 @@ library ClosureDistImpl {
         uint256 amount,
         bool roundUp
     ) internal pure returns (uint256 scaled) {
-        if (self.totalWeigth != 0) revert NotNoramlized();
+        if (self.totalWeigth != 0) revert NotNormalized();
         scaled = FullMath.mulX256(self.weights[idx], amount, roundUp);
     }
 

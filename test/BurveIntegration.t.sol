@@ -10,7 +10,7 @@ import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
 import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
-import {ClosureId} from "../src/multi/Closure.sol";
+import {ClosureId, newClosureId} from "../src/multi/Closure.sol";
 
 contract BurveIntegrationTest is Test {
     SimplexDiamond public diamond;

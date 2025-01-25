@@ -171,7 +171,7 @@ library VaultE4626Impl {
     function totalBalance(
         VaultE4626 storage self,
         VaultTemp memory temp,
-        ClosureId[] cids,
+        ClosureId[] storage cids,
         bool roundUp
     ) internal view returns (uint128 amount) {
         uint256 newlyAdding = FullMath.mulX128(

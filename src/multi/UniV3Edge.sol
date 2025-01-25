@@ -11,6 +11,8 @@ import "v3-core/contracts/libraries/TickMath.sol";
 import "v3-core/contracts/libraries/SqrtPriceMath.sol";
 import "v3-core/contracts/libraries/SwapMath.sol";
 
+import {Edge} from "./Edge.sol";
+
 library UniV3Edge {
     using LowGasSafeMath for uint256;
     using LowGasSafeMath for int256;

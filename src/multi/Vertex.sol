@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {TokenRegLib} from "./Token.sol";
 import {VaultLib, VaultType} from "./VaultProxy.sol";
-import {ClosureId, ClosureDist, ClosureDistImpl} from "./Closure.sol";
+import {ClosureId, ClosureDist, ClosureDistImpl, newClosureDist} from "./Closure.sol";
 import {VaultPointer, VaultTemp} from "./VaultProxy.sol";
 
 type VertexId is uint16;

@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {MAX_TOKENS} from "../Token.sol";
+import {Vertex, newVertexId} from "../Vertex.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 struct SimplexStorage {
