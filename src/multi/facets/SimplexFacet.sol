@@ -3,12 +3,11 @@ pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
-import {MAX_TOKENS} from "../Token.sol";
+import {TransferHelper} from "../../TransferHelper.sol";
 import {Vertex, newVertexId} from "../Vertex.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 struct SimplexStorage {
-    uint256[MAX_TOKENS] protocolFees;
     Edge defaultEdge;
 }
 contract SimplexFacet {
@@ -19,6 +18,18 @@ contract SimplexFacet {
 
         // Init the vertex.
         Store.vertex(newVertexId(token)).init(token);
+    }
+
+    /// Withdraw fees earned by the protocol.
+    function withdrawFees(address token, uint256 amount) external {
+        AdminLib.validateOwner();
+        // Normally tokens supporting the AMM ALWAYS resides in the vaults.
+        // The only exception is
+        // 1. When fees are earned by the protocol.
+        // 2. When someone accidentally sends tokens to this address
+        // 3. When someone donates.
+        // Therefore we can just withdraw from this contract to resolve all three.
+        TransferHelper.safeTransfer(token, msg.sender, amount);
     }
 
     /// These will be the paramters used by all edges on construction.
