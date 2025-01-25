@@ -159,7 +159,7 @@ library VaultPointerImpl {
 
     function getE4626(
         VaultPointer memory self
-    ) private view returns (VaultE4626 storage proxy) {
+    ) private pure returns (VaultE4626 storage proxy) {
         assembly {
             proxy.slot := mload(self)
         }

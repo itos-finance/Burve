@@ -15,6 +15,14 @@ function newVertexId(address token) view returns (VertexId) {
     return newVertexId(TokenRegLib.getIdx(token));
 }
 
+library VertexIdImpl {
+    function isEq(VertexId self, VertexId other) internal pure returns (bool) {
+        return VertexId.unwrap(self) == VertexId.unwrap(other);
+    }
+}
+
+using VertexIdImpl for VertexId global;
+
 /**
  * Vertices supply tokens to the trading pools. These track how the tokens they hold are split across subvertices.
  * The subvertices track how their tokens are split across closures.
@@ -84,7 +92,8 @@ library VertexImpl {
         dist = newClosureDist(homs);
 
         for (uint256 i = 0; i < homs.length; ++i) {
-            uint256 bal = vProxy.balance(homs[i]);
+            // Round down to make sure we have enough.
+            uint256 bal = vProxy.balance(homs[i], false);
             dist.add(i, bal);
         }
 
@@ -111,12 +120,12 @@ library VertexImpl {
     function homAdd(
         Vertex storage self,
         ClosureDist memory dist,
-        uint128 amount
+        uint256 amount
     ) internal {
         // Once we have a vault pointer, no reentrancy is allowed.
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         ClosureId[] storage closures = dist.getClosures();
-        for (uint256 i = 0; i < dist.closures.length; ++i) {
+        for (uint256 i = 0; i < closures.length; ++i) {
             // The user deposited a fixed amount, we can't round up.
             vProxy.deposit(closures[i], dist.scale(i, amount, false));
         }

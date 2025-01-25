@@ -22,7 +22,7 @@ library Store {
     bytes32 public constant MULTI_STORAGE_POSITION =
         keccak256("multi.diamond.storage.20250113");
 
-    function load() internal view returns (Storage storage s) {
+    function load() internal pure returns (Storage storage s) {
         bytes32 position = MULTI_STORAGE_POSITION;
         assembly {
             s.slot := position

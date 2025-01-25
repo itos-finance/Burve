@@ -5,12 +5,14 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {BurveDeploymentLib} from "../src/BurveDeploymentLib.sol";
 import {SimplexDiamond} from "../src/multi/Diamond.sol";
+import {EdgeFacet} from "../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
 import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {ClosureId, newClosureId} from "../src/multi/Closure.sol";
+import {VaultType} from "../src/multi/VaultProxy.sol";
 
 contract BurveTriPoolTest is Test {
     SimplexDiamond public diamond;
@@ -124,26 +126,27 @@ contract BurveTriPoolTest is Test {
         address[] memory tokens01 = new address[](2);
         tokens01[0] = address(token0);
         tokens01[1] = address(token1);
-        closure01Id = uint16(newClosureId(tokens01));
+        closure01Id = ClosureId.unwrap(newClosureId(tokens01));
 
         // Setup closure for token1-token2 pair
         address[] memory tokens12 = new address[](2);
         tokens12[0] = address(token1);
         tokens12[1] = address(token2);
-        closure12Id = uint16(newClosureId(tokens12));
+        closure12Id = ClosureId.unwrap(newClosureId(tokens12));
 
         // Setup closure for token0-token2 pair
         address[] memory tokens02 = new address[](2);
         tokens02[0] = address(token0);
         tokens02[1] = address(token2);
-        closure02Id = uint16(newClosureId(tokens02));
+        closure02Id = ClosureId.unwrap(newClosureId(tokens02));
     }
 
     function _setupVerticesAndEdges() internal {
         // Add vertices
-        simplexFacet.addVertex(address(token0));
-        simplexFacet.addVertex(address(token1));
-        simplexFacet.addVertex(address(token2));
+        // @TODO use mock vaults when possible.
+        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
+        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
+        simplexFacet.addVertex(address(token2), address(0), VaultType.E4626);
 
         // Setup edges between all pairs
         // Note: These values might need adjustment based on your requirements
@@ -153,7 +156,7 @@ contract BurveTriPoolTest is Test {
     }
 
     function _setupEdge(MockERC20 tokenA, MockERC20 tokenB) internal {
-        simplexFacet.setEdge(
+        EdgeFacet(address(diamond)).setEdge(
             address(tokenA),
             address(tokenB),
             1e18, // amplitude

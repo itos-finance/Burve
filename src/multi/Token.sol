@@ -37,10 +37,10 @@ library TokenRegistryImpl {
 
 library TokenRegLib {
     function numVertices() internal view returns (uint8 n) {
-        return uint8(Store().tokenRegistry().tokens.length);
+        return uint8(Store.tokenRegistry().tokens.length);
     }
 
     function getIdx(address token) internal view returns (uint8 idx) {
-        return Store().tokenRegistry().tokenIdx[token];
+        return Store.tokenRegistry().tokenIdx[token];
     }
 }

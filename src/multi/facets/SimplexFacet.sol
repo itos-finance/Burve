@@ -5,6 +5,7 @@ import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {Vertex, newVertexId} from "../Vertex.sol";
+import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 struct SimplexStorage {
@@ -12,12 +13,12 @@ struct SimplexStorage {
 }
 contract SimplexFacet {
     /// Add a token into this simplex.
-    function addVertex(address token) external {
+    function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
         // TODO
 
         // Init the vertex.
-        Store.vertex(newVertexId(token)).init(token);
+        Store.vertex(newVertexId(token)).init(token, vault, vType);
     }
 
     /// Withdraw fees earned by the protocol.
@@ -34,7 +35,7 @@ contract SimplexFacet {
 
     /// These will be the paramters used by all edges on construction.
     function setDefaultEdge(
-        uint256 amplitude,
+        uint128 amplitude,
         int24 lowTick,
         int24 highTick,
         uint24 fee,
@@ -43,6 +44,6 @@ contract SimplexFacet {
         AdminLib.validateOwner();
         Edge storage defaultE = Store.simplex().defaultEdge;
         defaultE.setRange(amplitude, lowTick, highTick);
-        defaultE.setFees(fee, feeProtocol);
+        defaultE.setFee(fee, feeProtocol);
     }
 }

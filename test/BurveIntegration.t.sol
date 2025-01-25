@@ -7,16 +7,19 @@ import {BurveDeploymentLib} from "../src/BurveDeploymentLib.sol";
 import {SimplexDiamond} from "../src/multi/Diamond.sol";
 import {LiqFacet} from "../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
+import {EdgeFacet} from "../src/multi/facets/EdgeFacet.sol";
 import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {ClosureId, newClosureId} from "../src/multi/Closure.sol";
+import {VaultType} from "../src/multi/VaultProxy.sol";
 
 contract BurveIntegrationTest is Test {
     SimplexDiamond public diamond;
     LiqFacet public liqFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
+    EdgeFacet public edgeFacet;
 
     // Test tokens
     MockERC20 public token0;
@@ -54,6 +57,7 @@ contract BurveIntegrationTest is Test {
         liqFacet = LiqFacet(address(diamond));
         simplexFacet = SimplexFacet(address(diamond));
         swapFacet = SwapFacet(address(diamond));
+        edgeFacet = EdgeFacet(address(diamond));
 
         // Setup test tokens
         _setupTestTokens();
@@ -65,15 +69,16 @@ contract BurveIntegrationTest is Test {
         address[] memory tokens = new address[](2);
         tokens[0] = address(token0);
         tokens[1] = address(token1);
-        closureId = uint16(newClosureId(tokens));
+        closureId = ClosureId.unwrap(newClosureId(tokens));
 
-        // Add vertices to the simplex
-        simplexFacet.addVertex(address(token0));
-        simplexFacet.addVertex(address(token1));
+        // Add vertices to the simplex with empty vaults
+        // TODO: switch to mock vaults.
+        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
+        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
 
         // Setup edge between tokens
         // Note: These values might need adjustment based on your requirements
-        simplexFacet.setEdge(
+        edgeFacet.setEdge(
             address(token0),
             address(token1),
             1e18, // amplitude
@@ -237,8 +242,7 @@ contract BurveIntegrationTest is Test {
             address(token0), // tokenIn
             address(token1), // tokenOut
             int256(swapAmount), // positive for exact input
-            0, // no price limit for this test
-            "" // no callback data needed
+            0 // no price limit for this test
         );
         vm.stopPrank();
 
@@ -265,8 +269,7 @@ contract BurveIntegrationTest is Test {
             address(token1), // tokenIn
             address(token0), // tokenOut
             int256(token1Received), // positive for exact input
-            0, // no price limit for this test
-            "" // no callback data needed
+            0 // no price limit for this test
         );
         vm.stopPrank();
 

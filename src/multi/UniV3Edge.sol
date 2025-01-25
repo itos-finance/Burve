@@ -3,13 +3,11 @@ pragma solidity ^0.8.27;
 
 import "v3-core/contracts/libraries/LowGasSafeMath.sol";
 import "v3-core/contracts/libraries/SafeCast.sol";
-
-import "v3-core/contracts/libraries/FullMath.sol";
 import "v3-core/contracts/libraries/FixedPoint128.sol";
 import "v3-core/contracts/libraries/TransferHelper.sol";
-import "v3-core/contracts/libraries/TickMath.sol";
-import "v3-core/contracts/libraries/SqrtPriceMath.sol";
-import "v3-core/contracts/libraries/SwapMath.sol";
+import "./uniV3Lib/SqrtPriceMath.sol";
+import "./uniV3Lib/SwapMath.sol";
+import "./uniV3Lib/TickMath.sol";
 
 import {Edge} from "./Edge.sol";
 
@@ -71,13 +69,18 @@ library UniV3Edge {
 
     /* Main Func */
 
+    /// Handles just the swap calculation (which is why this is view).
     function swap(
         Edge storage edge,
         Slot0 memory slot0Start,
         bool zeroForOne,
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
-    ) internal returns (int256 amount0, int256 amount1, uint128 protocolFee) {
+    )
+        internal
+        view
+        returns (int256 amount0, int256 amount1, uint128 protocolFee)
+    {
         require(amountSpecified != 0, "AS");
 
         require(

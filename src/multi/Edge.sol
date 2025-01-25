@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {TickMath} from "v3-core/contracts/libraries/TickMath.sol";
+import {TickMath} from "./uniV3Lib/TickMath.sol";
 import {UniV3Edge} from "./UniV3Edge.sol";
 import {FullMath} from "./FullMath.sol";
 import {Store} from "./Store.sol";
@@ -22,7 +22,7 @@ struct Edge {
     int24 highTick;
     // To satisfy price transitivity these ticks must also be transitive.
     // e.g. if narrow low of y/x is -10 then z/y must be 10 in order for z/x to commute.
-    uint256 amplitude; // The scaling factor between narrow and wide liquidity. Narrow liq = A * wide liq.
+    uint128 amplitude; // The scaling factor between narrow and wide liquidity. Narrow liq = A * wide liq.
     /* Other slot0 info */
     uint24 fee; // Fee rate for swaps
     uint8 feeProtocol; // Fee rate for the protocol
@@ -49,7 +49,7 @@ library EdgeImpl {
     /// Just be sure to set the ticks such that the price diagram commutes.
     function setRange(
         Edge storage self,
-        uint256 amplitude,
+        uint128 amplitude,
         int24 lowTick,
         int24 highTick
     ) internal {
@@ -58,11 +58,7 @@ library EdgeImpl {
         self.amplitude = amplitude;
     }
 
-    function setFees(
-        Edge storage self,
-        uint24 fee,
-        uint8 feeProtocol
-    ) internal {
+    function setFee(Edge storage self, uint24 fee, uint8 feeProtocol) internal {
         self.fee = fee;
         self.feeProtocol = feeProtocol;
     }
@@ -79,10 +75,11 @@ library EdgeImpl {
         uint160 sqrtPriceLimitX96
     ) internal returns (uint256 inAmount, uint256 outAmount) {
         // Prep the swap.
-        UniV3Edge.Slot0 memory slot0 = getSlot0();
+        UniV3Edge.Slot0 memory slot0 = getSlot0(self, token0, token1);
 
         // Calculate the swap amounts and protocolFee
         (int256 amount0, int256 amount1, uint128 protocolFee) = UniV3Edge.swap(
+            self,
             slot0,
             zeroForOne,
             amountSpecified,
@@ -155,7 +152,7 @@ library EdgeImpl {
         Edge storage self,
         int24 currentTick,
         bool isSell /* same as zeroForOne */
-    ) internal returns (int24) {
+    ) internal view returns (int24) {
         if (isSell) {
             // When selling, even if we're at the next tick,
             // we still return the same tick because the swap will move to tick - 1.
@@ -175,7 +172,7 @@ library EdgeImpl {
         int24 currentTick,
         int24 startTick,
         uint128 startLiq
-    ) internal returns (uint128 currentLiq) {
+    ) internal view returns (uint128 currentLiq) {
         bool startIn = (self.lowTick <= startTick && startTick < self.highTick);
         bool nowIn = (self.lowTick <= currentTick &&
             currentTick < self.highTick);
@@ -191,11 +188,14 @@ library EdgeImpl {
         address inToken,
         uint256 inAmount,
         address outToken,
-        uint256 outAmount
+        uint256 outAmount,
+        uint256 protocolFee
     ) internal {
+        VertexId inVid = newVertexId(inToken);
+        VertexId outVid = newVertexId(outToken);
         // We send out the outtoken, and give the intoken to the appropriate closures.
-        ClosureDist memory dist = Store.vertex(outToken).homSubtract(
-            VertexId.wrap(inToken),
+        ClosureDist memory dist = Store.vertex(outVid).homSubtract(
+            inVid,
             outAmount
         );
         if (outAmount > 0)
@@ -207,7 +207,8 @@ library EdgeImpl {
                 address(this),
                 inAmount
             );
-        Store.vertex(inToken).homAdd(dist, inAmount);
+        // We leave the protocolFee on this contract.
+        Store.vertex(inVid).homAdd(dist, inAmount - protocolFee);
     }
 
     /// Fetch the price, tick, and liquidity implied by the current balances for these tokens.
@@ -248,8 +249,9 @@ library EdgeImpl {
         uint256 sqrtYWideX64 = sqrt(
             (((uint256(balance1) << 96) + sqrtPa) << 32) / (self.amplitude + 1)
         );
-        sqrtPriceX96 = (sqrtYWideX64 << 96) / sqrtXWideX64;
-        wideLiq = (sqrtYWideX64 * sqrtXWideX64) >> 128;
+        // Given the codomain, these casts are safe.
+        sqrtPriceX96 = uint160((sqrtYWideX64 << 96) / sqrtXWideX64);
+        wideLiq = uint128((sqrtYWideX64 * sqrtXWideX64) >> 128);
     }
 
     /* Helper Price functions */
@@ -298,7 +300,7 @@ library EdgeImpl {
 
     /* Helpers */
 
-    function sqrt(uint x) private returns (uint y) {
+    function sqrt(uint x) private pure returns (uint y) {
         if (x == 0) return 0;
         else if (x <= 3) return 1;
         uint z = (x + 1) / 2;

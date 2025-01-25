@@ -113,7 +113,7 @@ library VaultE4626Impl {
     }
 
     function withdraw(
-        VaultE4626 memory self,
+        VaultE4626 storage self,
         VaultTemp memory temp,
         ClosureId cid,
         uint256 amount
@@ -195,7 +195,7 @@ library VaultE4626Impl {
     }
 
     /// Clamp an amount down to the largest uint128 value possible.
-    function min128(uint256 amount) private returns (uint128) {
+    function min128(uint256 amount) private pure returns (uint128) {
         return
             (amount > type(uint128).max) ? type(uint128).max : uint128(amount);
     }

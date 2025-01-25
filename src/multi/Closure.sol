@@ -10,7 +10,7 @@ type ClosureId is uint16;
 
 using ClosureIdImpl for ClosureId global;
 
-function newClosureId(address[] memory tokens) returns (ClosureId) {
+function newClosureId(address[] memory tokens) view returns (ClosureId) {
     uint16 cid = 0;
     TokenRegistry storage tokenReg = Store.tokenRegistry();
     for (uint256 i = 0; i < tokens.length; ++i) {
@@ -45,13 +45,17 @@ struct ClosureDist {
 
 function newClosureDist(
     ClosureId[] storage closures
-) returns (ClosureDist memory dist) {
+) view returns (ClosureDist memory dist) {
+    bytes32 ptr;
     assembly {
-        dist.closurePtr := closures.slot
+        ptr := closures.slot
     }
+    dist.closurePtr = ptr;
     dist.weights = new uint256[](closures.length);
     dist.totalWeight = 0;
 }
+
+using ClosureDistImpl for ClosureDist global;
 
 library ClosureDistImpl {
     // Thrown when a closure dist that is already normalized gets normalized again.
@@ -87,13 +91,13 @@ library ClosureDistImpl {
         uint256 amount,
         bool roundUp
     ) internal pure returns (uint256 scaled) {
-        if (self.totalWeigth != 0) revert NotNormalized();
+        if (self.totalWeight != 0) revert NotNormalized();
         scaled = FullMath.mulX256(self.weights[idx], amount, roundUp);
     }
 
     function getClosures(
         ClosureDist memory self
-    ) internal view returns (ClosureId[] storage closures) {
+    ) internal pure returns (ClosureId[] storage closures) {
         // The first slot in self is the closurePtr
         assembly {
             closures.slot := mload(self)
