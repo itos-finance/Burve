@@ -90,10 +90,18 @@ library VaultE4626Impl {
     ) internal {
         // TODO we have to discount the new amount in total assets and new shares
         // by any withdrawal fees.
-        uint256 newlyAdding = FullMath.mulX128(temp.vars[1], temp.vars[3]);
+        uint256 newlyAdding = FullMath.mulX128(
+            temp.vars[1],
+            temp.vars[3],
+            true // Round up to round shares down.
+        );
         uint256 totalAssets = temp.vars[0] + newlyAdding;
 
-        uint256 discountedAmount = FullMath.mulX128(amount, temp.vars[3]);
+        uint256 discountedAmount = FullMath.mulX128(
+            amount,
+            temp.vars[3],
+            false // Round down to round shares down.
+        );
         uint256 newShares = FullMath.mulDiv(
             self.totalShares,
             discountedAmount,
@@ -105,7 +113,7 @@ library VaultE4626Impl {
     }
 
     function withdraw(
-        VaultPointer memory self,
+        VaultE4626 memory self,
         VaultTemp memory temp,
         ClosureId cid,
         uint256 amount
@@ -119,7 +127,7 @@ library VaultE4626Impl {
             self.totalShares,
             amount,
             totalAssets
-        );
+        ); // Rounds down, leaves some share dust in the vault.
         self.shares[cid] -= sharesToRemove;
         self.totalShares -= sharesToRemove;
         temp.vars[2] += amount;
@@ -128,18 +136,67 @@ library VaultE4626Impl {
     /// Return the most we can withdraw right now.
     function withdrawable(
         VaultE4626 storage self
-    ) internal view returns (uint256) {
-        return self.vault.maxWithdraw(address(this));
+    ) internal view returns (uint128) {
+        return min128(self.vault.maxWithdraw(address(this)));
     }
 
     /// Return the amount of tokens owned by a closure
     function balance(
-        VaultPointer memory self,
+        VaultE4626 storage self,
         VaultTemp memory temp,
-        ClosureId cid
-    ) internal view returns (uint256 amount) {
-        uint256 newlyAdding = FullMath.mulX128(temp.vars[1], temp.vars[3]);
+        ClosureId cid,
+        bool roundUp
+    ) internal view returns (uint128 amount) {
+        uint256 newlyAdding = FullMath.mulX128(
+            temp.vars[1],
+            temp.vars[3],
+            roundUp
+        );
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
-        return FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
+        uint256 fullAmount = roundUp
+            ? FullMath.mulDivRoundingUp(
+                self.shares[cid],
+                totalAssets,
+                self.totalShares
+            )
+            : FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
+        // For the pegged assets we're interested in,
+        // it would be insane to have more than 2^128 of any token so this is unlikely.
+        // And if it is hit, users will withdraw until it goes below because their LP is forcibly trading
+        // below NAV.
+        amount = min128(fullAmount);
+    }
+
+    /// Return the total amount of tokens owned by multiple closures
+    function totalBalance(
+        VaultE4626 storage self,
+        VaultTemp memory temp,
+        ClosureId[] cids,
+        bool roundUp
+    ) internal view returns (uint128 amount) {
+        uint256 newlyAdding = FullMath.mulX128(
+            temp.vars[1],
+            temp.vars[3],
+            roundUp
+        );
+        uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
+        uint256 cidShares = 0;
+        for (uint256 i = 0; i < cids.length; ++i) {
+            cidShares += self.shares[cids[i]];
+        }
+        uint256 fullAmount = roundUp
+            ? FullMath.mulDivRoundingUp(
+                cidShares,
+                totalAssets,
+                self.totalShares
+            )
+            : FullMath.mulDiv(cidShares, totalAssets, self.totalShares);
+        amount = min128(fullAmount);
+    }
+
+    /// Clamp an amount down to the largest uint128 value possible.
+    function min128(uint256 amount) private returns (uint128) {
+        return
+            (amount > type(uint128).max) ? type(uint128).max : uint128(amount);
     }
 }

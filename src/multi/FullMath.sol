@@ -247,7 +247,7 @@ library FullMath {
         bool roundUp
     ) internal pure returns (uint256) {
         (uint256 bot, uint256 top) = FullMath.mul512(a, b);
-        if (bot > 0) top += 1;
+        if (roundUp && bot > 0) top += 1;
         return top;
     }
 }

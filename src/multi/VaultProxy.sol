@@ -2,6 +2,9 @@
 pragma solidity ^0.8.27;
 
 import {VertexId} from "./Vertex.sol";
+import {VaultE4626, VaultE4626Impl} from "./E4626.sol";
+import {Store} from "./Store.sol";
+import {ClosureId} from "./Closure.sol";
 
 // The number of temporary variables used by vaults. See VaultTemp.
 uint256 constant NUM_VAULT_VARS = 4;
@@ -29,10 +32,10 @@ library VaultLib {
         VertexId vid,
         address token,
         address vault,
-        VaultType vtype
+        VaultType vType
     ) internal {
         VaultStorage storage vaults = Store.vaults();
-        if (vaults.vType[vid] != VaultType.UnImplemented)
+        if (vaults.vTypes[vid] != VaultType.UnImplemented)
             revert VaultExists(vid);
         vaults.vTypes[vid] = vType;
         if (vType == VaultType.E4626) {
@@ -51,7 +54,7 @@ library VaultLib {
         if (vPtr.vType == VaultType.E4626) {
             VaultE4626 storage v = vaults.e4626s[vid];
             assembly {
-                vPtr.slotAddress := v.slot
+                mstore(vPtr, v.slot) // slotAddress is the first field.
             }
             v.fetch(vPtr.temp);
         } else {
@@ -119,10 +122,24 @@ library VaultPointerImpl {
     /// Query the balance available to the given cid.
     function balance(
         VaultPointer memory self,
-        ClosureId cid
-    ) internal view returns (uint256 amount) {
+        ClosureId cid,
+        bool roundUp
+    ) internal view returns (uint128 amount) {
         if (self.vType == VaultType.E4626) {
-            return getE4626(self).balance(self.temp, cid);
+            return getE4626(self).balance(self.temp, cid, roundUp);
+        } else {
+            revert VaultTypeUnrecognized(self.vType);
+        }
+    }
+
+    /// Query the total balance of all the given cids.
+    function totalBalance(
+        VaultPointer memory self,
+        ClosureId[] cids,
+        bool roundUp
+    ) internal view returns (uint128 amount) {
+        if (self.vType == VaultType.E4626) {
+            return getE4626(self).totalBalance(self.temp, cids, roundUp);
         } else {
             revert VaultTypeUnrecognized(self.vType);
         }
@@ -144,7 +161,7 @@ library VaultPointerImpl {
         VaultPointer memory self
     ) private view returns (VaultE4626 storage proxy) {
         assembly {
-            proxy.slot := self.slotAddress
+            proxy.slot := mload(self)
         }
     }
 }

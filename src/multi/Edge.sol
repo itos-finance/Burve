@@ -4,13 +4,18 @@ pragma solidity ^0.8.27;
 import {TickMath} from "v3-core/contracts/libraries/TickMath.sol";
 import {UniV3Edge} from "./UniV3Edge.sol";
 import {FullMath} from "./FullMath.sol";
+import {Store} from "./Store.sol";
+import {SimplexStorage} from "./facets/SimplexFacet.sol";
+import {TransferHelper} from "../TransferHelper.sol";
+import {VertexId, newVertexId} from "./Vertex.sol";
+import {ClosureDist} from "./Closure.sol";
 
-/**
+/*
     Contains all information relation to the pool used to swap between two vertices.
  */
 
 struct Edge {
-    /* Slot 0 and Tick map info */
+    /* Swap info */
     // TODO in the future we may make this a list of amplitudes and ticks.
     // For now we just use one range.
     int24 lowTick;
@@ -18,23 +23,16 @@ struct Edge {
     // To satisfy price transitivity these ticks must also be transitive.
     // e.g. if narrow low of y/x is -10 then z/y must be 10 in order for z/x to commute.
     uint256 amplitude; // The scaling factor between narrow and wide liquidity. Narrow liq = A * wide liq.
-    /* non-slot0 info */
-    int24 tickSpacing;
+    /* Other slot0 info */
     uint24 fee; // Fee rate for swaps
     uint8 feeProtocol; // Fee rate for the protocol
-    // accumulated protocol fees in token0/token1 units
-    ProtocolFees protocolFees;
-}
-
-struct ProtocolFees {
-    uint128 token0;
-    uint128 token1;
 }
 
 using EdgeImpl for Edge global;
 
 library EdgeImpl {
-    /// Admin function to set edge parameters.
+    /* Admin function to set edge parameters */
+
     /// @dev This is simple because we recalculate the implied price every time.
     /// Just be sure to set the ticks such that the price diagram commutes.
     function setRange(
@@ -48,14 +46,25 @@ library EdgeImpl {
         self.amplitude = amplitude;
     }
 
-    /// Highest level method used by SwapFacet
+    function setFees(
+        Edge storage self,
+        uint24 fee,
+        uint8 feeProtocol
+    ) internal {
+        self.fee = fee;
+        self.feeProtocol = feeProtocol;
+    }
+
+    // The main function to support.
+    // @param token0 The lower address token.
     function swap(
         Edge storage self,
+        address token0,
+        address token1,
         address recipient,
         bool zeroForOne,
-        uint256 amountSpecified,
-        uint160 sqrtPriceLimitX96,
-        bytes calldata data
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96
     ) internal returns (uint256 amount0, uint256 amount1) {
         // Prep the swap.
         UniV3Edge.Slot0 memory slot0 = getSlot0();
@@ -68,53 +77,43 @@ library EdgeImpl {
             sqrtPriceLimitX96
         );
 
-        // do the transfers and collect payment
+        address inToken;
+        uint256 inAmount;
+        address outToken;
+        uint256 outAmount;
         if (zeroForOne) {
-            if (amount1 < 0)
-                TransferHelper.safeTransfer(
-                    slot0Start.token1,
-                    recipient,
-                    uint256(-amount1)
-                );
-
-            uint256 balance0Before = edge.balance0();
-            IUniswapV3SwapCallback(msg.sender).uniswapV3SwapCallback(
-                amount0,
-                amount1,
-                data
-            );
-            require(
-                balance0Before.add(uint256(amount0)) <= edge.balance0(),
-                "IIA"
-            );
+            inToken = token0;
+            inAmount = uint256(amount0);
+            outToken = token1;
+            outAmount = uint256(-amount1);
         } else {
-            if (amount0 < 0)
-                TransferHelper.safeTransfer(
-                    token0,
-                    recipient,
-                    uint256(-amount0)
-                );
-
-            uint256 balance1Before = edge.balance1();
-            IUniswapV3SwapCallback(msg.sender).uniswapV3SwapCallback(
-                amount0,
-                amount1,
-                data
-            );
-            require(
-                balance1Before.add(uint256(amount1)) <= edge.balance1(),
-                "IIA"
-            );
+            inToken = token1;
+            inAmount = uint256(amount1);
+            outToken = token0;
+            outAmount = uint256(-amount0);
         }
+        exchange(
+            recipient,
+            inToken,
+            inAmount,
+            outToken,
+            outAmount,
+            protocolFee
+        );
 
+        (uint160 sqrtPriceX96, int24 tick, uint128 liquidity) = calcImpliedPool(
+            self,
+            balance0,
+            balance1
+        );
         emit Swap(
             msg.sender,
             recipient,
             amount0,
             amount1,
-            state.sqrtPriceX96,
-            state.liquidity,
-            state.tick
+            sqrtPriceX96,
+            liquidity,
+            tick
         );
     }
 
@@ -122,12 +121,108 @@ library EdgeImpl {
 
     /// Called by the UniV3Edge to fetch the information it needs to swap.
     function getSlot0(
-        Edge storage self
+        Edge storage self,
+        address token0,
+        address token1
+    ) private view returns (UniV3Edge.Slot0 memory slot0) {
+        // If this edge has never been called before we will set ourselves to the default edge
+        if (self.amplitude == 0) {
+            self = Store.simplex().defaultEdge;
+        }
+        slot0.fee = self.fee;
+        slot0.feeProtocol = self.feeProtocol;
+        (slot0.sqrtPriceX96, slot0.tick, slot0.liquidity) = calcImpliedPool(
+            self,
+            token0,
+            token1
+        );
+    }
+
+    /// Fetch the next tick in either direction
+    function nextTick(
+        Edge storage self,
+        int24 currentTick,
+        bool isSell /* same as zeroForOne */
+    ) internal returns (int24) {
+        if (isSell) {
+            // When selling, even if we're at the next tick,
+            // we still return the same tick because the swap will move to tick - 1.
+            if (currentTick >= self.highTick) return self.highTick;
+            else if (currentTick >= self.lowTick) return self.lowTick;
+            else return (TickMath.MIN_TICK);
+        } else {
+            if (currentTick < self.lowTick) return self.lowTick;
+            else if (currentTick < self.highTick) return self.highTick;
+            else return (TickMath.MAX_TICK);
+        }
+    }
+
+    /// Update the liquidity from one tick to another.
+    function updateLiquidity(
+        Edge storage self,
+        int24 currentTick,
+        int24 startTick,
+        uint128 startLiq
+    ) internal returns (uint128 currentLiq) {
+        bool startIn = (self.lowTick <= startTick && startTick < self.highTick);
+        bool nowIn = (self.lowTick <= currentTick &&
+            currentTick < self.highTick);
+        if (startIn) return nowIn ? startLiq : startLiq / self.amplitude;
+        else return nowIn ? startLiq * self.amplitude : startLiq;
+    }
+
+    /* Swap Helpers */
+
+    // Called to perform the actual exchange from one token balance to another.
+    function exchange(
+        address recipient,
+        address inToken,
+        uint256 inAmount,
+        address outToken,
+        uint256 outAmount
+    ) internal {
+        // We send out the outtoken, and give the intoken to the appropriate closures.
+        ClosureDist memory dist = Store.vertex(outToken).homSubtract(
+            VertexId.wrap(inToken),
+            outAmount
+        );
+        if (outAmount > 0)
+            TransferHelper.safeTransfer(outToken, recipient, outAmount);
+        if (inAmount > 0)
+            TranferHelper.safeTransferFrom(
+                inToken,
+                msg.sender,
+                address(this),
+                inAmount
+            );
+        Store.vertex(inToken).homAdd(dist, amount);
+    }
+
+    /// Fetch the price, tick, and liquidity implied by the current balances for these tokens.
+    function calcImpliedPool(
+        Edge storage self,
+        address token0,
+        address token1
     )
-        internal
+        private
         view
-        returns (uint160 sqrtPriceX96, uint128 narrowLiq, uint128 wideLiq)
+        returns (uint160 sqrtPriceX96, int24 tick, uint128 currentLiq)
     {
+        VertexId v0 = newVertexId(token0);
+        VertexId v1 = newVertexId(token1);
+        uint256 balance0 = Store.vertex(v0).balance(v1, false);
+        uint256 balance1 = Store.vertex(v1).balance(v0, false);
+        (sqrtPriceX96, currentLiq) = calcAmounts(self, balance0, balance1);
+        tick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+        if (self.lowTick <= tick && tick < self.highTick)
+            currentLiq = uint128(self.amplitude * currentLiq);
+    }
+
+    function calcAmounts(
+        Edge storage self,
+        uint256 balance0,
+        uint256 balance1
+    ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
         // We're actually somewhat restrictive on these token amounts.
         // It's mostly okay because we focus on handling stables and blue chips derivatives.
         // If someone actually had 2^128 of a stable, even with 1e18 decimals, all money would be worthless.
@@ -143,66 +238,9 @@ library EdgeImpl {
         );
         sqrtPriceX96 = (sqrtYWideX64 << 96) / sqrtXWideX64;
         wideLiq = (sqrtYWideX64 * sqrtXWideX64) >> 128;
-        narrowLiq = wideLiq * amplitude;
     }
 
-    /// Called by a swap to determine price and liquidity.
-    function slot0()
-        internal
-        view
-        returns (
-            uint160 sqrtPriceX96,
-            uint128 narrowLiq,
-            int24 narrowLowTick,
-            int24 narrowHighTick,
-            uint128 wideLiq
-        )
-    {
-        address token0 = IUniswapV3Pool(msg.sender).token0();
-        address token1 = IUniswapV3Pool(msg.sender).token1();
-
-        VertexId vid0 = newVertexId(token0);
-        VertexId vid1 = newVertexId(token1);
-        uint128 balance0 = Store.vertex(vid0).balance(vid1);
-        uint128 balance1 = Store.vertex(vid1).balance(vid0);
-        Edge storage edge = Store.edges(token0, token1);
-        (narrowLowTick, narrowHighTick) = (edge.lowTick, edge.highTick);
-        (sqrtPriceX96, narrowLiq, wideLiq) = edge.getImplied(
-            balance0,
-            balance1
-        );
-    }
-
-    function nextTick(int24 currentTick, bool isSell /* same as zeroForOne */) internal returns (int24) {
-        if (currentTick)
-    }
-
-    // Called by the uniEdge when it exchanges one token balance for another.
-    function exchange(
-        address inToken,
-        uint256 inAmount,
-        address outToken,
-        uint256 outAmount
-    ) internal {
-        Edge storage edge = Store.edges(inToken, outToken);
-        require(address(edge.uniPool) == msg.sender);
-
-        // We send out the outtoken, and give the intoken to the appropriate closures.
-        ClosureDist memory dist = Store.vertex(outToken).homSubtract(
-            VertexId.wrap(inToken),
-            outAmount
-        );
-        Store.vertex(inToken).homAdd(dist, amount);
-    }
-
-    function balance(
-        address token,
-        address otherToken
-    ) internal returns (uint256 amount) {
-        VertexId vid = newVertexId(token);
-        VertexId otherVid = newVertexId(otherToken);
-        return Store.vertex(vid).balance(otherVid);
-    }
+    /* Helper Price functions */
 
     /// Fetch the price implied by these balances on this edge denoted in terms of token1.
     /// @dev This ALWAYS rounds up due to its usage in Add.
@@ -248,7 +286,7 @@ library EdgeImpl {
 
     /* Helpers */
 
-    function sqrt(uint x) returns (uint y) {
+    function sqrt(uint x) private returns (uint y) {
         if (x == 0) return 0;
         else if (x <= 3) return 1;
         uint z = (x + 1) / 2;

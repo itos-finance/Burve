@@ -8,15 +8,22 @@ import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
 
+import {IDiamondCut} from "Commons/Diamond/interfaces/IDiamondCut.sol";
+import {IDiamondLoupe} from "Commons/Diamond/interfaces/IDiamondLoupe.sol";
+import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
+import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
+import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
+
 import {SwapFacet} from "./facets/SwapFacet.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
+import {EdgeFacet} from "./facets/EdgeFacet.sol";
 
 contract SimplexDiamond is IDiamond {
     constructor(address swapFacet, address liqFacet, address simplexFacet) {
         AdminLib.initOwner(msg.sender);
 
-        FacetCut[] memory cuts = new FacetCut[](6);
+        FacetCut[] memory cuts = new FacetCut[](7);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -78,14 +85,25 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory simplexSelectors = new bytes4[](1);
+            bytes4[] memory simplexSelectors = new bytes4[](2);
             simplexSelectors[0] = SimplexFacet.addVertex.selector;
-            simplexSelectors[1] = SimplexFacet.setEdgeDefault.selector;
-            simplexSelectors[2] = SimplexFacet.setEdge.selector;
+            simplexSelectors[1] = SimplexFacet.setDefaultEdge.selector;
             cuts[5] = FacetCut({
                 facetAddress: simplexFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: simplexSelectors
+            });
+        }
+
+        {
+            // Edge facet is so small we just deploy it ourselves.
+            bytes4[] memory edgeSelectors = new bytes4[](2);
+            edgeSelectors[0] = EdgeFacet.setEdge.selector;
+            edgeSelectors[1] = EdgeFacet.setEdgeFee.selector;
+            cuts[6] = FacetCut({
+                facetAddress: address(new EdgeFacet()),
+                action: FacetCutAction.Add,
+                functionSelectors: edgeSelectors
             });
         }
 
@@ -97,7 +115,5 @@ contract SimplexDiamond is IDiamond {
         ds.supportedInterfaces[type(IDiamondCut).interfaceId] = true;
         ds.supportedInterfaces[type(IDiamondLoupe).interfaceId] = true;
         ds.supportedInterfaces[type(IERC173).interfaceId] = true;
-
-        SimplexLib.init();
     }
 }

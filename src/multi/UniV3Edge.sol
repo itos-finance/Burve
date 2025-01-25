@@ -11,8 +11,6 @@ import "v3-core/contracts/libraries/TickMath.sol";
 import "v3-core/contracts/libraries/SqrtPriceMath.sol";
 import "v3-core/contracts/libraries/SwapMath.sol";
 
-import "v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-
 library UniV3Edge {
     using LowGasSafeMath for uint256;
     using LowGasSafeMath for int256;
@@ -25,20 +23,17 @@ library UniV3Edge {
     // It also holds essential information for swapping.
     // This is co-opted in our setup to simply hold information it needs to fetch from the edge at the start of a swap.
     struct Slot0 {
-        // Not in base V3's slot 0, but useful here.
-        address token0;
-        address token1;
-        // the current tick
-        int24 tick;
-        // the current price
-        uint160 sqrtPriceX96;
+        /// The pool's fee in hundredths of a bip, i.e. 1e-6
+        uint24 fee;
         // the current protocol fee as a percentage of the swap fee taken on withdrawal
         // represented as an integer denominator (1/x)%
         uint8 feeProtocol;
+        // the current price
+        uint160 sqrtPriceX96;
+        // the current tick
+        int24 tick;
         // The current liquidity. Not normally included in uniswap slot0, but useful here.
         uint128 liquidity;
-        /// The pool's fee in hundredths of a bip, i.e. 1e-6
-        uint24 fee;
     }
 
     // the top level state of the swap, the results of which are recorded in storage at the end
@@ -168,7 +163,11 @@ library UniV3Edge {
             // shift tick if we reached the next price
             if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
                 state.tick = zeroForOne ? step.tickNext - 1 : step.tickNext;
-                state.liquidity = edge.getLiquidity(state.tick); // TODO
+                state.liquidity = edge.updateLiquidity(
+                    state.tick,
+                    slot0Start.tick,
+                    slot0Start.liquidity
+                );
             } else if (state.sqrtPriceX96 != step.sqrtPriceStartX96) {
                 // recompute unless we're on a lower tick boundary (i.e. already transitioned ticks), and haven't moved
                 state.tick = TickMath.getTickAtSqrtRatio(state.sqrtPriceX96);
@@ -189,21 +188,5 @@ library UniV3Edge {
             );
 
         // We handle token transfers in Edge.
-    }
-
-    /* Private helper methods */
-
-    /// @dev Get this contract's current balance of token0
-    /// @dev This function is gas optimized to avoid a redundant extcodesize check in addition to the returndatasize
-    /// check
-    function balance(address token) private view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSelector(
-                IERC20Minimal.balanceOf.selector,
-                address(this)
-            )
-        );
-        require(success && data.length >= 32);
-        return abi.decode(data, (uint256));
     }
 }

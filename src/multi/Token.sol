@@ -10,7 +10,7 @@ struct TokenRegistry {
     mapping(address => uint8) tokenIdx;
 }
 
-using TokenRegistryImpl for TokenRegistrar global;
+using TokenRegistryImpl for TokenRegistry global;
 
 library TokenRegistryImpl {
     error AtTokenCapacity();
@@ -29,8 +29,6 @@ library TokenRegistryImpl {
         idx = uint8(self.tokens.length);
         self.tokenIdx[token] = idx;
         self.tokens.push(token);
-        // Init the vertex.
-        Store.vertex(token).init(token);
         emit TokenRegistered(token);
     }
 
@@ -39,10 +37,10 @@ library TokenRegistryImpl {
 
 library TokenRegLib {
     function numVertices() internal view returns (uint8 n) {
-        return uint8(Store().tokenReg().tokens.length);
+        return uint8(Store().tokenRegistry().tokens.length);
     }
 
     function getIdx(address token) internal view returns (uint8 idx) {
-        return Store().tokenReg().tokenIdx[token];
+        return Store().tokenRegistry().tokenIdx[token];
     }
 }
