@@ -47,7 +47,6 @@ contract LiqFacet is ReentrancyGuardTransient {
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
 
-            console.log("Index i:", i, "Vertex Index idx:", idx);
             if (cid.contains(v)) {
                 // We need to add it to the Vertex so we can use it in swaps.
                 Store.vertex(v).ensureClosure(cid);
@@ -55,11 +54,9 @@ contract LiqFacet is ReentrancyGuardTransient {
                 VaultPointer memory vPtr = VaultLib.get(v);
                 preBalance[i] = vPtr.balance(cid, true);
                 if (i == idx) {
-                    console.log("HERE");
                     vPtr.deposit(cid, amount);
                     tokenBalance = vPtr.balance(cid, false);
                     // Commit the deposit.
-                    console.log("HERE");
                     vPtr.commit();
                 }
             }
@@ -69,6 +66,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         if (tokenBalance == 0) revert TokenNotInClosure(cid, token);
         // Get the amount we added rounded down.
         uint256 addedBalance = tokenBalance - preBalance[idx];
+        console.log("addedBalance", addedBalance);
 
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
@@ -91,6 +89,7 @@ contract LiqFacet is ReentrancyGuardTransient {
                 );
             }
         }
+        console.log("cumulative value", cumulativeValue);
         shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
     }
 
