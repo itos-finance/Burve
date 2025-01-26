@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {console2 as console} from "forge-std/console2.sol";
 import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
@@ -102,11 +103,14 @@ library VaultE4626Impl {
             temp.vars[3],
             false // Round down to round shares down.
         );
-        uint256 newShares = FullMath.mulDiv(
-            self.totalShares,
-            discountedAmount,
-            totalAssets
-        );
+        // console.log("Depositing:", amount, "for ClosureId:", cid);
+        console.log("Current total assets:", temp.vars[0]);
+        console.log("Newly adding assets:", newlyAdding);
+        console.log("Discounted amount:", discountedAmount);
+        console.log("Total shares before deposit:", self.totalShares);
+        uint256 newShares = totalAssets == 0
+            ? discountedAmount
+            : FullMath.mulDiv(self.totalShares, discountedAmount, totalAssets);
         self.shares[cid] += newShares;
         self.totalShares += newShares;
         temp.vars[1] += amount;
@@ -147,23 +151,38 @@ library VaultE4626Impl {
         ClosureId cid,
         bool roundUp
     ) internal view returns (uint128 amount) {
+        console.log("1");
         uint256 newlyAdding = FullMath.mulX128(
             temp.vars[1],
             temp.vars[3],
             roundUp
         );
+        console.log("2");
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
-        uint256 fullAmount = roundUp
-            ? FullMath.mulDivRoundingUp(
-                self.shares[cid],
-                totalAssets,
-                self.totalShares
-            )
-            : FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
+        console.log("3");
+        console.log("Shares for CID:", self.shares[cid]);
+        console.log("Total Shares:", self.totalShares);
+        console.log("Newly Adding:", newlyAdding);
+        console.log("Total Assets:", totalAssets);
+        uint256 fullAmount = self.totalShares == 0
+            ? newlyAdding
+            : roundUp
+                ? FullMath.mulDivRoundingUp(
+                    self.shares[cid],
+                    totalAssets,
+                    self.totalShares
+                )
+                : FullMath.mulDiv(
+                    self.shares[cid],
+                    totalAssets,
+                    self.totalShares
+                );
+        console.log("4");
         // For the pegged assets we're interested in,
         // it would be insane to have more than 2^128 of any token so this is unlikely.
         // And if it is hit, users will withdraw until it goes below because their LP is forcibly trading
         // below NAV.
+        console.log("5");
         amount = min128(fullAmount);
     }
 

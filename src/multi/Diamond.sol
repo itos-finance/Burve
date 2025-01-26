@@ -72,7 +72,7 @@ contract SimplexDiamond is IDiamond {
             liqSelectors[0] = LiqFacet.addLiq.selector;
             liqSelectors[1] = LiqFacet.removeLiq.selector;
             cuts[3] = FacetCut({
-                facetAddress: liqFacet,
+                facetAddress: address(new LiqFacet()),
                 action: FacetCutAction.Add,
                 functionSelectors: liqSelectors
             });
@@ -82,16 +82,17 @@ contract SimplexDiamond is IDiamond {
             bytes4[] memory swapSelectors = new bytes4[](1);
             swapSelectors[0] = SwapFacet.swap.selector;
             cuts[4] = FacetCut({
-                facetAddress: swapFacet,
+                facetAddress: address(new SwapFacet()),
                 action: FacetCutAction.Add,
                 functionSelectors: swapSelectors
             });
         }
 
         {
-            bytes4[] memory simplexSelectors = new bytes4[](2);
+            bytes4[] memory simplexSelectors = new bytes4[](3);
             simplexSelectors[0] = SimplexFacet.addVertex.selector;
             simplexSelectors[1] = SimplexFacet.setDefaultEdge.selector;
+            simplexSelectors[2] = SimplexFacet.getClosureId.selector;
             cuts[5] = FacetCut({
                 facetAddress: address(new SimplexFacet()),
                 action: FacetCutAction.Add,

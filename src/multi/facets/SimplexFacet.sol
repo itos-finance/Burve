@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {ClosureId, newClosureId} from "../Closure.sol";
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
@@ -17,6 +18,12 @@ contract SimplexFacet {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
+    }
+
+    function getClosureId(
+        address[] memory tokens
+    ) external view returns (ClosureId) {
+        return newClosureId(tokens);
     }
 
     /// Withdraw fees earned by the protocol.
