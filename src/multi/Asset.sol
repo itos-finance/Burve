@@ -21,7 +21,13 @@ library AssetLib {
     ) internal returns (uint256 shares) {
         AssetStorage storage assets = Store.assets();
         uint256 total = assets.totalShares[cid];
-        shares = FullMath.mulDiv(num, total, denom);
+        if (total == 0) {
+            // There are no existing deposits for this CID.
+            require(num == denom, "NDE");
+            shares = num;
+        } else {
+            shares = FullMath.mulDiv(num, total, denom);
+        }
         assets.shares[owner][cid] += shares;
         assets.totalShares[cid] += shares;
     }
@@ -34,7 +40,12 @@ library AssetLib {
     ) internal returns (uint256 percentX256) {
         AssetStorage storage assets = Store.assets();
         uint256 total = assets.totalShares[cid];
-        percentX256 = FullMath.mulDivX256(shares, total);
+        if (shares == total) {
+            percentX256 = type(uint256).max;
+        } else {
+            // percentX256 = FullMath.mulDivX256(shares, total);
+            percentX256 = FullMath.mulDiv(shares, 1 << 255, total) << 1;
+        }
         // Will error on underflow.
         assets.shares[owner][cid] -= shares;
         assets.totalShares[cid] -= shares;

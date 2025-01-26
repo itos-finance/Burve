@@ -43,6 +43,8 @@ library EdgeImpl {
         int24 tick
     );
 
+    error NoEdgeSettings(address token0, address token1);
+
     /* Admin function to set edge parameters */
 
     /// @dev This is simple because we recalculate the implied price every time.
@@ -137,6 +139,7 @@ library EdgeImpl {
         // If this edge has never been called before we will set ourselves to the default edge
         if (self.amplitude == 0) {
             self = Store.simplex().defaultEdge;
+            if (self.amplitude == 0) revert NoEdgeSettings(token0, token1);
         }
         slot0.fee = self.fee;
         slot0.feeProtocol = self.feeProtocol;

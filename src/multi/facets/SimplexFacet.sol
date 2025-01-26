@@ -15,9 +15,7 @@ contract SimplexFacet {
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
-        // TODO
-
-        // Init the vertex.
+        Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
     }
 
