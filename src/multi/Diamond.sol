@@ -19,13 +19,15 @@ import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
 
+import {StorageFacet} from "../../test/mocks/StorageFacet.sol";
+
 error FunctionNotFound(bytes4 _functionSelector);
 
 contract SimplexDiamond is IDiamond {
     constructor(address swapFacet, address liqFacet, address simplexFacet) {
         AdminLib.initOwner(msg.sender);
 
-        FacetCut[] memory cuts = new FacetCut[](7);
+        FacetCut[] memory cuts = new FacetCut[](8);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -106,6 +108,22 @@ contract SimplexDiamond is IDiamond {
                 facetAddress: address(new EdgeFacet()),
                 action: FacetCutAction.Add,
                 functionSelectors: edgeSelectors
+            });
+        }
+
+        /// TODO: figure out why I can't add these during test setup, but it works if i just add them to the diamond
+        {
+            // Add storage facet using LibDiamond directly since we're the owner
+            bytes4[] memory selectors = new bytes4[](4);
+            selectors[0] = StorageFacet.getEdge.selector;
+            selectors[1] = StorageFacet.getVertex.selector;
+            selectors[2] = StorageFacet.getAssetShares.selector;
+            selectors[3] = StorageFacet.getDefaultEdge.selector;
+
+            cuts[7] = IDiamond.FacetCut({
+                facetAddress: address(new StorageFacet()),
+                action: IDiamond.FacetCutAction.Add,
+                functionSelectors: selectors
             });
         }
 

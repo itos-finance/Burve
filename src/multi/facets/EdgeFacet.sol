@@ -6,6 +6,7 @@ import {Edge} from "../Edge.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 contract EdgeFacet {
+    error InvalidTickRange();
     event EdgeFeeUpdated(address token0, address token1, uint24 fee);
 
     /// Set the swap parameters for a single edge.
@@ -17,6 +18,7 @@ contract EdgeFacet {
         int24 highTick
     ) external {
         AdminLib.validateOwner();
+        if (lowTick >= highTick) revert InvalidTickRange();
         Store.edge(token0, token1).setRange(amplitude, lowTick, highTick);
     }
 
