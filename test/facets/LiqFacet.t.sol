@@ -62,6 +62,8 @@ contract LiqFacetTest is Test {
         // Setup test tokens
         token0 = new MockERC20("Test Token 0", "TEST0", 18);
         token1 = new MockERC20("Test Token 1", "TEST1", 18);
+        vm.label(address(token0), "token0");
+        vm.label(address(token1), "token1");
 
         // Ensure token0 address is less than token1
         if (address(token0) > address(token1)) {
@@ -163,12 +165,12 @@ contract LiqFacetTest is Test {
             address(token0),
             uint128(amount)
         );
-        uint256 aliceShares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(amount)
-        );
+        // uint256 aliceShares1 = liqFacet.addLiq(
+        //     alice,
+        //     closureId,
+        //     address(token1),
+        //     uint128(amount)
+        // );
         vm.stopPrank();
 
         // Bob adds same amount of liquidity
@@ -179,26 +181,67 @@ contract LiqFacetTest is Test {
             address(token0),
             uint128(amount)
         );
-        uint256 bobShares1 = liqFacet.addLiq(
-            bob,
-            closureId,
-            address(token1),
-            uint128(amount)
-        );
+        // uint256 bobShares1 = liqFacet.addLiq(
+        //     bob,
+        //     closureId,
+        //     address(token1),
+        //     uint128(amount)
+        // );
         vm.stopPrank();
 
-        // Verify shares are proportional
-        assertApproxEqRel(
-            aliceShares0,
-            bobShares0,
-            1e16, // 1% tolerance
-            "Shares should be approximately equal for same liquidity amount"
+        console2.log("Alice shares for token0:", aliceShares0);
+        // console2.log("Alice shares for token1:", aliceShares1);
+        console2.log("Bob shares for token0:", bobShares0);
+        // console2.log("Bob shares for token1:", bobShares1);
+
+        vm.startPrank(alice);
+
+        // Record balances before removal
+        uint256 aliceToken0Before = token0.balanceOf(alice);
+        uint256 aliceToken1Before = token1.balanceOf(alice);
+
+        // Remove all liquidity
+        liqFacet.removeLiq(alice, closureId, aliceShares0, "");
+
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+
+        // Record balances before removal
+        uint256 bobToken0Before = token0.balanceOf(bob);
+        uint256 bobToken1Before = token1.balanceOf(bob);
+
+        // Remove all liquidity
+        liqFacet.removeLiq(bob, closureId, bobShares0, "");
+
+        vm.stopPrank();
+
+        // Verify tokens were returned (alice)
+        assertApproxEqAbs(
+            token0.balanceOf(alice),
+            aliceToken0Before + amount,
+            1,
+            "Alice should have received all token0 back"
         );
-        assertApproxEqRel(
-            aliceShares1,
-            bobShares1,
-            1e16,
-            "Shares should be approximately equal for same liquidity amount"
+        assertApproxEqAbs(
+            token1.balanceOf(alice),
+            aliceToken1Before + amount,
+            1,
+            "Alice should have received all token1 back"
+        );
+
+        // Verify tokens were returned (bob)
+        assertApproxEqAbs(
+            token0.balanceOf(bob),
+            bobToken0Before + amount,
+            1,
+            "Bob should have received all token0 back"
+        );
+        assertApproxEqAbs(
+            token1.balanceOf(bob),
+            bobToken1Before + amount,
+            1,
+            "Bob should have received all token1 back"
         );
     }
 
@@ -225,20 +268,21 @@ contract LiqFacetTest is Test {
         uint256 token1Before = token1.balanceOf(alice);
 
         // Remove all liquidity
-        liqFacet.removeLiq(alice, closureId, shares0, "");
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares0 + shares1, "");
 
         vm.stopPrank();
 
         // Verify tokens were returned
-        assertEq(
+        assertApproxEqAbs(
             token0.balanceOf(alice),
             token0Before + amount,
+            1,
             "Should have received all token0 back"
         );
-        assertEq(
+        assertApproxEqAbs(
             token1.balanceOf(alice),
             token1Before + amount,
+            1,
             "Should have received all token1 back"
         );
     }

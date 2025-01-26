@@ -96,6 +96,10 @@ library VaultE4626Impl {
             temp.vars[3],
             true // Round up to round shares down.
         );
+
+        console.log("Current total assets:", temp.vars[0]);
+        console.log("Newly adding assets:", newlyAdding);
+        console.log("Total shares before deposit:", self.totalShares);
         uint256 totalAssets = temp.vars[0] + newlyAdding;
 
         uint256 discountedAmount = FullMath.mulX128(
@@ -108,6 +112,7 @@ library VaultE4626Impl {
         console.log("Newly adding assets:", newlyAdding);
         console.log("Discounted amount:", discountedAmount);
         console.log("Total shares before deposit:", self.totalShares);
+        console.log("TotalAssets", totalAssets);
         uint256 newShares = totalAssets == 0
             ? discountedAmount
             : FullMath.mulDiv(self.totalShares, discountedAmount, totalAssets);
@@ -151,19 +156,13 @@ library VaultE4626Impl {
         ClosureId cid,
         bool roundUp
     ) internal view returns (uint128 amount) {
-        console.log("1");
         uint256 newlyAdding = FullMath.mulX128(
             temp.vars[1],
             temp.vars[3],
             roundUp
         );
-        console.log("2");
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
-        console.log("3");
-        console.log("Shares for CID:", self.shares[cid]);
-        console.log("Total Shares:", self.totalShares);
-        console.log("Newly Adding:", newlyAdding);
-        console.log("Total Assets:", totalAssets);
+
         uint256 fullAmount = self.totalShares == 0
             ? newlyAdding
             : roundUp
@@ -177,12 +176,11 @@ library VaultE4626Impl {
                     totalAssets,
                     self.totalShares
                 );
-        console.log("4");
+
         // For the pegged assets we're interested in,
         // it would be insane to have more than 2^128 of any token so this is unlikely.
         // And if it is hit, users will withdraw until it goes below because their LP is forcibly trading
         // below NAV.
-        console.log("5");
         amount = min128(fullAmount);
     }
 
