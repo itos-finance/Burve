@@ -11,6 +11,7 @@ import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../FullMath.sol";
 import {AssetLib} from "../Asset.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -45,6 +46,8 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint128 tokenBalance = 0;
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
+
+            console.log("Index i:", i, "Vertex Index idx:", idx);
             if (cid.contains(v)) {
                 // We need to add it to the Vertex so we can use it in swaps.
                 Store.vertex(v).ensureClosure(cid);
@@ -52,9 +55,11 @@ contract LiqFacet is ReentrancyGuardTransient {
                 VaultPointer memory vPtr = VaultLib.get(v);
                 preBalance[i] = vPtr.balance(cid, true);
                 if (i == idx) {
+                    console.log("HERE");
                     vPtr.deposit(cid, amount);
                     tokenBalance = vPtr.balance(cid, false);
                     // Commit the deposit.
+                    console.log("HERE");
                     vPtr.commit();
                 }
             }

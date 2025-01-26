@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {console2 as console} from "forge-std/console2.sol";
 import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {FullMath} from "./FullMath.sol";
@@ -156,18 +157,32 @@ library VaultE4626Impl {
             temp.vars[3],
             roundUp
         );
+        console.log("2");
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
-        uint256 fullAmount = roundUp
-            ? FullMath.mulDivRoundingUp(
-                self.shares[cid],
-                totalAssets,
-                self.totalShares
-            )
-            : FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
+        console.log("3");
+        console.log("Shares for CID:", self.shares[cid]);
+        console.log("Total Shares:", self.totalShares);
+        console.log("Newly Adding:", newlyAdding);
+        console.log("Total Assets:", totalAssets);
+        uint256 fullAmount = self.totalShares == 0
+            ? newlyAdding
+            : roundUp
+                ? FullMath.mulDivRoundingUp(
+                    self.shares[cid],
+                    totalAssets,
+                    self.totalShares
+                )
+                : FullMath.mulDiv(
+                    self.shares[cid],
+                    totalAssets,
+                    self.totalShares
+                );
+        console.log("4");
         // For the pegged assets we're interested in,
         // it would be insane to have more than 2^128 of any token so this is unlikely.
         // And if it is hit, users will withdraw until it goes below because their LP is forcibly trading
         // below NAV.
+        console.log("5");
         amount = min128(fullAmount);
     }
 

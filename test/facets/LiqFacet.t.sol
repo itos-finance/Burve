@@ -15,6 +15,7 @@ import {FullMath} from "../../src/multi/FullMath.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {Edge} from "../../src/multi/Edge.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
 
 contract LiqFacetTest is Test {
     SimplexDiamond public diamond;
@@ -33,6 +34,9 @@ contract LiqFacetTest is Test {
     uint16 public closureId;
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
     uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
+
+    MockERC4626 public mockVault0;
+    MockERC4626 public mockVault1;
 
     function setUp() public {
         vm.startPrank(owner);
@@ -64,15 +68,27 @@ contract LiqFacetTest is Test {
             (token0, token1) = (token1, token0);
         }
 
-        // Setup closure
+        // Setup mock ERC4626 vaults
+        mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
+        mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
+
+        // Add vertices with mock vaults
+        simplexFacet.addVertex(
+            address(token0),
+            address(mockVault0),
+            VaultType.E4626
+        );
+        simplexFacet.addVertex(
+            address(token1),
+            address(mockVault1),
+            VaultType.E4626
+        );
+
+        // fetch closure
         address[] memory tokens = new address[](2);
         tokens[0] = address(token0);
         tokens[1] = address(token1);
-        closureId = ClosureId.unwrap(newClosureId(tokens));
-
-        // Add vertices
-        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
-        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
+        closureId = ClosureId.unwrap(simplexFacet.getClosureId(tokens));
 
         // Setup edge
         edgeFacet.setEdge(

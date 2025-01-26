@@ -67,15 +67,15 @@ contract SwapFacetTest is Test {
             (token0, token1) = (token1, token0);
         }
 
+        // Add vertices
+        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
+        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
+
         // Setup closure
         address[] memory tokens = new address[](2);
         tokens[0] = address(token0);
         tokens[1] = address(token1);
-        closureId = ClosureId.unwrap(newClosureId(tokens));
-
-        // Add vertices
-        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
-        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
+        closureId = ClosureId.unwrap(simplexFacet.getClosureId(tokens));
 
         // Setup edge
         edgeFacet.setEdge(
