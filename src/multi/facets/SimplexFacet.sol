@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {Vertex, newVertexId} from "../Vertex.sol";
+import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 
@@ -15,10 +15,9 @@ contract SimplexFacet {
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
-        // TODO
-
         // Init the vertex.
-        Store.vertex(newVertexId(token)).init(token, vault, vType);
+        VertexId next = newVertexId(token);
+        Store.vertex(next).init(token, vault, vType);
     }
 
     /// Withdraw fees earned by the protocol.

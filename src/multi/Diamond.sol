@@ -19,6 +19,8 @@ import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
 
+error FunctionNotFound(bytes4 _functionSelector);
+
 contract SimplexDiamond is IDiamond {
     constructor(address swapFacet, address liqFacet, address simplexFacet) {
         AdminLib.initOwner(msg.sender);
@@ -54,7 +56,7 @@ contract SimplexDiamond is IDiamond {
         {
             bytes4[] memory adminSelectors = new bytes4[](3);
             adminSelectors[0] = BaseAdminFacet.transferOwnership.selector;
-            adminSelectors[2] = BaseAdminFacet.owner.selector;
+            adminSelectors[1] = BaseAdminFacet.owner.selector;
             adminSelectors[2] = BaseAdminFacet.adminRights.selector;
             cuts[2] = FacetCut({
                 facetAddress: address(new BaseAdminFacet()),
@@ -89,7 +91,7 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[0] = SimplexFacet.addVertex.selector;
             simplexSelectors[1] = SimplexFacet.setDefaultEdge.selector;
             cuts[5] = FacetCut({
-                facetAddress: simplexFacet,
+                facetAddress: address(new SimplexFacet()),
                 action: FacetCutAction.Add,
                 functionSelectors: simplexSelectors
             });
@@ -116,4 +118,39 @@ contract SimplexDiamond is IDiamond {
         ds.supportedInterfaces[type(IDiamondLoupe).interfaceId] = true;
         ds.supportedInterfaces[type(IERC173).interfaceId] = true;
     }
+
+    fallback() external payable {
+        LibDiamond.DiamondStorage storage ds;
+        bytes32 position = LibDiamond.DIAMOND_STORAGE_POSITION;
+        // get diamond storage
+        assembly {
+            ds.slot := position
+        }
+        // get facet from function selector
+        address facet = ds
+            .facetAddressAndSelectorPosition[msg.sig]
+            .facetAddress;
+        if (facet == address(0)) {
+            revert FunctionNotFound(msg.sig);
+        }
+        // Execute external function from facet using delegatecall and return any value.
+        assembly {
+            // copy function selector and any arguments
+            calldatacopy(0, 0, calldatasize())
+            // execute function call using the facet
+            let result := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
+            // get any return value
+            returndatacopy(0, 0, returndatasize())
+            // return any return value or error back to the caller
+            switch result
+            case 0 {
+                revert(0, returndatasize())
+            }
+            default {
+                return(0, returndatasize())
+            }
+        }
+    }
+
+    receive() external payable {}
 }
