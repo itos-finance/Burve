@@ -24,8 +24,10 @@ library TokenRegistryImpl {
         address token
     ) internal returns (uint8 idx) {
         if (self.tokens.length >= MAX_TOKENS) revert AtTokenCapacity();
-        if (self.tokenIdx[token] != 0 || self.tokens[0] == token)
-            revert TokenAlreadyRegistered(token);
+        if (
+            self.tokens.length > 0 &&
+            (self.tokenIdx[token] != 0 || self.tokens[0] == token)
+        ) revert TokenAlreadyRegistered(token);
         idx = uint8(self.tokens.length);
         self.tokenIdx[token] = idx;
         self.tokens.push(token);

@@ -15,9 +15,8 @@ contract SimplexFacet {
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
-        // Init the vertex.
-        VertexId next = newVertexId(token);
-        Store.vertex(next).init(token, vault, vType);
+        Store.tokenRegistry().register(token);
+        Store.vertex(newVertexId(token)).init(token, vault, vType);
     }
 
     /// Withdraw fees earned by the protocol.
