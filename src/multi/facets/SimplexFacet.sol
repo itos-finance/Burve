@@ -18,8 +18,10 @@ contract SimplexFacet {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
+        // TODO: event?
     }
 
+    // TODO move somewhere else? / lens?
     function getClosureId(
         address[] memory tokens
     ) external view returns (ClosureId) {

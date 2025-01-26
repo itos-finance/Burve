@@ -43,9 +43,6 @@ contract EdgeFacetTest is Test {
             address swapFacetAddr
         ) = BurveDeploymentLib.deployFacets();
 
-        // Deploy storage facet
-        StorageFacet storageFacetContract = new StorageFacet();
-
         // Create the diamond with initial facets
         diamond = new SimplexDiamond(
             liqFacetAddr,
