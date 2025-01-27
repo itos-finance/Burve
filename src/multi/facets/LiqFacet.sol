@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "../Closure.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
-import {VertexId, newVertexId} from "../Vertex.sol";
+import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
 import {VaultLib, VaultPointer} from "../VaultProxy.sol";
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
@@ -47,6 +47,9 @@ contract LiqFacet is ReentrancyGuardTransient {
             VertexId v = newVertexId(i);
 
             if (cid.contains(v)) {
+                // We need to add it to the Vertex so we can use it in swaps.
+                Store.vertex(v).ensureClosure(cid);
+                // And we need to add it to the vault.
                 VaultPointer memory vPtr = VaultLib.get(v);
                 preBalance[i] = vPtr.balance(cid, true);
                 if (i == idx) {

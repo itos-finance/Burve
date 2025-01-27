@@ -80,7 +80,13 @@ library UniV3Edge {
     )
         internal
         view
-        returns (int256 amount0, int256 amount1, uint128 protocolFee)
+        returns (
+            int256 amount0,
+            int256 amount1,
+            uint128 protocolFee,
+            uint160 newSqrtPriceX96,
+            int24 newTick
+        )
     {
         require(amountSpecified != 0, "AS");
 
@@ -200,5 +206,8 @@ library UniV3Edge {
             );
 
         // We handle token transfers in Edge.
+        // Return the new state of the pool.
+        newSqrtPriceX96 = state.sqrtPriceX96;
+        newTick = state.tick;
     }
 }

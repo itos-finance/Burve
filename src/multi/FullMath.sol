@@ -152,7 +152,7 @@ library FullMath {
         console.log("remainder", remainder);
         // Subtract out the remainder. Now remainder holds the fractional portion.
         assembly {
-            num := sub(num, 1)
+            num := sub(num, gt(remainder, 0))
             remainder := sub(0, remainder)
         }
         console.log("subtract remainder", num, remainder);

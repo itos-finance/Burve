@@ -80,13 +80,19 @@ library EdgeImpl {
         UniV3Edge.Slot0 memory slot0 = getSlot0(self, token0, token1);
 
         // Calculate the swap amounts and protocolFee
-        (int256 amount0, int256 amount1, uint128 protocolFee) = UniV3Edge.swap(
-            self,
-            slot0,
-            zeroForOne,
-            amountSpecified,
-            sqrtPriceLimitX96
-        );
+        (
+            int256 amount0,
+            int256 amount1,
+            uint128 protocolFee,
+            uint160 finalSqrtPriceX96,
+            int24 finalTick
+        ) = UniV3Edge.swap(
+                self,
+                slot0,
+                zeroForOne,
+                amountSpecified,
+                sqrtPriceLimitX96
+            );
 
         address inToken;
         address outToken;
@@ -110,10 +116,11 @@ library EdgeImpl {
             protocolFee
         );
 
-        (uint160 sqrtPriceX96, int24 tick, uint128 liquidity) = calcImpliedPool(
+        uint128 finalLiq = updateLiquidity(
             self,
-            token0,
-            token1
+            finalTick,
+            slot0.tick,
+            slot0.liquidity
         );
         emit Swap(
             msg.sender,
@@ -122,9 +129,9 @@ library EdgeImpl {
             token1,
             amount0,
             amount1,
-            sqrtPriceX96,
-            liquidity,
-            tick
+            finalSqrtPriceX96,
+            finalLiq,
+            finalTick
         );
     }
 

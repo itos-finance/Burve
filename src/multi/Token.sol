@@ -38,11 +38,18 @@ library TokenRegistryImpl {
 }
 
 library TokenRegLib {
+    error TokenNotFound(address);
+
     function numVertices() internal view returns (uint8 n) {
         return uint8(Store.tokenRegistry().tokens.length);
     }
 
     function getIdx(address token) internal view returns (uint8 idx) {
-        return Store.tokenRegistry().tokenIdx[token];
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        idx = tokenReg.tokenIdx[token];
+        if (
+            idx == 0 &&
+            (tokenReg.tokens.length == 0 || tokenReg.tokens[0] != token)
+        ) revert TokenNotFound(token);
     }
 }
