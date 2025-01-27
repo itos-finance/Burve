@@ -14,6 +14,7 @@ import {ClosureId, newClosureId} from "../../src/multi/Closure.sol";
 import {VaultType} from "../../src/multi/VaultProxy.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {Edge} from "../../src/multi/Edge.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
 
 contract SwapFacetTest is Test {
     SimplexDiamond public diamond;
@@ -24,6 +25,9 @@ contract SwapFacetTest is Test {
 
     MockERC20 public token0;
     MockERC20 public token1;
+
+    MockERC4626 public mockVault0;
+    MockERC4626 public mockVault1;
 
     address public owner = makeAddr("owner");
     address public alice = makeAddr("alice");
@@ -67,9 +71,20 @@ contract SwapFacetTest is Test {
             (token0, token1) = (token1, token0);
         }
 
+        mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
+        mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
+
         // Add vertices
-        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
-        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
+        simplexFacet.addVertex(
+            address(token0),
+            address(mockVault0),
+            VaultType.E4626
+        );
+        simplexFacet.addVertex(
+            address(token1),
+            address(mockVault1),
+            VaultType.E4626
+        );
 
         // Setup closure
         address[] memory tokens = new address[](2);
