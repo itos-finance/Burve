@@ -97,9 +97,6 @@ library VaultE4626Impl {
             true // Round up to round shares down.
         );
 
-        console.log("Current total assets:", temp.vars[0]);
-        console.log("Newly adding assets:", newlyAdding);
-        console.log("Total shares before deposit:", self.totalShares);
         uint256 totalAssets = temp.vars[0] + newlyAdding;
 
         uint256 discountedAmount = FullMath.mulX128(
@@ -107,12 +104,7 @@ library VaultE4626Impl {
             temp.vars[3],
             false // Round down to round shares down.
         );
-        // console.log("Depositing:", amount, "for ClosureId:", cid);
-        console.log("Current total assets:", temp.vars[0]);
-        console.log("Newly adding assets:", newlyAdding);
-        console.log("Discounted amount:", discountedAmount);
-        console.log("Total shares before deposit:", self.totalShares);
-        console.log("TotalAssets", totalAssets);
+
         uint256 newShares = totalAssets == 0
             ? discountedAmount
             : FullMath.mulDiv(self.totalShares, discountedAmount, totalAssets);
@@ -156,6 +148,8 @@ library VaultE4626Impl {
         ClosureId cid,
         bool roundUp
     ) internal view returns (uint128 amount) {
+        if (self.totalShares == 0) return 0;
+
         uint256 newlyAdding = FullMath.mulX128(
             temp.vars[1],
             temp.vars[3],
@@ -163,19 +157,13 @@ library VaultE4626Impl {
         );
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
 
-        uint256 fullAmount = self.totalShares == 0
-            ? newlyAdding
-            : roundUp
-                ? FullMath.mulDivRoundingUp(
-                    self.shares[cid],
-                    totalAssets,
-                    self.totalShares
-                )
-                : FullMath.mulDiv(
-                    self.shares[cid],
-                    totalAssets,
-                    self.totalShares
-                );
+        uint256 fullAmount = roundUp
+            ? FullMath.mulDivRoundingUp(
+                self.shares[cid],
+                totalAssets,
+                self.totalShares
+            )
+            : FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
 
         // For the pegged assets we're interested in,
         // it would be insane to have more than 2^128 of any token so this is unlikely.
