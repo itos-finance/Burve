@@ -18,8 +18,7 @@ import {SwapFacet} from "./facets/SwapFacet.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
-
-import {StorageFacet} from "../../test/mocks/StorageFacet.sol";
+import {ViewFacet} from "./facets/ViewFacet.sol";
 
 error FunctionNotFound(bytes4 _functionSelector);
 
@@ -124,14 +123,15 @@ contract SimplexDiamond is IDiamond {
         /// TODO: figure out why I can't add these during test setup, but it works if i just add them to the diamond
         {
             // Add storage facet using LibDiamond directly since we're the owner
-            bytes4[] memory selectors = new bytes4[](4);
-            selectors[0] = StorageFacet.getEdge.selector;
-            selectors[1] = StorageFacet.getVertex.selector;
-            selectors[2] = StorageFacet.getAssetShares.selector;
-            selectors[3] = StorageFacet.getDefaultEdge.selector;
+            bytes4[] memory selectors = new bytes4[](5);
+            selectors[0] = ViewFacet.getEdge.selector;
+            selectors[1] = ViewFacet.getVertex.selector;
+            selectors[2] = ViewFacet.getAssetShares.selector;
+            selectors[3] = ViewFacet.getDefaultEdge.selector;
+            selectors[4] = ViewFacet.getClosureId.selector;
 
             cuts[7] = IDiamond.FacetCut({
-                facetAddress: address(new StorageFacet()),
+                facetAddress: address(new ViewFacet()),
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
             });

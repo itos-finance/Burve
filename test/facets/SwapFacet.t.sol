@@ -6,6 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
+import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
@@ -22,6 +23,7 @@ contract SwapFacetTest is Test {
     LiqFacet public liqFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
+    ViewFacet public viewFacet;
 
     MockERC20 public token0;
     MockERC20 public token1;
@@ -36,6 +38,10 @@ contract SwapFacetTest is Test {
     uint16 public closureId;
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
     uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
+
+    uint160 constant MIN_SQRT_RATIO = 4295128739;
+    uint160 constant MAX_SQRT_RATIO =
+        1461446703485210103287273052203988822378723970342;
 
     // Price impact thresholds
     uint256 constant SMALL_SWAP_IMPACT_THRESHOLD = 1e16; // 1%
@@ -61,6 +67,7 @@ contract SwapFacetTest is Test {
         liqFacet = LiqFacet(address(diamond));
         simplexFacet = SimplexFacet(address(diamond));
         swapFacet = SwapFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
 
         // Setup test tokens
         token0 = new MockERC20("Test Token 0", "TEST0", 18);
@@ -73,13 +80,14 @@ contract SwapFacetTest is Test {
 
         mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
         mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
-
+        console2.log("before");
         // Add vertices
         simplexFacet.addVertex(
             address(token0),
             address(mockVault0),
             VaultType.E4626
         );
+        console2.log("after");
         simplexFacet.addVertex(
             address(token1),
             address(mockVault1),
@@ -90,13 +98,13 @@ contract SwapFacetTest is Test {
         address[] memory tokens = new address[](2);
         tokens[0] = address(token0);
         tokens[1] = address(token1);
-        closureId = ClosureId.unwrap(simplexFacet.getClosureId(tokens));
+        closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
 
         // Setup edge
         edgeFacet.setEdge(
             address(token0),
             address(token1),
-            1e18,
+            1e18, // what should the ampliude be set to
             -887272,
             887272
         );
@@ -147,7 +155,7 @@ contract SwapFacetTest is Test {
     }
 
     function testExactInputSwap() public {
-        uint256 swapAmount = 10e18;
+        uint256 swapAmount = 1e18;
         uint256 bobToken0Before = token0.balanceOf(bob);
         uint256 bobToken1Before = token1.balanceOf(bob);
 
@@ -157,7 +165,7 @@ contract SwapFacetTest is Test {
             address(token0), // tokenIn
             address(token1), // tokenOut
             int256(swapAmount), // positive for exact input
-            0 // no price limit
+            MAX_SQRT_RATIO - 1 // no price limit
         );
         vm.stopPrank();
 

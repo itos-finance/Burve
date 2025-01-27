@@ -7,7 +7,7 @@ import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {StorageFacet} from "../mocks/StorageFacet.sol";
+import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {VaultType} from "../../src/multi/VaultProxy.sol";
 import {Store} from "../../src/multi/Store.sol";
@@ -22,7 +22,7 @@ contract EdgeFacetTest is Test {
     SimplexDiamond public diamond;
     EdgeFacet public edgeFacet;
     SimplexFacet public simplexFacet;
-    StorageFacet public storageFacet;
+    ViewFacet public viewFacet;
     DiamondCutFacet public cutFacet;
     BaseAdminFacet public adminFacet;
 
@@ -52,7 +52,7 @@ contract EdgeFacetTest is Test {
 
         edgeFacet = EdgeFacet(address(diamond));
         simplexFacet = SimplexFacet(address(diamond));
-        storageFacet = StorageFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
 
         // Setup test tokens
         token0 = new MockERC20("Test Token 0", "TEST0", 18);
@@ -82,12 +82,9 @@ contract EdgeFacetTest is Test {
             887272 // highTick
         );
 
-        console2.logBytes(abi.encodePacked(StorageFacet.getEdge.selector));
-        // Use StorageFacet to verify edge parameters
-        Edge memory edge = storageFacet.getEdge(
-            address(token0),
-            address(token1)
-        );
+        console2.logBytes(abi.encodePacked(viewFacet.getEdge.selector));
+        // Use viewFacet to verify edge parameters
+        Edge memory edge = viewFacet.getEdge(address(token0), address(token1));
         assertEq(edge.amplitude, 1e18, "Incorrect amplitude");
         assertEq(edge.lowTick, -887272, "Incorrect lowTick");
         assertEq(edge.highTick, 887272, "Incorrect highTick");
@@ -156,11 +153,8 @@ contract EdgeFacetTest is Test {
             feeProtocol
         );
 
-        // Use StorageFacet to verify fee parameters
-        Edge memory edge = storageFacet.getEdge(
-            address(token0),
-            address(token1)
-        );
+        // Use viewFacet to verify fee parameters
+        Edge memory edge = viewFacet.getEdge(address(token0), address(token1));
         assertEq(edge.fee, fee, "Incorrect fee");
         assertEq(edge.feeProtocol, feeProtocol, "Incorrect fee protocol");
 
