@@ -159,19 +159,13 @@ library VaultE4626Impl {
         );
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
 
-        uint256 fullAmount = self.totalShares == 0
-            ? newlyAdding
-            : roundUp
-                ? FullMath.mulDivRoundingUp(
-                    self.shares[cid],
-                    totalAssets,
-                    self.totalShares
-                )
-                : FullMath.mulDiv(
-                    self.shares[cid],
-                    totalAssets,
-                    self.totalShares
-                );
+        uint256 fullAmount = roundUp
+            ? FullMath.mulDivRoundingUp(
+                self.shares[cid],
+                totalAssets,
+                self.totalShares
+            )
+            : FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
 
         // For the pegged assets we're interested in,
         // it would be insane to have more than 2^128 of any token so this is unlikely.
