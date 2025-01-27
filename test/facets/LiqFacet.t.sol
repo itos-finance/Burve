@@ -8,6 +8,7 @@ import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {ClosureId, newClosureId} from "../../src/multi/Closure.sol";
 import {VaultType} from "../../src/multi/VaultProxy.sol";
@@ -23,6 +24,7 @@ contract LiqFacetTest is Test {
     LiqFacet public liqFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
+    ViewFacet public viewFacet;
 
     MockERC20 public token0;
     MockERC20 public token1;
@@ -58,6 +60,7 @@ contract LiqFacetTest is Test {
         liqFacet = LiqFacet(address(diamond));
         simplexFacet = SimplexFacet(address(diamond));
         swapFacet = SwapFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
 
         // Setup test tokens
         token0 = new MockERC20("Test Token 0", "TEST0", 18);
@@ -90,7 +93,7 @@ contract LiqFacetTest is Test {
         address[] memory tokens = new address[](2);
         tokens[0] = address(token0);
         tokens[1] = address(token1);
-        closureId = ClosureId.unwrap(simplexFacet.getClosureId(tokens));
+        closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
 
         // Setup edge
         edgeFacet.setEdge(

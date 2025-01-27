@@ -21,13 +21,6 @@ contract SimplexFacet {
         // TODO: event?
     }
 
-    // TODO move somewhere else? / lens?
-    function getClosureId(
-        address[] memory tokens
-    ) external view returns (ClosureId) {
-        return newClosureId(tokens);
-    }
-
     /// Withdraw fees earned by the protocol.
     function withdrawFees(address token, uint256 amount) external {
         AdminLib.validateOwner();

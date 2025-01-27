@@ -7,12 +7,10 @@ import {BurveDeploymentLib} from "../../src/BurveDeploymentLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {StorageFacet} from "../mocks/StorageFacet.sol";
+import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {VaultType, VaultLib} from "../../src/multi/VaultProxy.sol";
-
 import {TokenRegistryImpl} from "../../src/multi/Token.sol";
-
 import {Store} from "../../src/multi/Store.sol";
 import {VertexId, newVertexId} from "../../src/multi/Vertex.sol";
 import {TokenRegLib} from "../../src/multi/Token.sol";
@@ -23,7 +21,7 @@ contract SimplexFacetTest is Test {
     SimplexDiamond public diamond;
     EdgeFacet public edgeFacet;
     SimplexFacet public simplexFacet;
-    StorageFacet public storageFacet;
+    ViewFacet public viewFacet;
 
     MockERC20 public token0;
     MockERC20 public token1;
@@ -64,7 +62,7 @@ contract SimplexFacetTest is Test {
 
         edgeFacet = EdgeFacet(address(diamond));
         simplexFacet = SimplexFacet(address(diamond));
-        storageFacet = StorageFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
 
         // Setup test tokens
         token0 = new MockERC20("Test Token 0", "TEST0", 18);

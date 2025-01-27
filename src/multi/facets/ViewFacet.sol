@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {Store} from "../../src/multi/Store.sol";
-import {Edge} from "../../src/multi/Edge.sol";
-import {Vertex, VertexId, newVertexId} from "../../src/multi/Vertex.sol";
-import {AssetStorage} from "../../src/multi/Asset.sol";
-import {VaultStorage} from "../../src/multi/VaultProxy.sol";
-import {SimplexStorage} from "../../src/multi/facets/SimplexFacet.sol";
-import {ClosureId} from "../../src/multi/Closure.sol";
+import {Store} from "../Store.sol";
+import {Edge} from "../Edge.sol";
+import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
+import {AssetStorage} from "../Asset.sol";
+import {VaultStorage} from "../VaultProxy.sol";
+import {SimplexStorage} from "./SimplexFacet.sol";
+import {ClosureId, newClosureId} from "../Closure.sol";
 
 /// @notice Mock facet that exposes storage access functions for testing
-contract StorageFacet {
+contract ViewFacet {
+    function getClosureId(
+        address[] memory tokens
+    ) external view returns (ClosureId) {
+        return newClosureId(tokens);
+    }
+
     function getEdge(
         address token0,
         address token1
