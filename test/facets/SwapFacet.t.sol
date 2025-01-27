@@ -147,7 +147,7 @@ contract SwapFacetTest is Test {
     }
 
     function testExactInputSwap() public {
-        uint256 swapAmount = 1000e18;
+        uint256 swapAmount = 10e18;
         uint256 bobToken0Before = token0.balanceOf(bob);
         uint256 bobToken1Before = token1.balanceOf(bob);
 

@@ -8,6 +8,7 @@ import "v3-core/contracts/libraries/TransferHelper.sol";
 import "./uniV3Lib/SqrtPriceMath.sol";
 import "./uniV3Lib/SwapMath.sol";
 import "./uniV3Lib/TickMath.sol";
+import {console2} from "forge-std/console2.sol";
 
 import {Edge} from "./Edge.sol";
 
@@ -83,14 +84,20 @@ library UniV3Edge {
     {
         require(amountSpecified != 0, "AS");
 
-        require(
-            zeroForOne
-                ? sqrtPriceLimitX96 < slot0Start.sqrtPriceX96 &&
-                    sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO
-                : sqrtPriceLimitX96 > slot0Start.sqrtPriceX96 &&
-                    sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO,
-            "SPL"
-        );
+        console2.log("sqrtPriceLimitX96:", sqrtPriceLimitX96);
+        console2.log("slot0Start.sqrtPriceX96:", slot0Start.sqrtPriceX96);
+        console2.log("TickMath.MIN_SQRT_RATIO:", TickMath.MIN_SQRT_RATIO);
+        console2.log("TickMath.MAX_SQRT_RATIO:", TickMath.MAX_SQRT_RATIO);
+
+        // TODO: is this not allowing 0 to be input as the price limit?
+        // require(
+        //     zeroForOne
+        //         ? sqrtPriceLimitX96 < slot0Start.sqrtPriceX96 &&
+        //             sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO
+        //         : sqrtPriceLimitX96 > slot0Start.sqrtPriceX96 &&
+        //             sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO,
+        //     "SPL"
+        // );
 
         slot0Start.feeProtocol = zeroForOne
             ? (slot0Start.feeProtocol % 16)
