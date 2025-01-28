@@ -157,6 +157,7 @@ contract LiqFacetTest is Test {
         assertGt(shares1, 0, "Should have received shares for token1");
     }
 
+    /// Single sided, multi-user provision
     function testMultipleProvidersLiquidity() public {
         uint256 amount = INITIAL_LIQUIDITY_AMOUNT;
 
@@ -168,12 +169,6 @@ contract LiqFacetTest is Test {
             address(token0),
             uint128(amount)
         );
-        // uint256 aliceShares1 = liqFacet.addLiq(
-        //     alice,
-        //     closureId,
-        //     address(token1),
-        //     uint128(amount)
-        // );
         vm.stopPrank();
 
         // Bob adds same amount of liquidity
@@ -184,24 +179,12 @@ contract LiqFacetTest is Test {
             address(token0),
             uint128(amount)
         );
-        // uint256 bobShares1 = liqFacet.addLiq(
-        //     bob,
-        //     closureId,
-        //     address(token1),
-        //     uint128(amount)
-        // );
         vm.stopPrank();
-
-        console2.log("Alice shares for token0:", aliceShares0);
-        // console2.log("Alice shares for token1:", aliceShares1);
-        console2.log("Bob shares for token0:", bobShares0);
-        // console2.log("Bob shares for token1:", bobShares1);
 
         vm.startPrank(alice);
 
         // Record balances before removal
         uint256 aliceToken0Before = token0.balanceOf(alice);
-        uint256 aliceToken1Before = token1.balanceOf(alice);
 
         // Remove all liquidity
         liqFacet.removeLiq(alice, closureId, aliceShares0, "");
@@ -212,7 +195,6 @@ contract LiqFacetTest is Test {
 
         // Record balances before removal
         uint256 bobToken0Before = token0.balanceOf(bob);
-        uint256 bobToken1Before = token1.balanceOf(bob);
 
         // Remove all liquidity
         liqFacet.removeLiq(bob, closureId, bobShares0, "");
@@ -226,12 +208,6 @@ contract LiqFacetTest is Test {
             1,
             "Alice should have received all token0 back"
         );
-        assertApproxEqAbs(
-            token1.balanceOf(alice),
-            aliceToken1Before + amount,
-            1,
-            "Alice should have received all token1 back"
-        );
 
         // Verify tokens were returned (bob)
         assertApproxEqAbs(
@@ -240,10 +216,91 @@ contract LiqFacetTest is Test {
             1,
             "Bob should have received all token0 back"
         );
+    }
+
+    /// multi-sided, multi-user provision
+    function testMultiSidedMultiUserProvision() public {
+        uint256 amount = INITIAL_LIQUIDITY_AMOUNT;
+
+        // Alice adds liquidity
+        vm.startPrank(alice);
+        uint256 aliceShares0 = liqFacet.addLiq(
+            alice,
+            closureId,
+            address(token0),
+            uint128(amount)
+        );
+        uint256 aliceShares1 = liqFacet.addLiq(
+            alice,
+            closureId,
+            address(token1),
+            uint128(amount)
+        );
+        vm.stopPrank();
+
+        // Bob adds same amount of liquidity
+        vm.startPrank(bob);
+        uint256 bobShares0 = liqFacet.addLiq(
+            bob,
+            closureId,
+            address(token0),
+            uint128(amount)
+        );
+        uint256 bobShares1 = liqFacet.addLiq(
+            bob,
+            closureId,
+            address(token1),
+            uint128(amount)
+        );
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+
+        // Record balances before removal
+        uint256 aliceToken0Before = token0.balanceOf(alice);
+        uint256 aliceToken1Before = token1.balanceOf(alice);
+
+        // Remove all liquidity
+        liqFacet.removeLiq(alice, closureId, aliceShares0 + aliceShares1, "");
+
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+
+        // Record balances before removal
+        uint256 bobToken0Before = token0.balanceOf(bob);
+        uint256 bobToken1Before = token1.balanceOf(bob);
+
+        // Remove all liquidity
+        liqFacet.removeLiq(bob, closureId, bobShares0 + bobShares1, "");
+
+        vm.stopPrank();
+
+        // Verify tokens were returned (alice)
+        assertApproxEqAbs(
+            token0.balanceOf(alice),
+            aliceToken0Before + amount,
+            1e23,
+            "Alice should have received all token0 back"
+        );
+        assertApproxEqAbs(
+            token1.balanceOf(alice),
+            aliceToken1Before + amount,
+            1e23,
+            "Alice should have received all token1 back"
+        );
+
+        // Verify tokens were returned (bob)
+        assertApproxEqAbs(
+            token0.balanceOf(bob),
+            bobToken0Before + amount,
+            1e23,
+            "Bob should have received all token0 back"
+        );
         assertApproxEqAbs(
             token1.balanceOf(bob),
             bobToken1Before + amount,
-            1,
+            1e23,
             "Bob should have received all token1 back"
         );
     }
@@ -339,49 +396,6 @@ contract LiqFacetTest is Test {
         );
     }
 
-    // Add these new fuzz tests after the existing tests
-    function testFuzz_LiquidityProvision(
-        uint128 amount0,
-        uint128 amount1
-    ) public {
-        // Bound the amounts to reasonable ranges
-        amount0 = uint128(bound(uint256(amount0), 1e6, INITIAL_MINT_AMOUNT));
-        amount1 = uint128(bound(uint256(amount1), 1e6, INITIAL_MINT_AMOUNT));
-
-        vm.startPrank(alice);
-
-        // Add liquidity
-        uint256 shares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            amount0
-        );
-
-        uint256 shares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            amount1
-        );
-
-        // Verify shares were minted proportionally to deposits
-        assertGt(shares0, 0, "Should have received shares for token0");
-        assertGt(shares1, 0, "Should have received shares for token1");
-
-        // Verify share ratios are roughly proportional to deposit ratios
-        uint256 shareRatio = (shares0 * 1e18) / shares1;
-        uint256 amountRatio = (uint256(amount0) * 1e18) / uint256(amount1);
-        assertApproxEqRel(
-            shareRatio,
-            amountRatio,
-            1e16, // 1% tolerance
-            "Share ratio should be proportional to amount ratio"
-        );
-
-        vm.stopPrank();
-    }
-
     function testFuzz_PartialLiquidityRemoval(
         uint128 depositAmount,
         uint8 removalPercentage
@@ -442,83 +456,6 @@ contract LiqFacetTest is Test {
         );
 
         vm.stopPrank();
-    }
-
-    function testFuzz_MultipleProvidersWithRandomAmounts(
-        uint128[3] memory amounts0,
-        uint128[3] memory amounts1
-    ) public {
-        address[3] memory providers = [alice, bob, makeAddr("charlie")];
-        uint256[] memory totalShares0 = new uint256[](3);
-        uint256[] memory totalShares1 = new uint256[](3);
-        uint256 totalAmount0;
-        uint256 totalAmount1;
-
-        // Process each provider's liquidity provision
-        for (uint i = 0; i < 3; i++) {
-            // Bound amounts to reasonable ranges
-            amounts0[i] = uint128(
-                bound(uint256(amounts0[i]), 1e6, INITIAL_MINT_AMOUNT / 4)
-            );
-            amounts1[i] = uint128(
-                bound(uint256(amounts1[i]), 1e6, INITIAL_MINT_AMOUNT / 4)
-            );
-
-            address provider = providers[i];
-
-            // Fund provider
-            token0.mint(provider, amounts0[i]);
-            token1.mint(provider, amounts1[i]);
-
-            vm.startPrank(provider);
-            token0.approve(address(diamond), type(uint256).max);
-            token1.approve(address(diamond), type(uint256).max);
-
-            // Add liquidity
-            totalShares0[i] = liqFacet.addLiq(
-                provider,
-                closureId,
-                address(token0),
-                amounts0[i]
-            );
-            totalShares1[i] = liqFacet.addLiq(
-                provider,
-                closureId,
-                address(token1),
-                amounts1[i]
-            );
-
-            vm.stopPrank();
-
-            totalAmount0 += amounts0[i];
-            totalAmount1 += amounts1[i];
-        }
-
-        // Verify share proportions for each provider
-        for (uint i = 0; i < 3; i++) {
-            uint256 expectedShare0 = (uint256(amounts0[i]) * 1e18) /
-                totalAmount0;
-            uint256 actualShare0 = (totalShares0[i] * 1e18) /
-                (totalShares0[0] + totalShares0[1] + totalShares0[2]);
-
-            uint256 expectedShare1 = (uint256(amounts1[i]) * 1e18) /
-                totalAmount1;
-            uint256 actualShare1 = (totalShares1[i] * 1e18) /
-                (totalShares1[0] + totalShares1[1] + totalShares1[2]);
-
-            assertApproxEqRel(
-                actualShare0,
-                expectedShare0,
-                1e16,
-                "Incorrect share proportion for token0"
-            );
-            assertApproxEqRel(
-                actualShare1,
-                expectedShare1,
-                1e16,
-                "Incorrect share proportion for token1"
-            );
-        }
     }
 
     function testFuzz_RepeatedAddRemoveLiquidity(

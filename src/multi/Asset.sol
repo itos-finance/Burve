@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "./Closure.sol";
 import {Store} from "./Store.sol";
 import {FullMath} from "./FullMath.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
 struct AssetStorage {
     mapping(ClosureId => uint256) totalShares;
@@ -24,7 +25,11 @@ library AssetLib {
         if (total == 0) {
             shares = num;
         } else {
+            console.log("num,", num);
+            console.log("total,", total);
+            console.log("denom,", denom);
             shares = FullMath.mulDiv(num, total, denom);
+            console.log("share", shares);
         }
         assets.shares[owner][cid] += shares;
         assets.totalShares[cid] += shares;
