@@ -5,6 +5,7 @@ import {TokenRegLib} from "./Token.sol";
 import {VaultLib, VaultType} from "./VaultProxy.sol";
 import {ClosureId, ClosureDist, ClosureDistImpl, newClosureDist} from "./Closure.sol";
 import {VaultPointer, VaultTemp} from "./VaultProxy.sol";
+import {console2} from "forge-std/console2.sol";
 
 type VertexId is uint16;
 function newVertexId(uint8 idx) pure returns (VertexId) {
@@ -91,13 +92,18 @@ library VertexImpl {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         dist = newClosureDist(homs);
 
+        console2.log("Number of homs:", homs.length);
+
         for (uint256 i = 0; i < homs.length; ++i) {
             // Round down to make sure we have enough.
             uint256 bal = vProxy.balance(homs[i], false);
+            console2.log("Balance for homs[{}]:", i, bal);
             dist.add(i, bal);
         }
 
         uint256 withdrawable = vProxy.withdrawable();
+        console2.log("Withdrawable amount:", withdrawable);
+
         if (withdrawable < amount || dist.totalWeight < amount) {
             revert InsufficientWithdraw(
                 self.vid,
@@ -107,11 +113,14 @@ library VertexImpl {
                 amount
             );
         }
+        console2.log("normalize");
         dist.normalize();
 
         for (uint256 i = 0; i < homs.length; ++i) {
             // The user needs the exact amount for this.
-            vProxy.withdraw(homs[i], dist.scale(i, amount, true));
+            uint256 scaledAmount = dist.scale(i, amount, true);
+            console2.log("Withdrawing from homs[{}]:", i, scaledAmount);
+            vProxy.withdraw(homs[i], scaledAmount);
         }
         vProxy.commit(); // Commit our changes.
     }

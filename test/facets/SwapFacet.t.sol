@@ -80,14 +80,13 @@ contract SwapFacetTest is Test {
 
         mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
         mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
-        console2.log("before");
+
         // Add vertices
         simplexFacet.addVertex(
             address(token0),
             address(mockVault0),
             VaultType.E4626
         );
-        console2.log("after");
         simplexFacet.addVertex(
             address(token1),
             address(mockVault1),
@@ -104,7 +103,7 @@ contract SwapFacetTest is Test {
         edgeFacet.setEdge(
             address(token0),
             address(token1),
-            1e18, // what should the ampliude be set to
+            100, // what should the ampliude be set to
             -887272,
             887272
         );
@@ -165,7 +164,7 @@ contract SwapFacetTest is Test {
             address(token0), // tokenIn
             address(token1), // tokenOut
             int256(swapAmount), // positive for exact input
-            MAX_SQRT_RATIO - 1 // no price limit
+            MIN_SQRT_RATIO + 1 // no price limit
         );
         vm.stopPrank();
 
