@@ -70,22 +70,21 @@ contract EdgeFacetTest is Test {
         vm.stopPrank();
     }
 
-    function testSetEdge1() public {
+    function testSetEdge() public {
         vm.startPrank(owner);
 
         // Test basic edge setup
         edgeFacet.setEdge(
             address(token0),
             address(token1),
-            1e18, // amplitude
+            100, // amplitude
             -887272, // lowTick
             887272 // highTick
         );
 
-        console2.logBytes(abi.encodePacked(viewFacet.getEdge.selector));
         // Use viewFacet to verify edge parameters
         Edge memory edge = viewFacet.getEdge(address(token0), address(token1));
-        assertEq(edge.amplitude, 1e18, "Incorrect amplitude");
+        assertEq(edge.amplitude, 100, "Incorrect amplitude");
         assertEq(edge.lowTick, -887272, "Incorrect lowTick");
         assertEq(edge.highTick, 887272, "Incorrect highTick");
 

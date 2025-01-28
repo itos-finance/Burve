@@ -99,7 +99,7 @@ contract LiqFacetTest is Test {
         edgeFacet.setEdge(
             address(token0),
             address(token1),
-            1e18,
+            100,
             -887272,
             887272
         );
