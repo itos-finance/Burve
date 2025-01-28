@@ -5,6 +5,7 @@ import {FullMath} from "./FullMath.sol";
 import {VertexId} from "./Vertex.sol";
 import {Store} from "./Store.sol";
 import {TokenRegistry} from "./Token.sol";
+import {console2} from "forge-std/console2.sol";
 
 type ClosureId is uint16;
 
@@ -81,7 +82,9 @@ library ClosureDistImpl {
                 ? type(uint256).max
                 : FullMath.mulDivX256(self.weights[i], self.totalWeight);
         }
+        console2.log("Total Weight before reset:", self.totalWeight);
         self.totalWeight = 0;
+        console2.log("Total Weight after reset:", self.totalWeight);
     }
 
     // Scale an amount by the relative weight of idx in this distribution
