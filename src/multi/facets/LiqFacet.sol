@@ -70,7 +70,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
         // We denote value in the given token.
-        uint256 cumulativeValue = tokenBalance;
+        uint256 cumulativeValue = preBalance[idx]; // The denom is the value sans the deposit.
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint256 i = 0; i < n; ++i) {
             if (i == idx) {
@@ -105,15 +105,18 @@ contract LiqFacet is ReentrancyGuardTransient {
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);
-            uint256 withdraw = FullMath.mulX256(
-                percentX256,
-                vPtr.balance(cid, false),
-                false
-            );
-            vPtr.withdraw(cid, withdraw);
-            vPtr.commit();
-            address token = tokenReg.tokens[i];
-            TransferHelper.safeTransfer(token, recipient, withdraw);
+            uint256 balance = vPtr.balance(cid, false);
+            if (balance != 0) {
+                uint256 withdraw = FullMath.mulX256(
+                    percentX256,
+                    balance,
+                    false
+                );
+                vPtr.withdraw(cid, withdraw);
+                vPtr.commit();
+                address token = tokenReg.tokens[i];
+                TransferHelper.safeTransfer(token, recipient, withdraw);
+            }
         }
         // Do we need a continuation?
         if (continuation.length != 0) {
