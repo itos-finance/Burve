@@ -100,11 +100,10 @@ contract LiqFacet is ReentrancyGuardTransient {
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);
-            uint256 withdraw = FullMath.mulX256(
-                percentX256,
-                vPtr.balance(cid, false),
-                false
-            );
+            uint128 bal = vPtr.balance(cid, false);
+            if (bal == 0) continue;
+            // If there are tokens, we withdraw.
+            uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
             vPtr.withdraw(cid, withdraw);
             vPtr.commit();
             address token = tokenReg.tokens[i];

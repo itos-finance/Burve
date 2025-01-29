@@ -39,7 +39,11 @@ contract BurveMultiLPToken is ERC20 {
     /// The liquidity is indirectly owned by this contract.
     /// @param value The amount of the deposit token you want to deposit.
     function mint(address recipient, uint256 value) external {
-        TrasnferHelper.safeTransferFrom(
+        // We only allow adding at most this amount of a token.
+        require(value <= type(uint128).max);
+        // Though in reality, due to other constraints in the pool this is not possible.
+
+        TransferHelper.safeTransferFrom(
             depositToken,
             _msgSender(),
             address(this),
@@ -48,9 +52,9 @@ contract BurveMultiLPToken is ERC20 {
         ERC20(depositToken).approve(address(burveMulti), value);
         uint256 shares = burveMulti.addLiq(
             address(this),
-            ClosureId.unwrap(_cid),
+            ClosureId.unwrap(cid),
             depositToken,
-            value
+            uint128(value)
         );
         _mint(recipient, shares);
     }
@@ -62,7 +66,7 @@ contract BurveMultiLPToken is ERC20 {
     /// @param shares The number of shares/LP tokens to remove.
     function burn(address account, uint256 shares) external {
         _spendAllowance(account, _msgSender(), shares);
-        burveMulti.removeLiq(_msgSender(), cid, shares);
+        burveMulti.removeLiq(_msgSender(), ClosureId.unwrap(cid), shares);
         _burn(account, shares);
     }
 
@@ -70,7 +74,7 @@ contract BurveMultiLPToken is ERC20 {
         ClosureId _cid,
         address _burveMulti
     ) private view returns (string memory name) {
-        string calldata poolName = SimplexFacet(_burveMulti).getName();
+        string memory poolName = SimplexFacet(_burveMulti).getName();
         string memory num = Strings.toString(ClosureId.unwrap(_cid));
         name = string.concat("BurveMulti", poolName, "-", num);
     }
@@ -79,7 +83,7 @@ contract BurveMultiLPToken is ERC20 {
         ClosureId _cid,
         address _burveMulti
     ) private view returns (string memory name) {
-        string calldata poolName = SimplexFacet(_burveMulti).getName();
+        string memory poolName = SimplexFacet(_burveMulti).getName();
         string memory num = Strings.toString(ClosureId.unwrap(_cid));
         name = string.concat(poolName, "-", num);
     }

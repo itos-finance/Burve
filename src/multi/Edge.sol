@@ -9,6 +9,24 @@ import {SimplexStorage} from "./facets/SimplexFacet.sol";
 import {TransferHelper} from "../TransferHelper.sol";
 import {VertexId, newVertexId} from "./Vertex.sol";
 import {ClosureDist} from "./Closure.sol";
+import {SafeCast} from "Commons/Math/Cast.sol";
+
+// We have our own limit on what the price can be and reject any attempt to swap beyond that.
+// This is because we're specifically designed for pegged assets, and at once point
+// we don't want to accept more impermanent loss (which will be quite permament if its a true depeg).
+// If it is not a true depeg, we still allow users to buy/sell the price back to the peg.
+// Essentially, we're saying that the market making fees when outside of these price ranges is not worth
+// the depeg risk for what should be pegged assets.
+// We restrict prices to be between 1e6 and 1e-6. Conveniently fits in 20 bits.
+uint128 constant MIN_SQRT_PRICE_X96 = uint128(1 << 96) / 1000;
+uint128 constant MAX_SQRT_PRICE_X96 = uint128(1000 << 96);
+uint16 constant MAX_AMP = 4000; // 4000 would be very excessive. Too much stability.
+// By restricting to these constants, amplitude * price will always fit in Q32X96.
+// This let's us compute much more efficiently.
+// NOTE: We force all tokens 18 decimals to stay within this price range. We wrap
+// any non-compliant tokens with a thin 18 decimal wrapper.
+int24 constant MAX_NARROW_TICK = 46064;
+int24 constant MIN_NARROW_TICK = -MAX_NARROW_TICK;
 
 /*
     Contains all information relation to the pool used to swap between two vertices.
@@ -26,11 +44,20 @@ struct Edge {
     /* Other slot0 info */
     uint24 fee; // Fee rate for swaps
     uint8 feeProtocol; // Fee rate for the protocol
+    /* Cached values infered from ticks that saves us implied compute */
+    uint160 lowSqrtPriceX96; // sqrt(Pa) for the narrow range.
+    uint160 highSqrtPriceX96; // sqrt(Pb) for the narrow range.
+    uint160 invLowSqrtPriceX96; // 1/sqrt(Pa) for the narrow range.
+    uint160 invHighSqrtPriceX96; // 1/sqrt(Pb) for the narrow range.
+    uint256 xyBoundX128; // If x/y is greater than this, then P < Pa.
+    uint256 yxBoundX128; // If y/x is greater than this, then P >= Pb.
 }
 
 using EdgeImpl for Edge global;
 
 library EdgeImpl {
+    uint256 constant X224 = 1 << 224; // used in getInvPriceX128
+
     event Swap(
         address sender,
         address recipient,
@@ -44,6 +71,7 @@ library EdgeImpl {
     );
 
     error NoEdgeSettings(address token0, address token1);
+    error SwapOutOfBounds(uint160 newSqrtPriceX96);
 
     /* Admin function to set edge parameters */
 
@@ -56,14 +84,36 @@ library EdgeImpl {
         int24 highTick
     ) internal {
         self.lowTick = lowTick;
+        require(lowTick > MIN_NARROW_TICK, "ERL");
         self.highTick = highTick;
-        self.amplitude = amplitude;
+        require(highTick < MAX_NARROW_TICK, "ERH");
+        self.amplitude = amplitude; // Liq in narrow range is (amplitude + 1) * wideLiq
+        require(amplitude < MAX_AMP, "ERA");
+        /* compute cache values */
+        self.lowSqrtPriceX96 = TickMath.getSqrtRatioAtTick(lowTick);
+        self.highSqrtPriceX96 = TickMath.getSqrtRatioAtTick(highTick);
+        self.invLowSqrtPriceX96 = TickMath.getSqrtRatioAtTick(-lowTick);
+        self.invHighSqrtPriceX96 = TickMath.getSqrtRatioAtTick(-highTick);
+        uint160 invDelta = self.invLowSqrtPriceX96 - self.invHighSqrtPriceX96;
+        uint160 delta = self.highSqrtPriceX96 - self.lowSqrtPriceX96;
+        self.xyBoundX128 = calcLowerBoundRatio(
+            amplitude,
+            self.invLowSqrtPriceX96,
+            invDelta
+        );
+        self.yxBoundX128 = calcUpperBoundRatio(
+            amplitude,
+            self.highSqrtPriceX96,
+            delta
+        );
     }
 
     function setFee(Edge storage self, uint24 fee, uint8 feeProtocol) internal {
         self.fee = fee;
         self.feeProtocol = feeProtocol;
     }
+
+    /* Interface functions */
 
     // The main function to support.
     // @param token0 The lower address token.
@@ -77,7 +127,12 @@ library EdgeImpl {
         uint160 sqrtPriceLimitX96
     ) internal returns (uint256 inAmount, uint256 outAmount) {
         // Prep the swap.
-        UniV3Edge.Slot0 memory slot0 = getSlot0(self, token0, token1);
+        UniV3Edge.Slot0 memory slot0 = getSlot0(
+            self,
+            token0,
+            token1,
+            !zeroForOne
+        );
 
         // Calculate the swap amounts and protocolFee
         (
@@ -93,7 +148,10 @@ library EdgeImpl {
                 amountSpecified,
                 sqrtPriceLimitX96
             );
-
+        if (
+            (zeroForOne && (finalSqrtPriceX96 < MIN_SQRT_PRICE_X96)) ||
+            (!zeroForOne && (finalSqrtPriceX96 > MAX_SQRT_PRICE_X96))
+        ) revert SwapOutOfBounds(finalSqrtPriceX96);
         address inToken;
         address outToken;
         if (zeroForOne) {
@@ -138,10 +196,12 @@ library EdgeImpl {
     /* Methods used by the UniV3Edge */
 
     /// Called by the UniV3Edge to fetch the information it needs to swap.
+    /// @param roundUp Whether we want to round the price up or down.
     function getSlot0(
         Edge storage self,
         address token0,
-        address token1
+        address token1,
+        bool roundUp
     ) private view returns (UniV3Edge.Slot0 memory slot0) {
         // If this edge has never been called before we will set ourselves to the default edge
         if (self.amplitude == 0) {
@@ -153,7 +213,8 @@ library EdgeImpl {
         (slot0.sqrtPriceX96, slot0.tick, slot0.liquidity) = calcImpliedPool(
             self,
             token0,
-            token1
+            token1,
+            roundUp
         );
     }
 
@@ -186,11 +247,11 @@ library EdgeImpl {
         bool startIn = (self.lowTick <= startTick && startTick < self.highTick);
         bool nowIn = (self.lowTick <= currentTick &&
             currentTick < self.highTick);
-        if (startIn) return nowIn ? startLiq : startLiq / self.amplitude;
-        else return nowIn ? startLiq * self.amplitude : startLiq;
+        if (startIn) return nowIn ? startLiq : startLiq / (self.amplitude + 1);
+        else return nowIn ? startLiq * (self.amplitude + 1) : startLiq;
     }
 
-    /* Swap Helpers */
+    /* Private Swap Helpers */
 
     // Called to perform the actual exchange from one token balance to another.
     function exchange(
@@ -200,7 +261,7 @@ library EdgeImpl {
         address outToken,
         uint256 outAmount,
         uint256 protocolFee
-    ) internal {
+    ) private {
         VertexId inVid = newVertexId(inToken);
         VertexId outVid = newVertexId(outToken);
         // We send out the outtoken, and give the intoken to the appropriate closures.
@@ -222,46 +283,199 @@ library EdgeImpl {
     }
 
     /// Fetch the price, tick, and liquidity implied by the current balances for these tokens.
+    /// @dev Round the price up when buying, round down when selling. Always round liq down.
     function calcImpliedPool(
         Edge storage self,
         address token0,
-        address token1
+        address token1,
+        bool roundUp
     )
-        private
+        internal
         view
         returns (uint160 sqrtPriceX96, int24 tick, uint128 currentLiq)
     {
         VertexId v0 = newVertexId(token0);
         VertexId v1 = newVertexId(token1);
-        uint256 balance0 = Store.vertex(v0).balance(v1, false);
-        uint256 balance1 = Store.vertex(v1).balance(v0, false);
-        (sqrtPriceX96, currentLiq) = calcAmounts(self, balance0, balance1);
+        // Rounding down both balances will round down liq.
+        // It has de minimus effects on price.
+        // We assume the balances are within 128 bits and we don't own the worlds economy
+        // because we force all tokens to 18 decimals and only put pegged assets together.
+        uint128 balance0 = SafeCast.toUint128(
+            Store.vertex(v0).balance(v1, false)
+        );
+        uint128 balance1 = SafeCast.toUint128(
+            Store.vertex(v1).balance(v0, false)
+        );
+        (sqrtPriceX96, currentLiq) = calcImpliedInner(
+            self,
+            balance0,
+            balance1,
+            roundUp
+        );
+        // So far, currentLiq is actually wideLiq.
         tick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
         if (self.lowTick <= tick && tick < self.highTick)
-            currentLiq = uint128(self.amplitude * currentLiq);
+            currentLiq += uint128(self.amplitude * currentLiq);
     }
 
-    function calcAmounts(
+    function calcImpliedInner(
         Edge storage self,
         uint256 balance0,
-        uint256 balance1
+        uint256 balance1,
+        bool roundUp
+    ) private returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+        // If we're rounding the price up we want to round x/y down to stay out of the bottom region.
+        // But that means rounding up here in this form of the comparison.
+        // And conveniently vice versa when rounding down, we round x/y up, so we round the mult down.
+        uint256 xBound = FullMath.mulX128(self.xyBoundX128, balance1, roundUp);
+        if (balance0 > xBound)
+            (sqrtPriceX96, wideLiq) = calcLowerImplied(
+                self,
+                balance0,
+                balance1,
+                roundUp
+            );
+        else {
+            uint256 yBound = FullMath.mulX128(
+                self.yxBoundX128,
+                balance0,
+                !roundUp
+            );
+            if (balance1 > yBound)
+                (sqrtPriceX96, wideLiq) = calcUpperImplied(
+                    self,
+                    balance0,
+                    balance1,
+                    roundUp
+                );
+            else
+                (sqrtPriceX96, wideLiq) = calcInnerImplied(
+                    self,
+                    balance0,
+                    balance1,
+                    roundUp
+                );
+        }
+    }
+
+    /* Math methods for calculating the implied uniV3 pool state */
+
+    /// This calculates the ratio of x to y such that if the actual ratio is greater
+    /// than this, then the implied price is below P_a.
+    function calcLowerBoundRatio(
+        uint128 amp,
+        uint160 invSqrtLowX96,
+        uint256 invDeltaX96
+    ) private returns (uint256 xyBoundX128) {
+        uint256 inner = invSqrtLowX96 + amp * invDeltaX96;
+        // We round the bounds down so its a little easier to be in out of the concentrated range.
+        // The only downside is that potentially we go back to the peg slightly easier by 1 token.
+        // If we need to, we can make a rounded up bound and a rounded down bound.
+        xyBoundX128 = FullMath.mulX128(
+            inner,
+            uint256(invSqrtLowX96) << 64,
+            false
+        );
+    }
+
+    /// Calculate the ratio of y over x such that if the actual ratio is greater than or equal to this,
+    /// then the implied price is equal to or above P_b.
+    function calcUpperBoundRatio(
+        uint128 amp,
+        uint160 sqrtHighX96,
+        uint256 deltaX96
+    ) private returns (uint256 yxBoundX128) {
+        uint256 inner = sqrtHighX96 + amp * deltaX96;
+        // We round the bounds down so its a little easier to be in out of the concentrated range.
+        // The only downside is that potentially we go back to the peg slightly easier by 1 token.
+        // If we need to, we can make a rounded up bound and a rounded down bound.
+        yxBoundX128 = FullMath.mulX128(
+            inner,
+            uint256(sqrtHighX96) << 64,
+            false
+        );
+    }
+
+    /// Compute the implied pool when we know the price is below the narrow range's low tick.
+    /// @param x balance0 - 128 bits
+    /// @param y balance1 - 128 bits
+    function calcLowerImplied(
+        Edge storage self,
+        uint256 x,
+        uint256 y,
+        bool roundUp
+    ) private returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+        // Due to our constraints this is smaller than 26 non-fractional bits.
+        // We can't go straight to X192 because we DON'T know if that will fit, but
+        // X128 is more than enough precision. The other 64 is to match b^2.
+        uint256 xyX192 = (x << (128 / y)) << 64;
+        // Due to our constaints, this only has at most 16 = 4 + 12 positive bits.
+        uint256 bX96 = self.amplitude *
+            uint256(self.invLowSqrtPriceX96 - self.invHighSqrtPriceX96);
+        // By our constraints we know bX96^2 is in 244 bits so the sum is okay.
+        // After the sqrt and sum, it takes up less than 114 bits so we can multiply by y.
+        uint256 numX96 = (bX96 + sqrt(bX96 * bX96 + 4 * xyX192)) * y;
+        uint256 denom = 2 * x;
+        sqrtPriceX96 = uint160(numX96 / denom);
+        wideLiq = uint128((y << 96) / sqrtPriceX96); // Liq is never rounded up
+        if (roundUp && (numX96 % denom > 0)) sqrtPriceX96 += 1;
+    }
+
+    /// Compute the implied pool when we know the price is above the narrow range's low tick.
+    /// @param x balance0 - 128 bits
+    /// @param y balance1 - 128 bits
+    function calcUpperImplied(
+        Edge storage self,
+        uint256 x,
+        uint256 y,
+        bool roundUp
+    ) private returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+        // Due to our constraints this is smaller than 26 non-fractional bits.
+        // We can't go straight to X192 because we DON'T know if that will fit, but
+        // X128 is more than enough precision. The other 64 is to match b^2.
+        uint256 yxX192 = (y << (128 / x)) << 64;
+        // Due to our constaints, this only has at most 16 = 4 + 12 positive bits.
+        uint256 bX96 = self.amplitude *
+            uint256(self.highSqrtPriceX96 - self.lowSqrtPriceX96);
+        // By our constraints we know bX96^2 is in 244 bits so the sum is okay.
+        // After the sqrt and sum, this takes up less than 114 bits.
+        uint256 numX96 = sqrt(bX96 * bX96 + 4 * yxX192) - bX96;
+        uint256 isOdd = numX96 & 0x1;
+        sqrtPriceX96 = uint160(numX96 / 2);
+        wideLiq = uint128((x * sqrtPriceX96) >> 96); // Fits without FullMath!
+        if (roundUp && (isOdd > 0)) sqrtPriceX96 += 1;
+    }
+
+    /// Compute the implied pool when we know the price is within the narrow range's ticks.
+    /// @param x balance0 - 128 bits
+    /// @param y balance1 - 128 bits
+    function calcInnerImplied(
+        Edge storage self,
+        uint256 x,
+        uint256 y,
+        bool roundUp
     ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
-        // We're actually somewhat restrictive on these token amounts.
-        // It's mostly okay because we focus on handling stables and blue chips derivatives.
-        // If someone actually had 2^128 of a stable, even with 1e18 decimals, all money would be worthless.
-        uint160 sqrtPa = TickMath.getSqrtRatioAtTick(self.lowTick);
-        uint160 invSqrtPb = TickMath.getSqrtRatioAtTick(-self.highTick);
-        // These balances will only take up 128 bits.
-        uint256 sqrtXWideX64 = sqrt(
-            (((uint256(balance0) << 96) + invSqrtPb) << 32) /
-                (self.amplitude + 1)
+        uint256 b1X96 = self.lowSqrtPriceX96;
+        uint256 b2X96 = roundUp
+            ? FullMath.mulDivRoundingUp(y, self.invHighSqrtPriceX96, x)
+            : FullMath.mulDiv(y, self.invHighSqrtPriceX96, x);
+        uint256 yxX192 = (y << (128 / x)) << 64;
+        uint256 amp1 = self.amplitude + 1;
+        uint256 numX96;
+        if (b1X96 > b2X96) {
+            uint256 bX96 = b1X96 - b2X96;
+            numX96 = sqrt(bX96 * bX96 + 4 * yxX192 * amp1 * amp1) + bX96;
+        } else {
+            uint256 bX96 = b2X96 - b1X96;
+            numX96 = sqrt(bX96 * bX96 + 4 * yxX192 * amp1 * amp1) - bX96;
+        }
+        uint256 denom = 2 * amp1;
+        sqrtPriceX96 = uint160(numX96 / denom);
+        wideLiq = uint128(
+            (y << 96) /
+                (amp1 * sqrtPriceX96 - self.amplitude * self.lowSqrtPriceX96)
         );
-        uint256 sqrtYWideX64 = sqrt(
-            (((uint256(balance1) << 96) + sqrtPa) << 32) / (self.amplitude + 1)
-        );
-        // Given the codomain, these casts are safe.
-        sqrtPriceX96 = uint160((sqrtYWideX64 << 96) / sqrtXWideX64);
-        wideLiq = uint128((sqrtYWideX64 * sqrtXWideX64) >> 128);
+        if (roundUp && (numX96 % denom > 0)) sqrtPriceX96 += 1;
     }
 
     /* Helper Price functions */
@@ -276,15 +490,14 @@ library EdgeImpl {
         uint128 balance0,
         uint128 balance1
     ) internal view returns (uint256 priceX128) {
-        return
-            getPriceHelper(
-                balance0,
-                balance1,
-                self.lowTick,
-                self.highTick,
-                self.amplitude,
-                true
-            );
+        (uint256 sqrtPriceX96, ) = calcImpliedInner(
+            self,
+            balance0,
+            balance1,
+            true
+        );
+
+        return FullMath.mulX128(sqrtPriceX96, sqrtPriceX96 << 64, true);
     }
 
     /// Fetch the price implied by these balances on this edge denoted in terms of token0.
@@ -297,15 +510,15 @@ library EdgeImpl {
         uint128 balance0,
         uint128 balance1
     ) internal view returns (uint256 invPriceX128) {
-        return
-            getPriceHelper(
-                balance1,
-                balance0,
-                -self.highTick,
-                -self.lowTick,
-                self.amplitude,
-                true
-            );
+        (uint256 sqrtPriceX96, ) = calcImpliedInner(
+            self,
+            balance0,
+            balance1,
+            false // Round down to round inv up.
+        );
+        uint256 invSqrtX128 = X224 / sqrtPriceX96;
+        if (X224 % sqrtPriceX96 > 0) invSqrtX128 += 1;
+        return FullMath.mulX128(invSqrtX128, invSqrtX128, true);
     }
 
     /* Helpers */

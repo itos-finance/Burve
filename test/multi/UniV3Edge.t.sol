@@ -28,7 +28,8 @@ contract UniV3EdgeTest is Test {
 
     /* Helpers */
 
-    // Helper for getting what the implied balances should be from a swap.
+    /// Helper for getting what the implied balances should be from a swap.
+    /// @dev Rounds down.
     function getBalances(
         uint160 sqrtPriceX96,
         uint128 wideLiq,
@@ -36,18 +37,18 @@ contract UniV3EdgeTest is Test {
         uint160 lowSqrtPriceX96,
         uint160 invHighSqrtPriceX96
     ) internal pure returns (uint256 x, uint256 y) {
-        uint256 xTerm = FullMath.mulDiv(
+        uint256 xTermX96 = FullMath.mulDiv(
             uint256(wideLiq) << 96,
-            amplitude + 1,
+            (amplitude + 1) << 96,
             sqrtPriceX96
         );
-        x = xTerm - invHighSqrtPriceX96;
-        uint256 yTerm = FullMath.mulX128(
-            uint256(sqrtPriceX96) << 32,
-            wideLiq * uint256(amplitude + 1),
+        x = (xTermX96 - invHighSqrtPriceX96) >> 96;
+        uint256 yTermX96 = FullMath.mulX128(
+            uint256(sqrtPriceX96) << 96,
+            (wideLiq * uint256(amplitude + 1)) << 32,
             false
         );
-        y = yTerm - lowSqrtPriceX96;
+        y = (yTermX96 - lowSqrtPriceX96) >> 96;
     }
 
     function checkedSwap(
@@ -56,12 +57,15 @@ contract UniV3EdgeTest is Test {
         bool zeroForOne,
         int256 amount
     ) internal view returns (uint160 newSqrtPriceX96) {
+        console.log("called");
         int24 startTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+        console.log(startTick);
         uint128 startLiq = edge.updateLiquidity(
             startTick,
             edge.highTick,
             wideLiq
         );
+        console.log(startLiq);
         (uint256 startX, uint256 startY) = getBalances(
             sqrtPriceX96,
             startLiq,
@@ -69,6 +73,7 @@ contract UniV3EdgeTest is Test {
             sqrtLowSqrtPriceX96,
             sqrtInvHighSqrtPriceX96
         );
+        console.log("start balances", startX, startY);
         UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
             0, // fee
             0, // feeProtocol
@@ -89,6 +94,17 @@ contract UniV3EdgeTest is Test {
                 amount,
                 zeroForOne ? SELL_SQRT_LIMIT : BUY_SQRT_LIMIT
             );
+        if (zeroForOne) {
+            assertGt(x, 0);
+            assertLt(y, 0);
+        } else {
+            assertGt(y, 0);
+            assertLt(x, 0);
+        }
+        console.log("swapped");
+        console.log(x);
+        console.log(y);
+        console.log(finalTick);
         uint128 finalLiq = edge.updateLiquidity(finalTick, startTick, startLiq);
         (uint256 finalX, uint256 finalY) = getBalances(
             finalSqrtPriceX96,
@@ -97,6 +113,7 @@ contract UniV3EdgeTest is Test {
             sqrtLowSqrtPriceX96,
             sqrtInvHighSqrtPriceX96
         );
+        console.log("final", finalLiq, finalX, finalY);
         if (x > 0) {
             assertEq(finalX - startX, uint256(x));
         } else {
@@ -113,7 +130,19 @@ contract UniV3EdgeTest is Test {
 
     /* Test */
 
-    function testSwap() public {
+    function testSimpleSwap() public {
+        UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
+            0, // fee
+            0, // feeProtocol
+            1 << 96, // sqrtPriceX96
+            0, // tick
+            1000e18 // current liq
+        );
+
+        UniV3Edge.swap(edge, slot0, true, 100e18, SELL_SQRT_LIMIT);
+    }
+
+    function testSwapConcentrationAmount() public {
         uint160 startSqrtPriceX96 = 1 << 96;
         int24 startTick = 0;
         UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
@@ -139,7 +168,7 @@ contract UniV3EdgeTest is Test {
         // Try again but what if the liquidity was more concentrated.
         edge.lowTick = int24(-10);
         edge.highTick = int24(10);
-        (int256 x10, int256 y10, , , ) = UniV3Edge.swap(
+        (int256 x10, int256 y10, , , int24 finalTick2) = UniV3Edge.swap(
             edge,
             slot0,
             true,
@@ -147,18 +176,16 @@ contract UniV3EdgeTest is Test {
             SELL_SQRT_LIMIT
         );
         assertEq(x, x10);
-        assertGt(y10, y);
+        assertGt(y10, y); // We get less because the liquidity is less.
+        assertLt(finalTick2, finalTick); // We move the tick more.
     }
 
-    function testSwap2() public {
-        UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
-            0, // fee
-            0, // feeProtocol
-            1 << 96, // sqrtPriceX96
-            0, // tick
-            1000e18 // current liq
+    function testSwapAmounts() public {
+        checkedSwap(
+            1 << 96, // price
+            1000e18, // wideLiq,
+            true, // zero for one
+            1e18 // amount
         );
-
-        UniV3Edge.swap(edge, slot0, true, 100e18, SELL_SQRT_LIMIT);
     }
 }

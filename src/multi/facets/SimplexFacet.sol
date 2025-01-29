@@ -13,7 +13,7 @@ struct SimplexStorage {
     Edge defaultEdge;
 }
 contract SimplexFacet {
-    event NewName(string calldata newName);
+    event NewName(string newName);
 
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
@@ -51,10 +51,10 @@ contract SimplexFacet {
     function setName(string calldata newName) external {
         AdminLib.validateOwner();
         Store.simplex().name = newName;
-        emit(newName);
+        emit NewName(newName);
     }
 
-    function getName() external returns (string storage name) {
+    function getName() external returns (string memory name) {
         return Store.simplex().name;
     }
 }
