@@ -9,9 +9,12 @@ import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 struct SimplexStorage {
+    string name;
     Edge defaultEdge;
 }
 contract SimplexFacet {
+    event NewName(string calldata newName);
+
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
@@ -43,5 +46,15 @@ contract SimplexFacet {
         Edge storage defaultE = Store.simplex().defaultEdge;
         defaultE.setRange(amplitude, lowTick, highTick);
         defaultE.setFee(fee, feeProtocol);
+    }
+
+    function setName(string calldata newName) external {
+        AdminLib.validateOwner();
+        Store.simplex().name = newName;
+        emit(newName);
+    }
+
+    function getName() external returns (string storage name) {
+        return Store.simplex().name;
     }
 }

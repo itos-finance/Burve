@@ -91,8 +91,7 @@ contract LiqFacet is ReentrancyGuardTransient {
     function removeLiq(
         address recipient,
         uint16 _closureId,
-        uint256 shares,
-        bytes calldata continuation
+        uint256 shares
     ) external nonReentrant {
         ClosureId cid = ClosureId.wrap(_closureId);
         TokenRegistry storage tokenReg = Store.tokenRegistry();
@@ -110,11 +109,6 @@ contract LiqFacet is ReentrancyGuardTransient {
             vPtr.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
-        }
-        // Do we need a continuation?
-        if (continuation.length != 0) {
-            (bool success, ) = recipient.staticcall(continuation);
-            require(success, "CF");
         }
     }
 }
