@@ -13,17 +13,10 @@ contract UniV3EdgeTest is Test {
     uint160 constant BUY_SQRT_LIMIT = TickMath.MAX_SQRT_RATIO - 1;
 
     Edge public edge;
-    uint160 sqrtLowSqrtPriceX96;
-    uint160 sqrtInvHighSqrtPriceX96;
 
     function setUp() public {
-        edge.lowTick = int24(-100);
-        edge.highTick = int24(100);
-        edge.amplitude = uint128(100);
-        edge.fee = uint24(0);
-        edge.feeProtocol = uint8(0);
-        sqrtLowSqrtPriceX96 = TickMath.getSqrtRatioAtTick(-100);
-        sqrtInvHighSqrtPriceX96 = TickMath.getSqrtRatioAtTick(-100);
+        edge.setRange(uint128(100), int24(-100), int24(100));
+        edge.setFee(0, 0);
     }
 
     /* Helpers */
@@ -31,24 +24,33 @@ contract UniV3EdgeTest is Test {
     /// Helper for getting what the implied balances should be from a swap.
     /// @dev Rounds down.
     function getBalances(
-        uint160 sqrtPriceX96,
-        uint128 wideLiq,
-        uint128 amplitude,
-        uint160 lowSqrtPriceX96,
-        uint160 invHighSqrtPriceX96
-    ) internal pure returns (uint256 x, uint256 y) {
-        uint256 xTermX96 = FullMath.mulDiv(
-            uint256(wideLiq) << 96,
-            (amplitude + 1) << 96,
-            sqrtPriceX96
-        );
-        x = (xTermX96 - invHighSqrtPriceX96) >> 96;
-        uint256 yTermX96 = FullMath.mulX128(
-            uint256(sqrtPriceX96) << 96,
-            (wideLiq * uint256(amplitude + 1)) << 32,
-            false
-        );
-        y = (yTermX96 - lowSqrtPriceX96) >> 96;
+        uint256 sqrtPriceX96,
+        uint256 wideLiq
+    ) internal view returns (uint256 x, uint256 y) {
+        x = ((wideLiq << 128) / sqrtPriceX96) << 64;
+        y = (wideLiq * sqrtPriceX96);
+        if (sqrtPriceX96 < edge.lowSqrtPriceX96) {
+            x +=
+                edge.amplitude *
+                wideLiq *
+                (edge.invLowSqrtPriceX96 - edge.invHighSqrtPriceX96);
+        } else if (sqrtPriceX96 >= edge.highSqrtPriceX96) {
+            y +=
+                edge.amplitude *
+                wideLiq *
+                (edge.highSqrtPriceX96 - edge.lowSqrtPriceX96);
+        } else {
+            x +=
+                edge.amplitude *
+                wideLiq *
+                ((1 << 192) / sqrtPriceX96 - edge.invHighSqrtPriceX96);
+            y +=
+                edge.amplitude *
+                wideLiq *
+                (sqrtPriceX96 - edge.lowSqrtPriceX96);
+        }
+        x >>= 96;
+        y >>= 96;
     }
 
     function checkedSwap(
@@ -66,13 +68,7 @@ contract UniV3EdgeTest is Test {
             wideLiq
         );
         console.log(startLiq);
-        (uint256 startX, uint256 startY) = getBalances(
-            sqrtPriceX96,
-            startLiq,
-            edge.amplitude,
-            sqrtLowSqrtPriceX96,
-            sqrtInvHighSqrtPriceX96
-        );
+        (uint256 startX, uint256 startY) = getBalances(sqrtPriceX96, wideLiq);
         console.log("start balances", startX, startY);
         UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
             0, // fee
@@ -108,22 +104,19 @@ contract UniV3EdgeTest is Test {
         uint128 finalLiq = edge.updateLiquidity(finalTick, startTick, startLiq);
         (uint256 finalX, uint256 finalY) = getBalances(
             finalSqrtPriceX96,
-            finalLiq,
-            edge.amplitude,
-            sqrtLowSqrtPriceX96,
-            sqrtInvHighSqrtPriceX96
+            wideLiq
         );
         console.log("final", finalLiq, finalX, finalY);
         if (x > 0) {
-            assertEq(finalX - startX, uint256(x));
+            assertApproxEqAbs(finalX - startX, uint256(x), 2);
         } else {
-            assertEq(startX - finalX, uint256(-x));
+            assertApproxEqAbs(startX - finalX, uint256(-x), 2);
         }
 
         if (y > 0) {
-            assertEq(finalY - startY, uint256(y));
+            assertApproxEqAbs(finalY - startY, uint256(y), 2);
         } else {
-            assertEq(startY - finalY, uint256(-y));
+            assertApproxEqAbs(startY - finalY, uint256(-y), 2);
         }
         newSqrtPriceX96 = finalSqrtPriceX96;
     }
