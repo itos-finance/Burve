@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
 import { IUniswapV3Pool } from "./integrations/kodiak/IUniswapV3Pool.sol";
 import { TransferHelper } from "./TransferHelper.sol";
 import { IKodiakIsland } from "./integrations/kodiak/IKodiakIsland.sol";
@@ -9,6 +10,7 @@ import { LiquidityAmounts } from "./integrations/uniswap/LiquidityAmounts.sol";
 import { TickMath } from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
+
 
 /// Defines the tick range of an AMM position.
 struct TickRange {
@@ -38,7 +40,7 @@ contract Burve is ERC20 {
     /// The n ranges.
     TickRange[] public ranges;
 
-    /// The relative liquidity for our n (pool) or 1 + n (island) ranges.
+    /// The relative liquidity for our n ranges.
     /// If there is an island that distribution lies at index 0.
     uint256[] public distX96;
 
