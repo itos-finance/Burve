@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {console2 as console} from "forge-std/console2.sol";
+import {console2} from "forge-std/console2.sol";
 import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {FullMath} from "./FullMath.sol";
@@ -192,6 +192,10 @@ library VaultE4626Impl {
         for (uint256 i = 0; i < cids.length; ++i) {
             cidShares += self.shares[cids[i]];
         }
+        console2.log("Total Shares:", self.totalShares);
+        console2.log("CID Shares:", cidShares);
+        console2.log("Total Assets:", totalAssets);
+        console2.log("Newly Adding:", newlyAdding);
         uint256 fullAmount = roundUp
             ? FullMath.mulDivRoundingUp(
                 cidShares,
@@ -199,6 +203,7 @@ library VaultE4626Impl {
                 self.totalShares
             )
             : FullMath.mulDiv(cidShares, totalAssets, self.totalShares);
+        console2.log("fullamount", fullAmount);
         amount = min128(fullAmount);
     }
 

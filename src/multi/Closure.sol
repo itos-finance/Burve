@@ -33,6 +33,9 @@ library ClosureIdImpl {
         ClosureId self,
         VertexId vid
     ) internal pure returns (bool) {
+        console2.log("Self:", ClosureId.unwrap(self));
+        console2.log("VertexId:", VertexId.unwrap(vid));
+        console2.log("res", ClosureId.unwrap(self) & VertexId.unwrap(vid));
         return (ClosureId.unwrap(self) & VertexId.unwrap(vid)) != 0;
     }
 }
@@ -82,9 +85,7 @@ library ClosureDistImpl {
                 ? type(uint256).max
                 : FullMath.mulDivX256(self.weights[i], self.totalWeight);
         }
-        console2.log("Total Weight before reset:", self.totalWeight);
         self.totalWeight = 0;
-        console2.log("Total Weight after reset:", self.totalWeight);
     }
 
     // Scale an amount by the relative weight of idx in this distribution

@@ -67,8 +67,10 @@ library VertexImpl {
         uint256 n = TokenRegLib.numVertices();
         for (uint8 i = 0; i < n; ++i) {
             VertexId neighbor = newVertexId(i);
+
             if (neighbor.isEq(self.vid)) continue;
             if (closure.contains(neighbor)) {
+                console2.log("adding to closures");
                 if (self.homSet[neighbor][closure]) {
                     // We've already added this closure
                     return;
@@ -135,6 +137,7 @@ library VertexImpl {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         ClosureId[] storage closures = dist.getClosures();
         for (uint256 i = 0; i < closures.length; ++i) {
+            console2.log("i", i, amount);
             // The user deposited a fixed amount, we can't round up.
             vProxy.deposit(closures[i], dist.scale(i, amount, false));
         }
@@ -149,6 +152,10 @@ library VertexImpl {
     ) internal view returns (uint256 amount) {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         ClosureId[] storage homs = self.homs[other];
+        console2.log("homs", homs.length);
+        for (uint256 i = 0; i < homs.length; ++i) {
+            console2.log("ClosureId:", ClosureId.unwrap(homs[i]));
+        }
         amount = vProxy.totalBalance(homs, roundUp);
         // Nothing to commit.
     }
