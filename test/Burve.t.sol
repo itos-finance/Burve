@@ -24,6 +24,7 @@ contract BurveTest is Test {
             BartioAddresses.KODIAK_BERA_YEET_ISLAND_NEW
         );
 
+        // TODO(Austin): Not working? Improper setup?
         uint256 balance0 = island.token0().balanceOf(me);
         uint256 balance1 = island.token1().balanceOf(me);
 

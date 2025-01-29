@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.5.0;
 
-import { FixedPoint96 } from "./FixedPoint96.sol";
-import { FullMath } from "@Commons/Math/FullMath.sol";
-import { UnsafeMath } from "@Commons/Math/UnsafeMath.sol";
+import {FixedPoint96} from "v3-core/contracts/libraries/FixedPoint96.sol";
+import {FullMath} from "@Commons/Math/FullMath.sol";
+import {UnsafeMath} from "@Commons/Math/UnsafeMath.sol";
 
 /// @title Liquidity amount functions
 /// @notice Provides functions for computing liquidity amounts from token amounts and prices
@@ -26,9 +26,21 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint256 amount0
     ) internal pure returns (uint128 liquidity) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
-        uint256 intermediate = FullMath.mulDiv(sqrtRatioAX96, sqrtRatioBX96, FixedPoint96.Q96);
-        return toUint128(FullMath.mulDiv(amount0, intermediate, sqrtRatioBX96 - sqrtRatioAX96));
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        uint256 intermediate = FullMath.mulDiv(
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            FixedPoint96.Q96
+        );
+        return
+            toUint128(
+                FullMath.mulDiv(
+                    amount0,
+                    intermediate,
+                    sqrtRatioBX96 - sqrtRatioAX96
+                )
+            );
     }
 
     /// @notice Computes the amount of liquidity received for a given amount of token1 and price range
@@ -42,8 +54,16 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint256 amount1
     ) internal pure returns (uint128 liquidity) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
-        return toUint128(FullMath.mulDiv(amount1, FixedPoint96.Q96, sqrtRatioBX96 - sqrtRatioAX96));
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        return
+            toUint128(
+                FullMath.mulDiv(
+                    amount1,
+                    FixedPoint96.Q96,
+                    sqrtRatioBX96 - sqrtRatioAX96
+                )
+            );
     }
 
     /// @notice Computes the maximum amount of liquidity received for a given amount of token0, token1, the current
@@ -61,17 +81,34 @@ library LiquidityAmounts {
         uint256 amount0,
         uint256 amount1
     ) internal pure returns (uint128 liquidity) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         if (sqrtRatioX96 <= sqrtRatioAX96) {
-            liquidity = getLiquidityForAmount0(sqrtRatioAX96, sqrtRatioBX96, amount0);
+            liquidity = getLiquidityForAmount0(
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                amount0
+            );
         } else if (sqrtRatioX96 < sqrtRatioBX96) {
-            uint128 liquidity0 = getLiquidityForAmount0(sqrtRatioX96, sqrtRatioBX96, amount0);
-            uint128 liquidity1 = getLiquidityForAmount1(sqrtRatioAX96, sqrtRatioX96, amount1);
+            uint128 liquidity0 = getLiquidityForAmount0(
+                sqrtRatioX96,
+                sqrtRatioBX96,
+                amount0
+            );
+            uint128 liquidity1 = getLiquidityForAmount1(
+                sqrtRatioAX96,
+                sqrtRatioX96,
+                amount1
+            );
 
             liquidity = liquidity0 < liquidity1 ? liquidity0 : liquidity1;
         } else {
-            liquidity = getLiquidityForAmount1(sqrtRatioAX96, sqrtRatioBX96, amount1);
+            liquidity = getLiquidityForAmount1(
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                amount1
+            );
         }
     }
 
@@ -84,9 +121,21 @@ library LiquidityAmounts {
         bool roundUp
     ) internal pure returns (uint256 amount0, uint256 amount1) {
         if (roundUp) {
-            return getAmountsForLiquidityRoundingUp(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, liquidity);
+            return
+                getAmountsForLiquidityRoundingUp(
+                    sqrtRatioX96,
+                    sqrtRatioAX96,
+                    sqrtRatioBX96,
+                    liquidity
+                );
         }
-        return getAmountsForLiquidity(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, liquidity);
+        return
+            getAmountsForLiquidity(
+                sqrtRatioX96,
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                liquidity
+            );
     }
 
     /// @notice Computes the amount of token0 for a given amount of liquidity and a price range
@@ -99,7 +148,8 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount0) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         return
             FullMath.mulDiv(
@@ -119,9 +169,15 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount1) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
-        return FullMath.mulDiv(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
+        return
+            FullMath.mulDiv(
+                liquidity,
+                sqrtRatioBX96 - sqrtRatioAX96,
+                FixedPoint96.Q96
+            );
     }
 
     /// @notice Computes the token0 and token1 value for a given amount of liquidity, the current
@@ -138,15 +194,32 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount0, uint256 amount1) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         if (sqrtRatioX96 <= sqrtRatioAX96) {
-            amount0 = getAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
+            amount0 = getAmount0ForLiquidity(
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                liquidity
+            );
         } else if (sqrtRatioX96 < sqrtRatioBX96) {
-            amount0 = getAmount0ForLiquidity(sqrtRatioX96, sqrtRatioBX96, liquidity);
-            amount1 = getAmount1ForLiquidity(sqrtRatioAX96, sqrtRatioX96, liquidity);
+            amount0 = getAmount0ForLiquidity(
+                sqrtRatioX96,
+                sqrtRatioBX96,
+                liquidity
+            );
+            amount1 = getAmount1ForLiquidity(
+                sqrtRatioAX96,
+                sqrtRatioX96,
+                liquidity
+            );
         } else {
-            amount1 = getAmount1ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity);
+            amount1 = getAmount1ForLiquidity(
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                liquidity
+            );
         }
     }
 
@@ -162,7 +235,8 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount0) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         return
             UnsafeMath.divRoundingUp(
@@ -185,9 +259,15 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount1) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
-        return FullMath.mulDivRoundingUp(liquidity, sqrtRatioBX96 - sqrtRatioAX96, FixedPoint96.Q96);
+        return
+            FullMath.mulDivRoundingUp(
+                liquidity,
+                sqrtRatioBX96 - sqrtRatioAX96,
+                FixedPoint96.Q96
+            );
     }
 
     /// @notice Computes the token0 and token1 requested for a given amount of liquidity, the current
@@ -204,15 +284,32 @@ library LiquidityAmounts {
         uint160 sqrtRatioBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount0, uint256 amount1) {
-        if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
+        if (sqrtRatioAX96 > sqrtRatioBX96)
+            (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
         if (sqrtRatioX96 <= sqrtRatioAX96) {
-            amount0 = getAmount0ForLiquidityRoundingUp(sqrtRatioAX96, sqrtRatioBX96, liquidity);
+            amount0 = getAmount0ForLiquidityRoundingUp(
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                liquidity
+            );
         } else if (sqrtRatioX96 < sqrtRatioBX96) {
-            amount0 = getAmount0ForLiquidityRoundingUp(sqrtRatioX96, sqrtRatioBX96, liquidity);
-            amount1 = getAmount1ForLiquidityRoundingUp(sqrtRatioAX96, sqrtRatioX96, liquidity);
+            amount0 = getAmount0ForLiquidityRoundingUp(
+                sqrtRatioX96,
+                sqrtRatioBX96,
+                liquidity
+            );
+            amount1 = getAmount1ForLiquidityRoundingUp(
+                sqrtRatioAX96,
+                sqrtRatioX96,
+                liquidity
+            );
         } else {
-            amount1 = getAmount1ForLiquidityRoundingUp(sqrtRatioAX96, sqrtRatioBX96, liquidity);
+            amount1 = getAmount1ForLiquidityRoundingUp(
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                liquidity
+            );
         }
     }
 }
