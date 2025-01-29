@@ -70,7 +70,6 @@ library VertexImpl {
 
             if (neighbor.isEq(self.vid)) continue;
             if (closure.contains(neighbor)) {
-                console2.log("adding to closures");
                 if (self.homSet[neighbor][closure]) {
                     // We've already added this closure
                     return;
@@ -94,17 +93,13 @@ library VertexImpl {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         dist = newClosureDist(homs);
 
-        console2.log("Number of homs:", homs.length);
-
         for (uint256 i = 0; i < homs.length; ++i) {
             // Round down to make sure we have enough.
             uint256 bal = vProxy.balance(homs[i], false);
-            console2.log("Balance for homs[{}]:", i, bal);
             dist.add(i, bal);
         }
 
         uint256 withdrawable = vProxy.withdrawable();
-        console2.log("Withdrawable amount:", withdrawable);
 
         if (withdrawable < amount || dist.totalWeight < amount) {
             revert InsufficientWithdraw(
@@ -115,13 +110,11 @@ library VertexImpl {
                 amount
             );
         }
-        console2.log("normalize");
         dist.normalize();
 
         for (uint256 i = 0; i < homs.length; ++i) {
             // The user needs the exact amount for this.
             uint256 scaledAmount = dist.scale(i, amount, true);
-            console2.log("Withdrawing from homs[{}]:", i, scaledAmount);
             vProxy.withdraw(homs[i], scaledAmount);
         }
         vProxy.commit(); // Commit our changes.
@@ -137,7 +130,6 @@ library VertexImpl {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         ClosureId[] storage closures = dist.getClosures();
         for (uint256 i = 0; i < closures.length; ++i) {
-            console2.log("i", i, amount);
             // The user deposited a fixed amount, we can't round up.
             vProxy.deposit(closures[i], dist.scale(i, amount, false));
         }
@@ -152,10 +144,6 @@ library VertexImpl {
     ) internal view returns (uint256 amount) {
         VaultPointer memory vProxy = VaultLib.get(self.vid);
         ClosureId[] storage homs = self.homs[other];
-        console2.log("homs", homs.length);
-        for (uint256 i = 0; i < homs.length; ++i) {
-            console2.log("ClosureId:", ClosureId.unwrap(homs[i]));
-        }
         amount = vProxy.totalBalance(homs, roundUp);
         // Nothing to commit.
     }

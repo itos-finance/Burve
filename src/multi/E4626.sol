@@ -133,6 +133,7 @@ library VaultE4626Impl {
             totalAssets
         ); // Rounds down, leaves some share dust in the vault.
         self.shares[cid] -= sharesToRemove;
+        console2.log("sharesToRemove", sharesToRemove);
         self.totalShares -= sharesToRemove;
         temp.vars[2] += amount;
     }

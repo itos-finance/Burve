@@ -10,6 +10,7 @@ import {ClosureId, ClosureDist, ClosureDistImpl, newClosureDist, newClosureId} f
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {Store} from "../../src/multi/Store.sol";
+import {console2} from "forge-std/console2.sol";
 
 contract VertexTest is Test {
     using VertexImpl for Vertex;
@@ -146,6 +147,13 @@ contract VertexTest is Test {
             otherVid,
             withdrawAmount
         );
+
+        console2.log("ClosureDist:");
+        console2.log("totalWeight: ", withdrawDist.totalWeight);
+        console2.log("weights: ");
+        for (uint256 i = 0; i < withdrawDist.weights.length; i++) {
+            console2.log(withdrawDist.weights[i]);
+        }
 
         // Check remaining balance
         totalBalance = vertex.balance(otherVid, false);
