@@ -78,11 +78,8 @@ library EdgeImpl {
         uint160 sqrtPriceLimitX96
     ) internal returns (uint256 inAmount, uint256 outAmount) {
         // Log the start of the swap function
-        console2.log("Starting swap function");
-
         // Prep the swap.
         UniV3Edge.Slot0 memory slot0 = getSlot0(self, token0, token1);
-        console2.log("Prepared slot0:", slot0.liquidity);
 
         // Calculate the swap amounts and protocolFee
         (
@@ -99,12 +96,6 @@ library EdgeImpl {
                 sqrtPriceLimitX96
             );
 
-        console2.log("Calculated amounts:", amount0);
-        console2.log("Calculated amounts:", amount1);
-        console2.log("Protocol fee:", protocolFee);
-        console2.log("Final sqrt price:", finalSqrtPriceX96);
-        console2.log("Final tick:", finalTick);
-
         address inToken;
         address outToken;
         if (zeroForOne) {
@@ -118,8 +109,6 @@ library EdgeImpl {
             outToken = token0;
             outAmount = uint256(-amount0);
         }
-        console2.log("In token:", inToken, "In amount:", inAmount);
-        console2.log("Out token:", outToken, "Out amount:", outAmount);
 
         exchange(
             recipient,
@@ -136,7 +125,6 @@ library EdgeImpl {
             slot0.tick,
             slot0.liquidity
         );
-        console2.log("Final liquidity updated:", finalLiq);
 
         emit Swap(
             msg.sender,
@@ -149,7 +137,6 @@ library EdgeImpl {
             finalLiq,
             finalTick
         );
-        console2.log("Swap event emitted");
     }
 
     /* Methods used by the UniV3Edge */

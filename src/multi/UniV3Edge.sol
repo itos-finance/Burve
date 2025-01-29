@@ -89,12 +89,6 @@ library UniV3Edge {
         )
     {
         require(amountSpecified != 0, "AS");
-
-        console2.log("sqrtPriceLimitX96:", sqrtPriceLimitX96);
-        console2.log("slot0Start.sqrtPriceX96:", slot0Start.sqrtPriceX96);
-        console2.log("TickMath.MIN_SQRT_RATIO:", TickMath.MIN_SQRT_RATIO);
-        console2.log("TickMath.MAX_SQRT_RATIO:", TickMath.MAX_SQRT_RATIO);
-
         // TODO: is this not allowing 0 to be input as the price limit?
         // require(
         //     zeroForOne

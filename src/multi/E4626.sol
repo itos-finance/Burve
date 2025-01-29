@@ -7,6 +7,7 @@ import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {FullMath} from "./FullMath.sol";
 import {VaultTemp} from "./VaultProxy.sol";
+import {console2} from "forge-std/console2.sol";
 
 /** A simple e4626 wrapper that tracks ownership by closureId
  * Note that there are plenty of E4626's that have lockups
@@ -130,6 +131,7 @@ library VaultE4626Impl {
             totalAssets
         ); // Rounds down, leaves some share dust in the vault.
         self.shares[cid] -= sharesToRemove;
+        console2.log("sharesToRemove", sharesToRemove);
         self.totalShares -= sharesToRemove;
         temp.vars[2] += amount;
     }

@@ -18,7 +18,6 @@ contract SimplexFacet {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
-        // TODO: event?
     }
 
     /// Withdraw fees earned by the protocol.

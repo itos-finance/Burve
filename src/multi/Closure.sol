@@ -5,7 +5,6 @@ import {FullMath} from "./FullMath.sol";
 import {VertexId} from "./Vertex.sol";
 import {Store} from "./Store.sol";
 import {TokenRegistry} from "./Token.sol";
-import {console2} from "forge-std/console2.sol";
 
 type ClosureId is uint16;
 
@@ -33,9 +32,6 @@ library ClosureIdImpl {
         ClosureId self,
         VertexId vid
     ) internal pure returns (bool) {
-        console2.log("Self:", ClosureId.unwrap(self));
-        console2.log("VertexId:", VertexId.unwrap(vid));
-        console2.log("res", ClosureId.unwrap(self) & VertexId.unwrap(vid));
         return (ClosureId.unwrap(self) & VertexId.unwrap(vid)) != 0;
     }
 }
