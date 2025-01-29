@@ -174,11 +174,15 @@ contract UniV3EdgeTest is Test {
     }
 
     function testSwapAmounts() public {
-        checkedSwap(
+        uint160 newSqrtPriceX96 = checkedSwap(
             1 << 96, // price
             1000e18, // wideLiq,
             true, // zero for one
-            1e18 // amount
+            123e17 // amount
         );
+        // Go past the high tick.
+        newSqrtPriceX96 = checkedSwap(newSqrtPriceX96, 100e18, false, 70e18);
+        // And go straight past the low tick
+        newSqrtPriceX96 = checkedSwap(newSqrtPriceX96, 100e18, true, -150e18);
     }
 }
