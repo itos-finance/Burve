@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
-import {Edge} from "../Edge.sol";
+import {Edge, EdgeImpl} from "../Edge.sol";
 import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {AssetStorage} from "../Asset.sol";
 import {VaultStorage} from "../VaultProxy.sol";
@@ -25,6 +25,16 @@ contract ViewFacet {
             (token0, token1) = (token1, token0);
         }
         return Store.edge(token0, token1);
+    }
+
+    function getPriceX128(
+        address token0,
+        address token1,
+        uint128 balance0,
+        uint128 balance1
+    ) external view returns (uint256 priceX128) {
+        Edge storage self = Store.edge(token0, token1);
+        return self.getPriceX128(balance0, balance1);
     }
 
     function getVertex(
