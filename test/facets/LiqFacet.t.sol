@@ -135,7 +135,7 @@ contract LiqFacetTest is Test {
 
         vm.startPrank(alice);
 
-        // Add liquidity for both tokens
+        // Add liquidity for token0
         uint256 shares0 = liqFacet.addLiq(
             alice,
             closureId,
@@ -143,6 +143,7 @@ contract LiqFacetTest is Test {
             uint128(amount0)
         );
 
+        // Add liquidity for token1
         uint256 shares1 = liqFacet.addLiq(
             alice,
             closureId,
@@ -150,11 +151,31 @@ contract LiqFacetTest is Test {
             uint128(amount1)
         );
 
+        // Record balances before removal
+        uint256 token0Before = token0.balanceOf(alice);
+        uint256 token1Before = token1.balanceOf(alice);
+
+        // Remove liquidity for token0
+        liqFacet.removeLiq(alice, closureId, shares0, "");
+
+        // Remove liquidity for token1
+        liqFacet.removeLiq(alice, closureId, shares1, "");
+
         vm.stopPrank();
 
-        // Verify shares were minted
-        assertGt(shares0, 0, "Should have received shares for token0");
-        assertGt(shares1, 0, "Should have received shares for token1");
+        // Verify tokens were returned
+        assertApproxEqAbs(
+            token0.balanceOf(alice),
+            token0Before + amount0,
+            1,
+            "Should have received all token0 back"
+        );
+        assertApproxEqAbs(
+            token1.balanceOf(alice),
+            token1Before + amount1,
+            1,
+            "Should have received all token1 back"
+        );
     }
 
     /// Single sided, multi-user provision

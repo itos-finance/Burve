@@ -123,12 +123,13 @@ contract SimplexDiamond is IDiamond {
         /// TODO: figure out why I can't add these during test setup, but it works if i just add them to the diamond
         {
             // Add storage facet using LibDiamond directly since we're the owner
-            bytes4[] memory selectors = new bytes4[](5);
+            bytes4[] memory selectors = new bytes4[](6);
             selectors[0] = ViewFacet.getEdge.selector;
             selectors[1] = ViewFacet.getVertex.selector;
             selectors[2] = ViewFacet.getAssetShares.selector;
             selectors[3] = ViewFacet.getDefaultEdge.selector;
             selectors[4] = ViewFacet.getClosureId.selector;
+            selectors[5] = ViewFacet.getPriceX128.selector;
 
             cuts[7] = IDiamond.FacetCut({
                 facetAddress: address(new ViewFacet()),
