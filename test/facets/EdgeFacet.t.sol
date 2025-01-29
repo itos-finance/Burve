@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../../src/BurveDeploymentLib.sol";
+import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";

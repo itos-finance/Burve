@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../src/BurveDeploymentLib.sol";
+import {BurveDeploymentLib} from "../src/deployment/BurveDeployLib.sol";
 import {SimplexDiamond} from "../src/multi/Diamond.sol";
 import {LiqFacet} from "../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
@@ -195,18 +195,8 @@ contract BurveIntegrationTest is Test {
 
         // Remove all liquidity
         vm.startPrank(alice);
-        liqFacet.removeLiq(
-            alice,
-            closureId,
-            shares0,
-            "" // No continuation needed
-        );
-        liqFacet.removeLiq(
-            alice,
-            closureId,
-            shares1,
-            "" // No continuation needed
-        );
+        liqFacet.removeLiq(alice, closureId, shares0);
+        liqFacet.removeLiq(alice, closureId, shares1);
         vm.stopPrank();
 
         // Verify tokens were returned

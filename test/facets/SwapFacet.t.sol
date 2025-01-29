@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../../src/BurveDeploymentLib.sol";
+import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
@@ -428,8 +428,8 @@ contract SwapFacetTest is Test {
             address(token1),
             uint128(INITIAL_LIQUIDITY_AMOUNT)
         );
-        liqFacet.removeLiq(alice, closureId, shares0, "");
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares0);
+        liqFacet.removeLiq(alice, closureId, shares1);
         vm.stopPrank();
 
         // Try to swap
@@ -549,8 +549,8 @@ contract SwapFacetTest is Test {
         uint256 token0Before = token0.balanceOf(alice);
         uint256 token1Before = token1.balanceOf(alice);
 
-        liqFacet.removeLiq(alice, closureId, shares0, "");
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares0);
+        liqFacet.removeLiq(alice, closureId, shares1);
 
         // Verify tokens returned proportionally
         assertApproxEqRel(
@@ -600,8 +600,8 @@ contract SwapFacetTest is Test {
             );
 
             // Remove half of added liquidity
-            liqFacet.removeLiq(alice, closureId, shares0 / 2, "");
-            liqFacet.removeLiq(alice, closureId, shares1 / 2, "");
+            liqFacet.removeLiq(alice, closureId, shares0 / 2);
+            liqFacet.removeLiq(alice, closureId, shares1 / 2);
             vm.stopPrank();
 
             // Swap token1 for token0
@@ -677,8 +677,8 @@ contract SwapFacetTest is Test {
             address(token1),
             uint128(amount)
         );
-        liqFacet.removeLiq(alice, closureId, shares0, "");
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares0);
+        liqFacet.removeLiq(alice, closureId, shares1);
         vm.stopPrank();
     }
 }

@@ -130,7 +130,7 @@ contract UniV3EdgeTest is Test {
 
     /* Test */
 
-    function testSimpleSwap() public {
+    function testSimpleSwap() public view {
         UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
             0, // fee
             0, // feeProtocol
@@ -153,13 +153,13 @@ contract UniV3EdgeTest is Test {
             1000e18 // current liq
         );
 
-        (
-            int256 x,
-            int256 y,
-            uint128 proto,
-            uint160 finalSqrtPriceX96,
-            int24 finalTick
-        ) = UniV3Edge.swap(edge, slot0, true, 100e18, SELL_SQRT_LIMIT);
+        (int256 x, int256 y, uint128 proto, , int24 finalTick) = UniV3Edge.swap(
+            edge,
+            slot0,
+            true,
+            100e18,
+            SELL_SQRT_LIMIT
+        );
         // Generally correct values.
         assertEq(proto, 0);
         assertLt(y, 0);

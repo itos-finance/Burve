@@ -54,7 +54,7 @@ contract SimplexFacet {
         emit NewName(newName);
     }
 
-    function getName() external returns (string memory name) {
+    function getName() external view returns (string memory name) {
         return Store.simplex().name;
     }
 }

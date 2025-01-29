@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../../src/BurveDeploymentLib.sol";
+import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
@@ -209,8 +209,8 @@ contract LiqFacetTest is Test {
         uint256 token1Before = token1.balanceOf(alice);
 
         // Remove all liquidity
-        liqFacet.removeLiq(alice, closureId, shares0, "");
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares0);
+        liqFacet.removeLiq(alice, closureId, shares1);
 
         vm.stopPrank();
 
@@ -255,8 +255,8 @@ contract LiqFacetTest is Test {
         uint256 token1Before = token1.balanceOf(alice);
 
         // Remove partial liquidity
-        liqFacet.removeLiq(alice, closureId, sharesToRemove0, "");
-        liqFacet.removeLiq(alice, closureId, sharesToRemove1, "");
+        liqFacet.removeLiq(alice, closureId, sharesToRemove0);
+        liqFacet.removeLiq(alice, closureId, sharesToRemove1);
 
         vm.stopPrank();
 
@@ -354,8 +354,8 @@ contract LiqFacetTest is Test {
         uint256 token1Before = token1.balanceOf(alice);
 
         // Remove partial liquidity
-        liqFacet.removeLiq(alice, closureId, sharesToRemove0, "");
-        liqFacet.removeLiq(alice, closureId, sharesToRemove1, "");
+        liqFacet.removeLiq(alice, closureId, sharesToRemove0);
+        liqFacet.removeLiq(alice, closureId, sharesToRemove1);
 
         // Calculate expected returns
         uint256 expectedReturn0 = (uint256(depositAmount) * removalPercentage) /
@@ -498,8 +498,8 @@ contract LiqFacetTest is Test {
                 removePercentages[i]) / 100;
 
             if (sharesToRemove0 > 0 && sharesToRemove1 > 0) {
-                liqFacet.removeLiq(alice, closureId, sharesToRemove0, "");
-                liqFacet.removeLiq(alice, closureId, sharesToRemove1, "");
+                liqFacet.removeLiq(alice, closureId, sharesToRemove0);
+                liqFacet.removeLiq(alice, closureId, sharesToRemove1);
 
                 remainingShares0 -= sharesToRemove0;
                 remainingShares1 -= sharesToRemove1;
@@ -561,8 +561,8 @@ contract LiqFacetTest is Test {
             uint256 token0Before = token0.balanceOf(alice);
             uint256 token1Before = token1.balanceOf(alice);
 
-            liqFacet.removeLiq(alice, closureId, shares0[i], "");
-            liqFacet.removeLiq(alice, closureId, shares1[i], "");
+            liqFacet.removeLiq(alice, closureId, shares0[i]);
+            liqFacet.removeLiq(alice, closureId, shares1[i]);
 
             uint256 token0Received = token0.balanceOf(alice) - token0Before;
             uint256 token1Received = token1.balanceOf(alice) - token1Before;
@@ -649,8 +649,8 @@ contract LiqFacetTest is Test {
                 uint128(INITIAL_LIQUIDITY_AMOUNT * (i + 1))
             ) / 2;
 
-            liqFacet.removeLiq(users[i], closureId, shares0, "");
-            liqFacet.removeLiq(users[i], closureId, shares1, "");
+            liqFacet.removeLiq(users[i], closureId, shares0);
+            liqFacet.removeLiq(users[i], closureId, shares1);
 
             totalSupply0 -= shares0;
             totalSupply1 -= shares1;
@@ -746,8 +746,8 @@ contract LiqFacetTest is Test {
 
         // Remove all liquidity
         vm.startPrank(alice);
-        liqFacet.removeLiq(alice, closureId, shares0, "");
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares0);
+        liqFacet.removeLiq(alice, closureId, shares1);
         vm.stopPrank();
 
         // Calculate total value change

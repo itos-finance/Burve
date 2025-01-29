@@ -323,7 +323,7 @@ library EdgeImpl {
         uint256 balance0,
         uint256 balance1,
         bool roundUp
-    ) private returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+    ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
         // If we're rounding the price up we want to round x/y down to stay out of the bottom region.
         // But that means rounding up here in this form of the comparison.
         // And conveniently vice versa when rounding down, we round x/y up, so we round the mult down.
@@ -366,7 +366,7 @@ library EdgeImpl {
         uint128 amp,
         uint160 invSqrtLowX96,
         uint256 invDeltaX96
-    ) private returns (uint256 xyBoundX128) {
+    ) private pure returns (uint256 xyBoundX128) {
         uint256 inner = invSqrtLowX96 + amp * invDeltaX96;
         // We round the bounds down so its a little easier to be in out of the concentrated range.
         // The only downside is that potentially we go back to the peg slightly easier by 1 token.
@@ -384,7 +384,7 @@ library EdgeImpl {
         uint128 amp,
         uint160 sqrtHighX96,
         uint256 deltaX96
-    ) private returns (uint256 yxBoundX128) {
+    ) private pure returns (uint256 yxBoundX128) {
         uint256 inner = sqrtHighX96 + amp * deltaX96;
         // We round the bounds down so its a little easier to be in out of the concentrated range.
         // The only downside is that potentially we go back to the peg slightly easier by 1 token.
@@ -404,7 +404,7 @@ library EdgeImpl {
         uint256 x,
         uint256 y,
         bool roundUp
-    ) private returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+    ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
         // Due to our constraints this is smaller than 26 non-fractional bits.
         // We can't go straight to X192 because we DON'T know if that will fit, but
         // X128 is more than enough precision. The other 64 is to match b^2.
@@ -429,7 +429,7 @@ library EdgeImpl {
         uint256 x,
         uint256 y,
         bool roundUp
-    ) private returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+    ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
         // Due to our constraints this is smaller than 26 non-fractional bits.
         // We can't go straight to X192 because we DON'T know if that will fit, but
         // X128 is more than enough precision. The other 64 is to match b^2.
@@ -532,27 +532,5 @@ library EdgeImpl {
             y = z;
             z = (x / z + z) / 2;
         }
-    }
-
-    /// Helper for computing the price implied by balance1/balance0
-    function getPriceHelper(
-        uint128 balance0,
-        uint128 balance1,
-        int24 low,
-        int24 high,
-        uint256 amp,
-        bool roundUp
-    ) private pure returns (uint256 priceX128) {
-        uint160 sqrtPa = TickMath.getSqrtRatioAtTick(low);
-        uint160 invSqrtPb = TickMath.getSqrtRatioAtTick(high);
-        // See get implied for why this is okay.
-        uint256 yWideX128 = (((uint256(balance1) << 96) + sqrtPa) << 32) /
-            (amp + 1);
-        uint256 xWideX128 = (((uint256(balance0) << 96) + invSqrtPb) << 32) /
-            (amp + 1);
-        return
-            roundUp
-                ? FullMath.mulDivRoundingUp(yWideX128, 1 << 128, xWideX128)
-                : FullMath.mulDiv(yWideX128, 1 << 128, xWideX128);
     }
 }
