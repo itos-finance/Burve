@@ -148,19 +148,114 @@ contract VertexTest is Test {
             withdrawAmount
         );
 
-        console2.log("ClosureDist:");
-        console2.log("totalWeight: ", withdrawDist.totalWeight);
-        console2.log("weights: ");
-        for (uint256 i = 0; i < withdrawDist.weights.length; i++) {
-            console2.log(withdrawDist.weights[i]);
-        }
-
         // Check remaining balance
         totalBalance = vertex.balance(otherVid, false);
-        assertEq(
+        assertApproxEqRel(
             totalBalance,
-            TEST_AMOUNT - withdrawAmount,
+            (TEST_AMOUNT * 60) / 100 - withdrawAmount,
+            1,
+            "Remaining balance incorrect"
+        );
+
+        totalBalance = vertex.balance(vid2, false);
+        assertApproxEqRel(
+            totalBalance,
+            (TEST_AMOUNT * 40) / 100,
+            1,
             "Remaining balance incorrect"
         );
     }
+
+    function testMultipleClosures() public {
+        // Setup multiple closures with different vertices
+        VertexId otherVid1 = VertexId.wrap(uint16(2));
+        VertexId otherVid2 = VertexId.wrap(uint16(4));
+        ClosureId closure1 = ClosureId.wrap(uint16(3)); // token0, token1
+        ClosureId closure2 = ClosureId.wrap(uint16(5)); // token0, token2
+        ClosureId closure3 = ClosureId.wrap(uint16(7)); // token0, token1, token2
+
+        // Add closures
+        vertex.ensureClosure(closure1);
+        vertex.ensureClosure(closure2);
+        vertex.ensureClosure(closure3);
+
+        // Create and add liquidity to first vertex pair
+        {
+            delete testClosures;
+            testClosures.push(closure1);
+            testClosures.push(closure3);
+            ClosureDist memory dist = newClosureDist(testClosures);
+            dist.add(0, 50); // half of test amount goes to both token0, token1
+            dist.add(1, 50); // half of TEST_AMOUNT goes to all 3 (token0, token1, token2)
+            dist.normalize();
+            vertex.homAdd(dist, TEST_AMOUNT);
+        }
+
+        // Create and add liquidity to second vertex pair
+        {
+            delete testClosures;
+            testClosures.push(closure2);
+            testClosures.push(closure3);
+            ClosureDist memory dist = newClosureDist(testClosures);
+            dist.add(0, 70); // 70% of token amount goes to both token0, token2
+            dist.add(1, 30); // 30% of token amount goes to all 3 (token0, token1, token2)
+            dist.normalize();
+            vertex.homAdd(dist, TEST_AMOUNT);
+        }
+
+        // Verify balances for both vertex pairs
+        uint256 balance1 = vertex.balance(otherVid1, false);
+        uint256 balance2 = vertex.balance(otherVid2, false);
+
+        assertApproxEqRel(
+            balance1,
+            1.3e20,
+            1,
+            "Balance with first vertex incorrect"
+        );
+
+        assertApproxEqRel(
+            balance2,
+            1.5e20,
+            1,
+            "Balance with second vertex incorrect"
+        );
+    }
+
+    // function testRoundingBehavior() public {
+    //     VertexId otherVid = VertexId.wrap(uint16(2));
+    //     ClosureId closure1 = ClosureId.wrap(uint16(3));
+    //     ClosureId closure2 = ClosureId.wrap(uint16(5));
+
+    //     // Add closures
+    //     vertex.ensureClosure(closure1);
+    //     vertex.ensureClosure(closure2);
+
+    //     // Create distribution with uneven split (33/67)
+    //     delete testClosures;
+    //     testClosures.push(closure1);
+    //     testClosures.push(closure2);
+    //     ClosureDist memory dist = newClosureDist(testClosures);
+    //     dist.add(0, 33);
+    //     dist.add(1, 67);
+    //     dist.normalize();
+
+    //     // Add small amount to test rounding
+    //     uint256 smallAmount = 100; // Small number to force rounding
+    //     vertex.homAdd(dist, smallAmount);
+
+    //     // Check balance with both rounding options
+    //     uint256 balanceRoundDown = vertex.balance(otherVid, false);
+    //     uint256 balanceRoundUp = vertex.balance(otherVid, true);
+
+    //     assertTrue(
+    //         balanceRoundUp >= balanceRoundDown,
+    //         "Round up should be >= round down"
+    //     );
+    //     assertEq(
+    //         balanceRoundDown,
+    //         smallAmount,
+    //         "Total balance should match input amount"
+    //     );
+    // }
 }
