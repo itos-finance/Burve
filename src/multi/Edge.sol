@@ -202,7 +202,7 @@ library EdgeImpl {
         address token0,
         address token1,
         bool roundUp
-    ) private view returns (UniV3Edge.Slot0 memory slot0) {
+    ) internal view returns (UniV3Edge.Slot0 memory slot0) {
         // If this edge has never been called before we will set ourselves to the default edge
         if (self.amplitude == 0) {
             self = Store.simplex().defaultEdge;
