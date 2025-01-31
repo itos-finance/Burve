@@ -11,7 +11,7 @@ import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../FullMath.sol";
 import {AssetLib} from "../Asset.sol";
-import {console2 as console} from "forge-std/console2.sol";
+import {BurveFacetBase} from "./Base.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -21,7 +21,7 @@ import {console2 as console} from "forge-std/console2.sol";
  in their own ERC20 contract with mint functions that call the addLiq and removeLiq
 functions here.
 */
-contract LiqFacet is ReentrancyGuardTransient {
+contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     error TokenNotInClosure(ClosureId cid, address token);
 
     function addLiq(
@@ -29,7 +29,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint16 _closureId,
         address token,
         uint128 amount
-    ) external nonReentrant returns (uint256 shares) {
+    ) external nonReentrant validToken(token) returns (uint256 shares) {
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,

@@ -9,12 +9,13 @@ import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib} from "../Token.sol";
+import {BurveFacetBase} from "./Base.sol";
 
 struct SimplexStorage {
     string name;
     Edge defaultEdge;
 }
-contract SimplexFacet {
+contract SimplexFacet is BurveFacetBase {
     event NewName(string newName);
 
     /// Convert your token of interest to the vertex id which you can
@@ -36,7 +37,10 @@ contract SimplexFacet {
     }
 
     /// Withdraw fees earned by the protocol.
-    function withdrawFees(address token, uint256 amount) external {
+    function withdrawFees(
+        address token,
+        uint256 amount
+    ) external validToken(token) {
         AdminLib.validateOwner();
         // Normally tokens supporting the AMM ALWAYS resides in the vaults.
         // The only exception is

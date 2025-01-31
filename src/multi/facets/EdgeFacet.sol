@@ -4,8 +4,9 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
+import {BurveFacetBase} from "./Base.sol";
 
-contract EdgeFacet {
+contract EdgeFacet is BurveFacetBase {
     error InvalidTickRange();
     event EdgeFeeUpdated(address token0, address token1, uint24 fee);
 
@@ -16,8 +17,9 @@ contract EdgeFacet {
         uint128 amplitude,
         int24 lowTick,
         int24 highTick
-    ) external {
+    ) external validTokens(token0, token1) {
         AdminLib.validateOwner();
+        if (lowTick >= highTick) revert InvalidTickRange();
         // We use the raw edge so we can preemptively set settings even if the vertices
         // aren't in use.
         Store.rawEdge(token0, token1).setRange(amplitude, lowTick, highTick);
@@ -28,7 +30,7 @@ contract EdgeFacet {
         address token1,
         uint24 fee,
         uint8 feeProtocol
-    ) external {
+    ) external validTokens(token0, token1) {
         AdminLib.validateOwner();
         // We use the raw edge so we can preemptively set settings even if the vertices
         // aren't in use.
