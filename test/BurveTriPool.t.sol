@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../src/deployment/BurveDeployLib.sol";
+import {BurveFacets, InitLib} from "../src/InitLib.sol";
 import {SimplexDiamond} from "../src/multi/Diamond.sol";
 import {EdgeFacet} from "../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../src/multi/facets/LiqFacet.sol";
@@ -43,17 +43,9 @@ contract BurveTriPoolTest is Test {
         vm.startPrank(owner);
 
         // Deploy the diamond and facets
-        (
-            address liqFacetAddr,
-            address simplexFacetAddr,
-            address swapFacetAddr
-        ) = BurveDeploymentLib.deployFacets();
+        BurveFacets memory burveFacets = InitLib.deployFacets();
 
-        diamond = new SimplexDiamond(
-            liqFacetAddr,
-            simplexFacetAddr,
-            swapFacetAddr
-        );
+        diamond = new SimplexDiamond(burveFacets);
 
         // Cast the diamond address to the facet interfaces
         liqFacet = LiqFacet(address(diamond));

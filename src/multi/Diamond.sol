@@ -14,6 +14,7 @@ import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
 import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
 import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
 
+import {BurveFacets} from "../InitLib.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
@@ -23,7 +24,7 @@ import {ViewFacet} from "./facets/ViewFacet.sol";
 error FunctionNotFound(bytes4 _functionSelector);
 
 contract SimplexDiamond is IDiamond {
-    constructor(address swapFacet, address liqFacet, address simplexFacet) {
+    constructor(BurveFacets memory facets) {
         AdminLib.initOwner(msg.sender);
 
         FacetCut[] memory cuts = new FacetCut[](8);
@@ -74,7 +75,7 @@ contract SimplexDiamond is IDiamond {
             liqSelectors[0] = LiqFacet.addLiq.selector;
             liqSelectors[1] = LiqFacet.removeLiq.selector;
             cuts[3] = FacetCut({
-                facetAddress: address(new LiqFacet()),
+                facetAddress: facets.liqFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: liqSelectors
             });
@@ -86,7 +87,7 @@ contract SimplexDiamond is IDiamond {
             swapSelectors[1] = SwapFacet.simSwap.selector;
             swapSelectors[2] = SwapFacet.getSqrtPrice.selector;
             cuts[4] = FacetCut({
-                facetAddress: address(new SwapFacet()),
+                facetAddress: facets.swapFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: swapSelectors
             });
@@ -102,7 +103,7 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[5] = SimplexFacet.setName.selector;
             simplexSelectors[6] = SimplexFacet.getName.selector;
             cuts[5] = FacetCut({
-                facetAddress: address(new SimplexFacet()),
+                facetAddress: facets.simplexFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: simplexSelectors
             });

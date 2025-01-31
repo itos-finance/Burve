@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
+import {BurveFacets, InitLib} from "../../src/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
@@ -44,17 +44,9 @@ contract LiqFacetTest is Test {
         vm.startPrank(owner);
 
         // Deploy the diamond and facets
-        (
-            address liqFacetAddr,
-            address simplexFacetAddr,
-            address swapFacetAddr
-        ) = BurveDeploymentLib.deployFacets();
+        BurveFacets memory facets = InitLib.deployFacets();
 
-        diamond = new SimplexDiamond(
-            liqFacetAddr,
-            simplexFacetAddr,
-            swapFacetAddr
-        );
+        diamond = new SimplexDiamond(facets);
 
         edgeFacet = EdgeFacet(address(diamond));
         liqFacet = LiqFacet(address(diamond));
@@ -129,20 +121,20 @@ contract LiqFacetTest is Test {
 
         vm.startPrank(alice);
 
-        // Add liquidity for token0
-        uint256 shares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            uint128(amount0)
-        );
-
         // Add liquidity for token1
         uint256 shares1 = liqFacet.addLiq(
             alice,
             closureId,
             address(token1),
             uint128(amount1)
+        );
+
+        // Add liquidity for token0
+        uint256 shares0 = liqFacet.addLiq(
+            alice,
+            closureId,
+            address(token0),
+            uint128(amount0)
         );
 
         // Record balances before removal
