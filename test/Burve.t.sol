@@ -8,6 +8,7 @@ import {IKodiakIsland} from "../src/integrations/kodiak/IKodiakIsland.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {LiquidityAmounts} from "../src/integrations/uniswap/LiquidityAmounts.sol";
 import {TickMath} from "../src/integrations/uniswap/TickMath.sol";
+import {IUniswapV3Pool} from "../src/integrations/kodiak/IUniswapV3Pool.sol";
 
 contract BurveTest is Test {
     Burve public burve;
@@ -15,6 +16,36 @@ contract BurveTest is Test {
     function setUp() public {}
 
     function testBasic() public {}
+
+    function testCalcLiq() public {
+        address poolAddr = 0x246c12D7F176B93e32015015dAB8329977de981B;
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddr);
+
+        console.log("tick spacing: ", pool.tickSpacing());
+
+        uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(-139);
+        uint160 lowerSqrtP = TickMath.getSqrtRatioAtTick(-1000);
+        uint160 upperSqrtP = TickMath.getSqrtRatioAtTick(800);
+        console.log("lower sqrt: ", upperSqrtP);
+        console.log("upper sqrt: ", lowerSqrtP);
+
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts
+            .getAmountsForLiquidity(sqrtRatioX96, lowerSqrtP, upperSqrtP, 1000);
+        console.log("amount0: ", amount0);
+        console.log("amount1: ", amount1);
+    }
+
+    function testStableMint() public {
+        address burveAddr = 0xda5826868528Ace919721ef324a69c16b9486D08;
+        address me = address(0x0); // replace with your address
+
+        burve = Burve(burveAddr);
+
+        IERC20(burve.token0()).approve(burveAddr, 1000);
+        IERC20(burve.token1()).approve(burveAddr, 1000);
+
+        burve.mint(me, 1000);
+    }
 
     function testIsland() public {
         address me = address(0x0); // replace with your address
