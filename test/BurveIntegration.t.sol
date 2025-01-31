@@ -9,7 +9,7 @@ import {LiqFacet} from "../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
 import {EdgeFacet} from "../src/multi/facets/EdgeFacet.sol";
 import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {ClosureId, newClosureId} from "../src/multi/Closure.sol";
 import {VaultType} from "../src/multi/VaultProxy.sol";

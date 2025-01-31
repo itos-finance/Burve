@@ -156,10 +156,10 @@ contract LiqFacetTest is Test {
         uint256 token1Before = token1.balanceOf(alice);
 
         // Remove liquidity for token0
-        liqFacet.removeLiq(alice, closureId, shares0, "");
+        liqFacet.removeLiq(alice, closureId, shares0);
 
         // Remove liquidity for token1
-        liqFacet.removeLiq(alice, closureId, shares1, "");
+        liqFacet.removeLiq(alice, closureId, shares1);
 
         vm.stopPrank();
 
@@ -208,7 +208,7 @@ contract LiqFacetTest is Test {
         uint256 aliceToken0Before = token0.balanceOf(alice);
 
         // Remove all liquidity
-        liqFacet.removeLiq(alice, closureId, aliceShares0, "");
+        liqFacet.removeLiq(alice, closureId, aliceShares0);
 
         vm.stopPrank();
 
@@ -218,7 +218,7 @@ contract LiqFacetTest is Test {
         uint256 bobToken0Before = token0.balanceOf(bob);
 
         // Remove all liquidity
-        liqFacet.removeLiq(bob, closureId, bobShares0, "");
+        liqFacet.removeLiq(bob, closureId, bobShares0);
 
         vm.stopPrank();
 
@@ -282,7 +282,7 @@ contract LiqFacetTest is Test {
         uint256 aliceToken1Before = token1.balanceOf(alice);
 
         // Remove all liquidity
-        liqFacet.removeLiq(alice, closureId, aliceShares0 + aliceShares1, "");
+        liqFacet.removeLiq(alice, closureId, aliceShares0 + aliceShares1);
 
         vm.stopPrank();
 
@@ -293,7 +293,7 @@ contract LiqFacetTest is Test {
         uint256 bobToken1Before = token1.balanceOf(bob);
 
         // Remove all liquidity
-        liqFacet.removeLiq(bob, closureId, bobShares0 + bobShares1, "");
+        liqFacet.removeLiq(bob, closureId, bobShares0 + bobShares1);
 
         vm.stopPrank();
 
