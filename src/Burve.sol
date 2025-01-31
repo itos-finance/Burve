@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-
-import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
-import { IUniswapV3Pool } from "./integrations/kodiak/IUniswapV3Pool.sol";
-import { TransferHelper } from "./TransferHelper.sol";
-import { IKodiakIsland } from "./integrations/kodiak/IKodiakIsland.sol";
-import { LiquidityAmounts } from "./integrations/uniswap/LiquidityAmounts.sol";
-import { TickMath } from "./integrations/uniswap/TickMath.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
+import {TransferHelper} from "./TransferHelper.sol";
+import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
+import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
+import {TickMath} from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
-
 
 /// Defines the tick range of an AMM position.
 struct TickRange {
@@ -131,12 +129,16 @@ contract Burve is ERC20 {
         _mint(recipient, liq);
     }
 
-    /// @notice Helper method for minting to the given range. 
+    /// @notice Helper method for minting to the given range.
     /// Used to decipher between the island and v3 ranges.
     /// @param range The range to mint to.
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
-    function mintRange(TickRange memory range, address recipient, uint128 liq) internal {
+    function mintRange(
+        TickRange memory range,
+        address recipient,
+        uint128 liq
+    ) internal {
         // mint the island
         if (range.lower == 0 && range.upper == 0) {
             uint256 mintShares = islandLiqToShares(liq);
@@ -172,11 +174,7 @@ contract Burve is ERC20 {
             uint256 burnShares = islandLiqToShares(liq);
             island.burn(burnShares, msg.sender);
         } else {
-            (uint256 x, uint256 y) = pool.burn(
-                range.lower,
-                range.upper,
-                liq
-            );
+            (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
 
             if (x > type(uint128).max) revert TooMuchBurnedAtOnce(liq, x, true);
             if (y > type(uint128).max)
@@ -223,12 +221,14 @@ contract Burve is ERC20 {
     /// @notice Calculates the amount of shares for an island given the liquidity.
     /// @param liq The liquidity to convert to shares.
     /// @return shares The amount of shares.
-    function islandLiqToShares(uint128 liq) internal view returns (uint256 shares) {
+    function islandLiqToShares(
+        uint128 liq
+    ) internal view returns (uint256 shares) {
         if (address(island) == address(0x0)) {
             revert NoIsland();
         }
 
-        (uint160 sqrtRatioX96,,,,,,) = pool.slot0();
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
             sqrtRatioX96,
@@ -237,7 +237,7 @@ contract Burve is ERC20 {
             liq
         );
 
-        (,, shares) = island.getMintAmounts(amount0, amount1);
+        (, , shares) = island.getMintAmounts(amount0, amount1);
     }
 
     /// @notice Converts the amount of liquidity to amount0 and amount1.
