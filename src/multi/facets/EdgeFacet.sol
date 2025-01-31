@@ -4,8 +4,9 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
+import {BurveFacetBase} from "./Base.sol";
 
-contract EdgeFacet {
+contract EdgeFacet is BurveFacetBase {
     event EdgeFeeUpdated(address token0, address token1, uint24 fee);
 
     /// Set the swap parameters for a single edge.
@@ -15,7 +16,7 @@ contract EdgeFacet {
         uint128 amplitude,
         int24 lowTick,
         int24 highTick
-    ) external {
+    ) external validTokens(token0, token1) {
         AdminLib.validateOwner();
         Store.edge(token0, token1).setRange(amplitude, lowTick, highTick);
     }
@@ -25,7 +26,7 @@ contract EdgeFacet {
         address token1,
         uint24 fee,
         uint8 feeProtocol
-    ) external {
+    ) external validTokens(token0, token1) {
         AdminLib.validateOwner();
         Store.edge(token0, token1).setFee(fee, feeProtocol);
         emit EdgeFeeUpdated(token0, token1, fee);
