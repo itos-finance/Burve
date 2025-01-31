@@ -82,6 +82,7 @@ contract LiqFacet is ReentrancyGuardTransient {
                 uint256 priceX128 = (token < otherToken)
                     ? e.getInvPriceX128(tokenBalance, preBalance[i])
                     : e.getPriceX128(preBalance[i], tokenBalance);
+                console.log("bl;ash");
                 cumulativeValue += FullMath.mulX128(
                     preBalance[i],
                     priceX128,
