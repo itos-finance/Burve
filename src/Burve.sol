@@ -11,6 +11,12 @@ import { TickMath } from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
 
+struct Info {
+    address pool;
+    address island;
+    TickRange[] ranges;
+    uint256[] distX96;
+}
 
 /// Defines the tick range of an AMM position.
 struct TickRange {
@@ -186,6 +192,15 @@ contract Burve is ERC20 {
                 uint128(y)
             );
         }
+    }
+
+    /// @notice Gets info about the contract.
+    /// @return info The info.
+    function getInfo() external view returns (Info memory info) {
+        info.pool = address(pool);
+        info.island = address(island);
+        info.ranges = ranges;
+        info.distX96 = distX96;
     }
 
     /* Callbacks */
