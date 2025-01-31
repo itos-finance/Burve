@@ -163,4 +163,38 @@ contract VertexTest is Test {
             "Remaining balance incorrect"
         );
     }
+
+    function testHomAddDistributions() public {
+        VertexId otherVid = VertexId.wrap(uint16(2));
+        VertexId otherVid2 = VertexId.wrap(uint16(4));
+        ClosureId closure1 = ClosureId.wrap(uint16(3));
+        ClosureId closure2 = ClosureId.wrap(uint16(5));
+
+        // Add closures
+        vertex.ensureClosure(closure1);
+        vertex.ensureClosure(closure2);
+
+        // Create distribution with uneven split (33/67)
+        {
+            delete testClosures;
+            testClosures.push(closure1);
+            testClosures.push(closure2);
+            ClosureDist memory dist = newClosureDist(testClosures);
+            dist.add(0, 33);
+            dist.add(1, 67);
+            dist.normalize();
+            // Add small amount to test rounding
+            uint256 smallAmount = 100; // Small number to force rounding
+            vertex.homAdd(dist, smallAmount);
+        }
+
+        // Check balance with both rounding options
+        uint256 balanceRoundDown = vertex.balance(otherVid, false);
+        uint256 balanceRoundUp = vertex.balance(otherVid2, true);
+
+        assertTrue(
+            balanceRoundUp >= balanceRoundDown,
+            "Round up should be >= round down"
+        );
+    }
 }
