@@ -82,8 +82,8 @@ contract BurveIntegrationTest is Test {
             address(token0),
             address(token1),
             1e18, // amplitude
-            -887272, // lowTick (-887272 represents price of ~0.01)
-            887272 // highTick (887272 represents price of ~100)
+            -46063, // lowTick (-46063 represents price of ~0.01)
+            46063 // highTick (46063 represents price of ~100)
         );
 
         vm.stopPrank();

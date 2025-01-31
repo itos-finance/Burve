@@ -102,7 +102,7 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[5] = SimplexFacet.setName.selector;
             simplexSelectors[6] = SimplexFacet.getName.selector;
             cuts[5] = FacetCut({
-                facetAddress: simplexFacet,
+                facetAddress: address(new SimplexFacet()),
                 action: FacetCutAction.Add,
                 functionSelectors: simplexSelectors
             });

@@ -148,19 +148,20 @@ contract VertexTest is Test {
             withdrawAmount
         );
 
-        console2.log("ClosureDist:");
-        console2.log("totalWeight: ", withdrawDist.totalWeight);
-        console2.log("weights: ");
-        for (uint256 i = 0; i < withdrawDist.weights.length; i++) {
-            console2.log(withdrawDist.weights[i]);
-        }
-
         // Check remaining balance
         totalBalance = vertex.balance(otherVid, false);
-        assertEq(
+        assertApproxEqRel(
             totalBalance,
-            TEST_AMOUNT - withdrawAmount,
+            (TEST_AMOUNT * 60) / 100 - withdrawAmount,
+            1,
             "Remaining balance incorrect"
+        );
+        totalBalance = vertex.balance(vid2, false);
+        assertApproxEqRel(
+            totalBalance,
+            (TEST_AMOUNT * 40) / 100, // 40%
+            1,
+            "Total balance should match added amount (40%)"
         );
     }
 

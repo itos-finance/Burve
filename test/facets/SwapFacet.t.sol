@@ -111,8 +111,8 @@ contract SwapFacetTest is Test {
             address(token0),
             address(token1),
             100, // what should the ampliude be set to
-            -887272,
-            887272
+            -46063,
+            46063
         );
 
         vm.stopPrank();

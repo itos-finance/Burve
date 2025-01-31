@@ -96,13 +96,7 @@ contract LiqFacetTest is Test {
         closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
 
         // Setup edge
-        edgeFacet.setEdge(
-            address(token0),
-            address(token1),
-            100,
-            -887272,
-            887272
-        );
+        edgeFacet.setEdge(address(token0), address(token1), 100, -46063, 46063);
 
         vm.stopPrank();
 

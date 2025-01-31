@@ -78,15 +78,15 @@ contract EdgeFacetTest is Test {
             address(token0),
             address(token1),
             100, // amplitude
-            -887272, // lowTick
-            887272 // highTick
+            -46063, // lowTick
+            46063 // highTick
         );
 
         // Use viewFacet to verify edge parameters
         Edge memory edge = viewFacet.getEdge(address(token0), address(token1));
         assertEq(edge.amplitude, 100, "Incorrect amplitude");
-        assertEq(edge.lowTick, -887272, "Incorrect lowTick");
-        assertEq(edge.highTick, 887272, "Incorrect highTick");
+        assertEq(edge.lowTick, -46063, "Incorrect lowTick");
+        assertEq(edge.highTick, 46063, "Incorrect highTick");
 
         vm.stopPrank();
     }
@@ -99,8 +99,8 @@ contract EdgeFacetTest is Test {
             address(token0),
             address(token1),
             1e18,
-            -887272,
-            887272
+            -46063,
+            46063
         );
 
         vm.stopPrank();
@@ -115,8 +115,8 @@ contract EdgeFacetTest is Test {
             address(token0),
             address(token1),
             1e18,
-            887272, // lowTick greater than highTick
-            -887272
+            46063, // lowTick greater than highTick
+            -46063
         );
 
         vm.stopPrank();
@@ -132,8 +132,8 @@ contract EdgeFacetTest is Test {
     //         address(token0),
     //         address(token1),
     //         0, // zero amplitude
-    //         -887272,
-    //         887272
+    //         -46063,
+    //         46063
     //     );
 
     //     vm.stopPrank();
