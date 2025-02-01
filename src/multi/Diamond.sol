@@ -94,9 +94,13 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory simplexSelectors = new bytes4[](2);
-            simplexSelectors[0] = SimplexFacet.addVertex.selector;
-            simplexSelectors[1] = SimplexFacet.setDefaultEdge.selector;
+            bytes4[] memory simplexSelectors = new bytes4[](6);
+            simplexSelectors[0] = SimplexFacet.getVertexId.selector;
+            simplexSelectors[1] = SimplexFacet.addVertex.selector;
+            simplexSelectors[2] = SimplexFacet.withdrawFees.selector;
+            simplexSelectors[3] = SimplexFacet.setDefaultEdge.selector;
+            simplexSelectors[4] = SimplexFacet.setName.selector;
+            simplexSelectors[5] = SimplexFacet.getName.selector;
             cuts[5] = FacetCut({
                 facetAddress: simplexFacet,
                 action: FacetCutAction.Add,

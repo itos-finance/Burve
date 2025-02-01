@@ -94,6 +94,12 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
 
     /// A true liquidity add to all vertices in a given CID.
     /// @dev Use then when depositing a large amount of liquidity to avoid depegging and getting arb'd.
+    /// @param recipient Who owns the liquidity for the CID at the end.
+    /// @param _closureId The CID you would like to add liquidity to.
+    /// @param amounts A list of token amounts that we want to add. One for each token in the Simplex, NOT your CID.
+    /// Any token amounts given for a vertex not in the CID is ignored.
+    /// You can conveniently supply [amount, amount, amount, ...] if you want to supply the same amount to all vertices
+    /// in your CID.
     function addLiq(
         address recipient,
         uint16 _closureId,
