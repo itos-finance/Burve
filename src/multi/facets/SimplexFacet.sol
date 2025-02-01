@@ -15,6 +15,12 @@ struct SimplexStorage {
 contract SimplexFacet {
     event NewName(string newName);
 
+    /// Convert your token of interest to the vertex id which you can
+    /// sum with other vertex ids to create a closure Id.
+    function getVertexId(address token) external view returns (uint16 vid) {
+        return VertexId.unwrap(newVertexId(token));
+    }
+
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
