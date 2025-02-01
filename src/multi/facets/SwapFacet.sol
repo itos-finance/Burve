@@ -80,7 +80,7 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     }
 
     // Get the price of the pool denominated as outToken / inToken.
-    function getPrice(
+    function getSqrtPrice(
         address inToken,
         address outToken
     )
