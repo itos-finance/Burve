@@ -71,9 +71,14 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory liqSelectors = new bytes4[](2);
-            liqSelectors[0] = LiqFacet.addLiq.selector;
-            liqSelectors[1] = LiqFacet.removeLiq.selector;
+            bytes4[] memory liqSelectors = new bytes4[](3);
+            liqSelectors[0] = bytes4(
+                keccak256("addLiq(address,uint16,address,uint128)")
+            );
+            liqSelectors[1] = bytes4(
+                keccak256("addLiq(address,uint16,uint128[]calldata)")
+            );
+            liqSelectors[2] = LiqFacet.removeLiq.selector;
             cuts[3] = FacetCut({
                 facetAddress: facets.liqFacet,
                 action: FacetCutAction.Add,
