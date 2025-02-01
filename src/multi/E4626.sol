@@ -102,7 +102,7 @@ library VaultE4626Impl {
             temp.vars[3],
             false // Round down to round shares down.
         );
-        uint256 newShares = totalAsset == 0
+        uint256 newShares = totalAssets == 0
             ? discountedAmount
             : FullMath.mulDiv(self.totalShares, discountedAmount, totalAssets);
         self.shares[cid] += newShares;
@@ -145,6 +145,7 @@ library VaultE4626Impl {
         ClosureId cid,
         bool roundUp
     ) internal view returns (uint128 amount) {
+        if (self.totalShares == 0) return 0;
         uint256 newlyAdding = FullMath.mulX128(
             temp.vars[1],
             temp.vars[3],
@@ -172,6 +173,7 @@ library VaultE4626Impl {
         ClosureId[] storage cids,
         bool roundUp
     ) internal view returns (uint128 amount) {
+        if (self.totalShares == 0) return 0;
         uint256 newlyAdding = FullMath.mulX128(
             temp.vars[1],
             temp.vars[3],
