@@ -80,6 +80,7 @@ contract E4626Test is Test {
             vault.commit(temp);
             assertEq(vault.balance(temp, cid, false), 1e10);
         }
+        assertEq(token.balanceOf(address(this)), (1 << 128) - 1e10);
         // Now withdraw
         {
             VaultTemp memory temp;
@@ -88,5 +89,6 @@ contract E4626Test is Test {
             vault.commit(temp);
             assertEq(vault.balance(temp, cid, false), 0);
         }
+        assertEq(token.balanceOf(address(this)), 1 << 128);
     }
 }
