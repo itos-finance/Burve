@@ -23,7 +23,10 @@ functions here.
 */
 contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     error TokenNotInClosure(ClosureId cid, address token);
+    error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
 
+    // Add liquidity in a simple way with just one token.
+    // This is a cheap and convenient method for small deposits that won't move the peg very much.
     function addLiq(
         address recipient,
         uint16 _closureId,
@@ -68,7 +71,7 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
         // We denote value in the given token.
-        uint256 cumulativeValue = tokenBalance;
+        uint256 cumulativeValue = preBalance[idx];
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint256 i = 0; i < n; ++i) {
             if (i == idx) {
@@ -87,6 +90,91 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
             }
         }
         shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
+    }
+
+    /// A true liquidity add to all vertices in a given CID.
+    /// @dev Use then when depositing a large amount of liquidity to avoid depegging and getting arb'd.
+    function addLiq(
+        address recipient,
+        uint16 _closureId,
+        uint128[] calldata amounts
+    ) external nonReentrant returns (uint256 shares) {
+        ClosureId cid = ClosureId.wrap(_closureId);
+        uint256 n = TokenRegLib.numVertices();
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        if (amounts.length != n) {
+            revert IncorrectAddAmountsList(amounts.length, n);
+        }
+        require(amounts.length == n, "ALN");
+        uint128[] memory preBalance = new uint128[](n);
+        uint128[] memory postBalance = new uint128[](n);
+        address numeraire; // We save one token to use as the value denomination.
+        uint128 numerairePost; // The post balance for the numeraire to be used later.
+        for (uint8 i = 0; i < n; ++i) {
+            VertexId v = newVertexId(i);
+            if (cid.contains(v)) {
+                // We need to add it to the Vertex so we can use it in swaps.
+                Store.vertex(v).ensureClosure(cid);
+                // Get the before balance.
+                VaultPointer memory vPtr = VaultLib.get(v);
+                preBalance[i] = vPtr.balance(cid, true);
+                uint128 addAmount = amounts[i];
+                if (addAmount > 0) {
+                    address token = tokenReg.tokens[i];
+                    // Get those tokens to this contract.
+                    TransferHelper.safeTransferFrom(
+                        token,
+                        msg.sender,
+                        address(this),
+                        addAmount
+                    );
+                    // Move to the vault.
+                    vPtr.deposit(cid, addAmount);
+                    postBalance[i] = vPtr.balance(cid, false);
+                    // Commit the deposit.
+                    vPtr.commit();
+                    // Set a numeraire if we don't have one
+                    if (numeraire == address(0)) {
+                        numeraire = token;
+                        numerairePost = postBalance[i];
+                    }
+                } else {
+                    postBalance[i] = preBalance[i];
+                }
+            }
+        }
+
+        // We can ONLY use the price AFTER adding the token balances or else someone can exploit the
+        // old price by doing a huge swap before to increase the value of their deposit.
+        // We denote value in the first token we received.
+        uint256 initialValue;
+        uint256 depositValue;
+        for (uint256 i = 0; i < n; ++i) {
+            if (postBalance[i] != 0) {
+                address otherToken = tokenReg.tokens[i];
+                if (otherToken == numeraire) {
+                    // price = 1
+                    initialValue += preBalance[i];
+                    depositValue += postBalance[i] - preBalance[i];
+                } else {
+                    Edge storage e = Store.edge(numeraire, otherToken);
+                    uint256 priceX128 = (numeraire < otherToken)
+                        ? e.getInvPriceX128(numerairePost, postBalance[i])
+                        : e.getPriceX128(postBalance[i], numerairePost);
+                    initialValue += FullMath.mulX128(
+                        preBalance[i],
+                        priceX128,
+                        true
+                    );
+                    depositValue += FullMath.mulX128(
+                        postBalance[i] - preBalance[i],
+                        priceX128,
+                        false
+                    );
+                }
+            }
+        }
+        shares = AssetLib.add(recipient, cid, depositValue, initialValue);
     }
 
     function removeLiq(
