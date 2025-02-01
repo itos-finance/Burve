@@ -18,6 +18,7 @@ contract E4626Test is Test {
     IERC20 public token;
     IERC4626 public e4626;
     VaultE4626 public vault;
+    ClosureId[] public cids;
 
     function setUp() public {
         token = IERC20(address(new MockERC20("test", "TEST", 18)));
@@ -34,11 +35,7 @@ contract E4626Test is Test {
         ClosureId cid = ClosureId.wrap(1);
         VaultTemp memory temp;
         vault.fetch(temp);
-        console.log("before balance");
-        console.log(temp.vars[0]);
-        console.log("indexed");
         assertEq(vault.balance(temp, cid, false), 0);
-        console.log("after balance");
         // Empty commit.
         vault.commit(temp);
     }
@@ -50,6 +47,11 @@ contract E4626Test is Test {
         vault.deposit(temp, cid, 1e10);
         vault.commit(temp);
         assertEq(vault.balance(temp, cid, false), 1e10);
+        assertEq(token.balanceOf(address(this)), (1 << 128) - 1e10);
+        assertGt(vault.totalVaultShares, 0);
+        uint256 shares = vault.shares[cid];
+        assertGt(shares, 0);
+        assertEq(vault.totalShares, shares);
     }
 
     // We fail if we try to deposit and withdraw in the same operation.
@@ -90,5 +92,63 @@ contract E4626Test is Test {
             assertEq(vault.balance(temp, cid, false), 0);
         }
         assertEq(token.balanceOf(address(this)), 1 << 128);
+        assertEq(vault.shares[cid], 0);
+        assertEq(vault.totalShares, 0);
+        assertEq(vault.totalVaultShares, 0);
+    }
+
+    function testMultipleDeposits() public {
+        ClosureId cid1 = ClosureId.wrap(1);
+        ClosureId cid2 = ClosureId.wrap(2);
+        cids.push(cid1);
+        cids.push(cid2);
+        {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            vault.deposit(temp, cid1, 1e10);
+            assertEq(vault.balance(temp, cid1, false), 1e10);
+            assertEq(vault.balance(temp, cid2, false), 0);
+            assertEq(vault.totalBalance(temp, cids, false), 1e10);
+            vault.deposit(temp, cid2, 2e10);
+            assertEq(vault.balance(temp, cid1, false), 1e10);
+            assertEq(vault.balance(temp, cid2, false), 2e10);
+            assertEq(vault.totalBalance(temp, cids, false), 3e10);
+            vault.deposit(temp, cid1, 5e10);
+            assertEq(vault.balance(temp, cid1, false), 6e10);
+            assertEq(vault.balance(temp, cid2, false), 2e10);
+            assertEq(vault.totalBalance(temp, cids, false), 8e10);
+            vault.commit(temp);
+        }
+        // Check again after committed.
+        {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            assertEq(vault.balance(temp, cid1, false), 6e10);
+            assertEq(vault.balance(temp, cid2, false), 2e10);
+            assertEq(vault.totalBalance(temp, cids, false), 8e10);
+            vault.commit(temp);
+        }
+        // Now let's withdraw from one of them.
+        {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            vault.withdraw(temp, cid1, 15e9);
+            vault.withdraw(temp, cid1, 5e9);
+            assertEq(vault.balance(temp, cid1, false), 4e10);
+            assertEq(vault.balance(temp, cid2, false), 2e10);
+            assertEq(vault.totalBalance(temp, cids, false), 6e10);
+            vault.commit(temp);
+        }
+        // And let's deposit into the cids one more time.
+        {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            vault.deposit(temp, cid1, 3e10);
+            vault.deposit(temp, cid2, 10e10);
+            assertEq(vault.balance(temp, cid1, true), 7e10);
+            assertEq(vault.balance(temp, cid2, true), 12e10);
+            assertEq(vault.totalBalance(temp, cids, true), 19e10);
+            vault.commit(temp);
+        }
     }
 }
