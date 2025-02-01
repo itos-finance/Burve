@@ -102,11 +102,9 @@ library VaultE4626Impl {
             temp.vars[3],
             false // Round down to round shares down.
         );
-        uint256 newShares = FullMath.mulDiv(
-            self.totalShares,
-            discountedAmount,
-            totalAssets
-        );
+        uint256 newShares = totalAsset == 0
+            ? discountedAmount
+            : FullMath.mulDiv(self.totalShares, discountedAmount, totalAssets);
         self.shares[cid] += newShares;
         self.totalShares += newShares;
         temp.vars[1] += amount;
