@@ -88,12 +88,26 @@ contract LiqFacetTest is Test {
         closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
 
         // Setup edge
-        edgeFacet.setEdge(address(token0), address(token1), 100, -46063, 46063);
+        edgeFacet.setEdge(address(token0), address(token1), 100, -100, 100);
 
         vm.stopPrank();
 
         // Fund test accounts
         _fundTestAccounts();
+
+        vm.startPrank(owner);
+        uint256 shares0 = liqFacet.addLiq(
+            owner,
+            closureId,
+            address(token1),
+            uint128(INITIAL_LIQUIDITY_AMOUNT)
+        );
+        // Add initial liquidity with multi-amount deposit
+        uint128[] memory initAmounts = new uint128[](2);
+        initAmounts[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        initAmounts[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        liqFacet.addLiq(owner, closureId, initAmounts);
+        vm.stopPrank();
     }
 
     function _fundTestAccounts() internal {
@@ -102,6 +116,8 @@ contract LiqFacetTest is Test {
         token1.mint(alice, INITIAL_MINT_AMOUNT);
         token0.mint(bob, INITIAL_MINT_AMOUNT);
         token1.mint(bob, INITIAL_MINT_AMOUNT);
+        token0.mint(owner, INITIAL_MINT_AMOUNT);
+        token1.mint(owner, INITIAL_MINT_AMOUNT);
 
         // Approve diamond for all test accounts
         vm.startPrank(alice);
@@ -110,6 +126,11 @@ contract LiqFacetTest is Test {
         vm.stopPrank();
 
         vm.startPrank(bob);
+        token0.approve(address(diamond), type(uint256).max);
+        token1.approve(address(diamond), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
         token0.approve(address(diamond), type(uint256).max);
         token1.approve(address(diamond), type(uint256).max);
         vm.stopPrank();
@@ -400,6 +421,90 @@ contract LiqFacetTest is Test {
             amount / 2,
             1e16,
             "Should have received half of token1 back"
+        );
+    }
+
+    function testMultiAmountLiquidityProvision() public {
+        uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
+        uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT * 2; // Different amount for token1
+
+        vm.startPrank(alice);
+
+        // Create amounts array for multi-amount addLiq
+        uint128[] memory amounts = new uint128[](2);
+        amounts[0] = uint128(amount0);
+        amounts[1] = uint128(amount1);
+
+        // Add liquidity using multi-amount function
+        uint256 shares = liqFacet.addLiq(alice, closureId, amounts);
+
+        // Record balances before removal
+        uint256 token0Before = token0.balanceOf(alice);
+        uint256 token1Before = token1.balanceOf(alice);
+
+        // Remove all liquidity
+        liqFacet.removeLiq(alice, closureId, shares);
+
+        vm.stopPrank();
+
+        // Verify tokens were returned
+        assertApproxEqAbs(
+            token0.balanceOf(alice) - token0Before,
+            amount0,
+            1e18,
+            "Should have received all token0 back"
+        );
+        assertApproxEqAbs(
+            token1.balanceOf(alice) - token1Before,
+            amount1,
+            1e18,
+            "Should have received all token1 back"
+        );
+    }
+
+    function testFuzz_MultiAmountLiquidityProvision(
+        uint128 amount0,
+        uint128 amount1
+    ) public {
+        // Bound the inputs to reasonable ranges
+        amount0 = uint128(
+            bound(uint256(amount0), 1e6, INITIAL_MINT_AMOUNT / 2)
+        );
+        amount1 = uint128(
+            bound(uint256(amount1), 1e6, INITIAL_MINT_AMOUNT / 2)
+        );
+
+        vm.startPrank(alice);
+
+        // Create amounts array for multi-amount addLiq
+        uint128[] memory amounts = new uint128[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        // Add liquidity using multi-amount function
+        uint256 shares = liqFacet.addLiq(alice, closureId, amounts);
+
+        // Record balances before removal
+        uint256 token0Before = token0.balanceOf(alice);
+        uint256 token1Before = token1.balanceOf(alice);
+
+        // Remove all liquidity
+        liqFacet.removeLiq(alice, closureId, shares);
+
+        vm.stopPrank();
+
+        // Verify tokens were returned
+        assertApproxEqRel(
+            token0.balanceOf(alice) - token0Before,
+            amount0,
+            1e16,
+            "Should have received all token0 back"
+        );
+        assertApproxEqRel(
+            token1.balanceOf(alice) - token1Before,
+            amount1,
+            1e16,
+            "Should have received all token1 back"
         );
     }
 

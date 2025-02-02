@@ -459,6 +459,8 @@ library EdgeImpl {
         uint256 y,
         bool roundUp
     ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
+        console2.log("x", x);
+        console2.log("y", y);
         uint256 b1X96 = self.lowSqrtPriceX96;
         uint256 b2X96 = roundUp
             ? FullMath.mulDivRoundingUp(y, self.invHighSqrtPriceX96, x)

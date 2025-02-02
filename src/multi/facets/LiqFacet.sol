@@ -165,10 +165,12 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 address otherToken = tokenReg.tokens[i];
                 if (otherToken == numeraire) {
                     // price = 1
+                    console.log("numeraire part");
                     initialValue += preBalance[i];
                     depositValue += postBalance[i] - preBalance[i];
                 } else {
                     Edge storage e = Store.edge(numeraire, otherToken);
+                    console.log("numpost", numerairePost);
                     uint256 priceX128 = (numeraire < otherToken)
                         ? e.getInvPriceX128(numerairePost, postBalance[i])
                         : e.getPriceX128(postBalance[i], numerairePost);
