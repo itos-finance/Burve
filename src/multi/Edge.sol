@@ -408,7 +408,7 @@ library EdgeImpl {
         // Due to our constraints this is smaller than 26 non-fractional bits.
         // We can't go straight to X192 because we DON'T know if that will fit, but
         // X128 is more than enough precision. The other 64 is to match b^2.
-        uint256 xyX192 = (x << (128 / y)) << 64;
+        uint256 xyX192 = ((x << 128) / y) << 64;
         // Due to our constaints, this only has at most 16 = 4 + 12 positive bits.
         uint256 bX96 = self.amplitude *
             uint256(self.invLowSqrtPriceX96 - self.invHighSqrtPriceX96);
@@ -433,7 +433,7 @@ library EdgeImpl {
         // Due to our constraints this is smaller than 26 non-fractional bits.
         // We can't go straight to X192 because we DON'T know if that will fit, but
         // X128 is more than enough precision. The other 64 is to match b^2.
-        uint256 yxX192 = (y << (128 / x)) << 64;
+        uint256 yxX192 = ((y << 128) / x) << 64;
         // Due to our constaints, this only has at most 16 = 4 + 12 positive bits.
         uint256 bX96 = self.amplitude *
             uint256(self.highSqrtPriceX96 - self.lowSqrtPriceX96);
@@ -459,13 +459,7 @@ library EdgeImpl {
         uint256 b2X96 = roundUp
             ? FullMath.mulDivRoundingUp(y, self.invHighSqrtPriceX96, x)
             : FullMath.mulDiv(y, self.invHighSqrtPriceX96, x);
-<<<<<<< Updated upstream
-        uint256 yxX192 = (y << (128 / x)) << 64;
-=======
-
         uint256 yxX192 = ((y << 128) / x) << 64;
-
->>>>>>> Stashed changes
         uint256 amp1 = self.amplitude + 1;
         uint256 numX96;
         if (b1X96 > b2X96) {
