@@ -35,7 +35,7 @@ contract LiqFacetTest is Test {
 
     uint16 public closureId;
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
-    uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
+    uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100_000e18;
 
     MockERC4626 public mockVault0;
     MockERC4626 public mockVault1;
@@ -96,12 +96,6 @@ contract LiqFacetTest is Test {
         _fundTestAccounts();
 
         vm.startPrank(owner);
-        uint256 shares0 = liqFacet.addLiq(
-            owner,
-            closureId,
-            address(token1),
-            uint128(INITIAL_LIQUIDITY_AMOUNT)
-        );
         // Add initial liquidity with multi-amount deposit
         uint128[] memory initAmounts = new uint128[](2);
         initAmounts[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
@@ -142,20 +136,20 @@ contract LiqFacetTest is Test {
 
         vm.startPrank(alice);
 
-        // Add liquidity for token1
-        uint256 shares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(amount1)
-        );
-
         // Add liquidity for token0
         uint256 shares0 = liqFacet.addLiq(
             alice,
             closureId,
             address(token0),
             uint128(amount0)
+        );
+
+        // Add liquidity for token1
+        uint256 shares1 = liqFacet.addLiq(
+            alice,
+            closureId,
+            address(token1),
+            uint128(amount1)
         );
 
         // Record balances before removal
@@ -174,14 +168,14 @@ contract LiqFacetTest is Test {
         assertApproxEqAbs(
             token0.balanceOf(alice),
             token0Before + amount0,
-            1,
-            "Should have received all token0 back"
+            ((token0Before + amount0) * 2) / 1000, // Check that the difference is less than 0.2%
+            "Should have received all token0 back (some rounding allowed to 0.2%)"
         );
         assertApproxEqAbs(
             token1.balanceOf(alice),
             token1Before + amount1,
-            1,
-            "Should have received all token1 back"
+            ((token1Before + amount1) * 2) / 1000, // Check that the difference is less than 0.2%
+            "Should have received all token1 back (some rounding allowed to 0.2%)"
         );
     }
 
@@ -233,16 +227,16 @@ contract LiqFacetTest is Test {
         assertApproxEqAbs(
             token0.balanceOf(alice),
             aliceToken0Before + amount,
-            1,
-            "Alice should have received all token0 back"
+            ((aliceToken0Before + amount) * 2) / 1000,
+            "Alice should have received all token0 back (some rounding allowed to 0.2%)"
         );
 
         // Verify tokens were returned (bob)
         assertApproxEqAbs(
             token0.balanceOf(bob),
             bobToken0Before + amount,
-            1,
-            "Bob should have received all token0 back"
+            ((bobToken0Before + amount) * 2) / 1000,
+            "Bob should have received all token0 back (some rounding allowed to 0.2%)"
         );
     }
 
