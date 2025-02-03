@@ -459,14 +459,20 @@ library EdgeImpl {
         uint256 b2X96 = roundUp
             ? FullMath.mulDivRoundingUp(y, self.invHighSqrtPriceX96, x)
             : FullMath.mulDiv(y, self.invHighSqrtPriceX96, x);
+<<<<<<< Updated upstream
         uint256 yxX192 = (y << (128 / x)) << 64;
+=======
+
+        uint256 yxX192 = ((y << 128) / x) << 64;
+
+>>>>>>> Stashed changes
         uint256 amp1 = self.amplitude + 1;
         uint256 numX96;
         if (b1X96 > b2X96) {
-            uint256 bX96 = b1X96 - b2X96;
+            uint256 bX96 = (b1X96 - b2X96) * self.amplitude;
             numX96 = sqrt(bX96 * bX96 + 4 * yxX192 * amp1 * amp1) + bX96;
         } else {
-            uint256 bX96 = b2X96 - b1X96;
+            uint256 bX96 = (b2X96 - b1X96) * self.amplitude;
             numX96 = sqrt(bX96 * bX96 + 4 * yxX192 * amp1 * amp1) - bX96;
         }
         uint256 denom = 2 * amp1;
