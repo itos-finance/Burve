@@ -2,13 +2,13 @@
 pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Burve} from "../src/Burve.sol";
-import {BartioAddresses} from "./utils/BaritoAddresses.sol";
-import {IKodiakIsland} from "../src/integrations/kodiak/IKodiakIsland.sol";
+import {Burve} from "../../src/stable/Burve.sol";
+import {BartioAddresses} from "./../utils/BaritoAddresses.sol";
+import {IKodiakIsland} from "../../src/stable/integrations/kodiak/IKodiakIsland.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {LiquidityAmounts} from "../src/integrations/uniswap/LiquidityAmounts.sol";
-import {TickMath} from "../src/integrations/uniswap/TickMath.sol";
-import {IUniswapV3Pool} from "../src/integrations/kodiak/IUniswapV3Pool.sol";
+import {LiquidityAmounts} from "../../src/stable/integrations/uniswap/LiquidityAmounts.sol";
+import {TickMath} from "../../src/stable/integrations/uniswap/TickMath.sol";
+import {IUniswapV3Pool} from "../../src/stable/integrations/kodiak/IUniswapV3Pool.sol";
 
 contract BurveTest is Test {
     Burve public burveV3;
