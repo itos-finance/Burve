@@ -2,27 +2,44 @@
 pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Burve} from "../../src/stable/Burve.sol";
+import {Burve, TickRange, TickRangeImpl} from "../../src/stable/Burve.sol";
 import {BartioAddresses} from "./../utils/BaritoAddresses.sol";
 import {IKodiakIsland} from "../../src/stable/integrations/kodiak/IKodiakIsland.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {LiquidityAmounts} from "../../src/stable/integrations/uniswap/LiquidityAmounts.sol";
 import {TickMath} from "../../src/stable/integrations/uniswap/TickMath.sol";
 import {IUniswapV3Pool} from "../../src/stable/integrations/kodiak/IUniswapV3Pool.sol";
+import {ForkableTest} from "@Commons/Test/ForkableTest.sol";
 
-contract BurveTest is Test {
+contract BurveTest is ForkableTest {
     Burve public burveV3;
     Burve public burveIsland;
 
-    function setUp() public {
+    function forkSetup() internal virtual override {
+        TickRange[] memory ranges = new TickRange[](2);
+        uint128[] memory weights = new uint128[](2);
+
         // Burve Island
+        ranges[0] = TickRange(0, 0);
+        ranges[1] = TickRange(-1000, 1000);
+
+        weights[0] = 2;
+        weights[1] = 1;
+
         // burveIsland = new Burve(
         //     BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
         //     BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
         //     [TickRange(0, 0), TickRange(-1000, 1000)],
         //     [2, 1]
         // );
+
         // Burve V3
+        // burveV3 = new Burve(
+        //     BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+        //     0x0,
+        //     [TickRange(0, 0), TickRange(-1000, 1000)],
+        //     [2, 1]
+        // );
     }
 
     // function run() external {
