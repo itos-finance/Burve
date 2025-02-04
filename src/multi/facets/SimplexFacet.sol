@@ -8,6 +8,7 @@ import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {BurveFacetBase} from "./Base.sol";
+import {TokenRegLib} from "../Token.sol";
 
 struct SimplexStorage {
     string name;
@@ -27,6 +28,11 @@ contract SimplexFacet is BurveFacetBase {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
+    }
+
+    /// Get the number of currently installed vertices
+    function numVertices() external view returns (uint8) {
+        return TokenRegLib.numVertices();
     }
 
     /// Withdraw fees earned by the protocol.

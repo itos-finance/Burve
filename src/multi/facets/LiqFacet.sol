@@ -25,8 +25,9 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     error TokenNotInClosure(ClosureId cid, address token);
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
 
-    // Add liquidity in a simple way with just one token.
-    // This is a cheap and convenient method for small deposits that won't move the peg very much.
+    /// Add liquidity in a simple way with just one token.
+    /// This is a cheap and convenient method for small deposits that won't move the peg very much.
+    /// @dev TODO: Should we add a payer parameter?
     function addLiq(
         address recipient,
         uint16 _closureId,
@@ -102,6 +103,7 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     /// in your CID.
     function addLiq(
         address recipient,
+        address payer,
         uint16 _closureId,
         uint128[] calldata amounts
     ) external nonReentrant returns (uint256 shares) {
@@ -130,7 +132,7 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                     // Get those tokens to this contract.
                     TransferHelper.safeTransferFrom(
                         token,
-                        msg.sender,
+                        payer,
                         address(this),
                         addAmount
                     );
