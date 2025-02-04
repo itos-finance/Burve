@@ -70,10 +70,6 @@ contract BurveMultiLPToken is ERC20 {
         address token,
         uint128 amount
     ) external returns (uint256 shares) {
-        // We only allow adding at most this amount of a token.
-        require(amount <= type(uint128).max);
-        // Though in reality, due to other constraints in the pool this is not possible.
-
         TransferHelper.safeTransferFrom(
             token,
             _msgSender(),
