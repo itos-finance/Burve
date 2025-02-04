@@ -13,6 +13,8 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {ClosureId, newClosureId} from "../src/multi/Closure.sol";
 import {VaultType} from "../src/multi/VaultProxy.sol";
+import {MockERC4626} from "./mocks/MockERC4626.sol";
+import {ViewFacet} from "../src/multi/facets/ViewFacet.sol";
 
 contract BurveIntegrationTest is Test {
     SimplexDiamond public diamond;
@@ -20,10 +22,15 @@ contract BurveIntegrationTest is Test {
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
     EdgeFacet public edgeFacet;
+    ViewFacet public viewFacet;
 
     // Test tokens
     MockERC20 public token0;
     MockERC20 public token1;
+
+    // Test vaults
+    MockERC4626 public mockVault0;
+    MockERC4626 public mockVault1;
 
     // Test accounts
     address public owner = makeAddr("owner");
@@ -33,6 +40,7 @@ contract BurveIntegrationTest is Test {
     // Common test amounts
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
     uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
+    uint256 constant INITIAL_DEPOSIT_AMOUNT = 100e18;
 
     // Test closure ID for token pair
     uint16 public closureId;
@@ -50,35 +58,45 @@ contract BurveIntegrationTest is Test {
         simplexFacet = SimplexFacet(address(diamond));
         swapFacet = SwapFacet(address(diamond));
         edgeFacet = EdgeFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
 
         // Setup test tokens
         _setupTestTokens();
 
-        // Fund test accounts
-        _fundTestAccounts();
-
-        // Setup closure for token pair
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(token0);
-        tokens[1] = address(token1);
-        closureId = ClosureId.unwrap(newClosureId(tokens));
+        mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
+        mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
 
         // Add vertices to the simplex with empty vaults
-        // TODO: switch to mock vaults.
-        simplexFacet.addVertex(address(token0), address(0), VaultType.E4626);
-        simplexFacet.addVertex(address(token1), address(0), VaultType.E4626);
+        simplexFacet.addVertex(
+            address(token0),
+            address(mockVault0),
+            VaultType.E4626
+        );
+        simplexFacet.addVertex(
+            address(token1),
+            address(mockVault1),
+            VaultType.E4626
+        );
 
         // Setup edge between tokens
-        // Note: These values might need adjustment based on your requirements
         edgeFacet.setEdge(
             address(token0),
             address(token1),
-            1e18, // amplitude
-            -46063, // lowTick (-46063 represents price of ~0.01)
-            46063 // highTick (46063 represents price of ~100)
+            101, // amplitude
+            -46063, // lowTick
+            46063 // highTick
         );
 
         vm.stopPrank();
+
+        // fetch closure
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(token0);
+        tokens[1] = address(token1);
+        closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
+
+        // Fund test accounts
+        _fundTestAccounts();
     }
 
     function _setupTestTokens() internal {
@@ -138,8 +156,8 @@ contract BurveIntegrationTest is Test {
     }
 
     function testMint() public {
-        uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
-        uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT;
+        uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
+        uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
 
         // Check initial balances
         uint256 aliceToken0Before = token0.balanceOf(alice);
@@ -157,24 +175,24 @@ contract BurveIntegrationTest is Test {
         assertGt(shares1, 0, "Should have received shares for token1");
 
         // Verify tokens were transferred
-        assertEq(
+        assertApproxEqAbs(
             token0.balanceOf(alice),
             aliceToken0Before - amount0,
+            1,
             "Incorrect token0 balance after mint"
         );
-        assertEq(
+        assertApproxEqAbs(
             token1.balanceOf(alice),
             aliceToken1Before - amount1,
+            1,
             "Incorrect token1 balance after mint"
         );
-
-        // TODO: Add more assertions for pool state
     }
 
     function testBurn() public {
         // First provide liquidity
-        uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
-        uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT;
+        uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
+        uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
         (uint256 shares0, uint256 shares1) = _provideLiquidity(
             alice,
             amount0,

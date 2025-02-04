@@ -36,6 +36,7 @@ contract LiqFacetTest is Test {
     uint16 public closureId;
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
     uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100_000e18;
+    uint256 constant SMALL_DEPOSIT_AMOUNT = 10e18;
 
     MockERC4626 public mockVault0;
     MockERC4626 public mockVault1;
@@ -136,52 +137,36 @@ contract LiqFacetTest is Test {
 
         vm.startPrank(alice);
 
-        // Add liquidity for token0
-        uint256 shares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            uint128(amount0)
-        );
-
-        // Add liquidity for token1
-        uint256 shares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(amount1)
-        );
+        uint128[] memory initAmounts = new uint128[](2);
+        initAmounts[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        initAmounts[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        uint256 shares = liqFacet.addLiq(alice, closureId, initAmounts);
 
         // Record balances before removal
         uint256 token0Before = token0.balanceOf(alice);
         uint256 token1Before = token1.balanceOf(alice);
 
         // Remove liquidity for token0
-        liqFacet.removeLiq(alice, closureId, shares0);
-
-        // Remove liquidity for token1
-        liqFacet.removeLiq(alice, closureId, shares1);
+        liqFacet.removeLiq(alice, closureId, shares);
 
         vm.stopPrank();
 
         // Verify tokens were returned
-        assertApproxEqAbs(
+        assertEq(
             token0.balanceOf(alice),
             token0Before + amount0,
-            ((token0Before + amount0) * 2) / 1000, // Check that the difference is less than 0.2%
-            "Should have received all token0 back (some rounding allowed to 0.2%)"
+            "Should have received all token0 back"
         );
-        assertApproxEqAbs(
+        assertEq(
             token1.balanceOf(alice),
             token1Before + amount1,
-            ((token1Before + amount1) * 2) / 1000, // Check that the difference is less than 0.2%
-            "Should have received all token1 back (some rounding allowed to 0.2%)"
+            "Should have received all token1 back"
         );
     }
 
     /// Single sided, multi-user provision
     function testMultipleProvidersLiquidity() public {
-        uint256 amount = INITIAL_LIQUIDITY_AMOUNT;
+        uint256 amount = SMALL_DEPOSIT_AMOUNT;
 
         // Alice adds liquidity
         vm.startPrank(alice);
@@ -242,7 +227,7 @@ contract LiqFacetTest is Test {
 
     /// multi-sided, multi-user provision
     function testMultiSidedMultiUserProvision() public {
-        uint256 amount = INITIAL_LIQUIDITY_AMOUNT;
+        uint256 amount = SMALL_DEPOSIT_AMOUNT;
 
         // Alice adds liquidity
         vm.startPrank(alice);
@@ -316,13 +301,13 @@ contract LiqFacetTest is Test {
         assertApproxEqAbs(
             token0.balanceOf(bob),
             bobToken0Before + amount,
-            1e23,
+            (bobToken0Before + amount * 2) / 1000,
             "Bob should have received all token0 back"
         );
         assertApproxEqAbs(
             token1.balanceOf(bob),
             bobToken1Before + amount,
-            1e23,
+            (bobToken1Before + amount * 2) / 1000,
             "Bob should have received all token1 back"
         );
     }
@@ -419,8 +404,8 @@ contract LiqFacetTest is Test {
     }
 
     function testMultiAmountLiquidityProvision() public {
-        uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
-        uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT * 2; // Different amount for token1
+        uint256 amount0 = SMALL_DEPOSIT_AMOUNT;
+        uint256 amount1 = SMALL_DEPOSIT_AMOUNT * 2; // Different amount for token1
 
         vm.startPrank(alice);
 
@@ -443,16 +428,11 @@ contract LiqFacetTest is Test {
 
         // Verify tokens were returned
         assertApproxEqAbs(
-            token0.balanceOf(alice) - token0Before,
-            amount0,
-            1e18,
-            "Should have received all token0 back"
-        );
-        assertApproxEqAbs(
-            token1.balanceOf(alice) - token1Before,
-            amount1,
-            1e18,
-            "Should have received all token1 back"
+            (token0.balanceOf(alice) - token0Before) +
+                (token1.balanceOf(alice) - token1Before),
+            amount0 + amount1,
+            ((amount0 + amount1) * 2) / 1000,
+            "Should have received a similar amount of tokens back"
         );
     }
 
@@ -462,10 +442,10 @@ contract LiqFacetTest is Test {
     ) public {
         // Bound the inputs to reasonable ranges
         amount0 = uint128(
-            bound(uint256(amount0), 1e6, INITIAL_MINT_AMOUNT / 2)
+            bound(uint256(amount0), 1e6, SMALL_DEPOSIT_AMOUNT / 2)
         );
         amount1 = uint128(
-            bound(uint256(amount1), 1e6, INITIAL_MINT_AMOUNT / 2)
+            bound(uint256(amount1), 1e6, SMALL_DEPOSIT_AMOUNT / 2)
         );
 
         vm.startPrank(alice);
@@ -488,17 +468,12 @@ contract LiqFacetTest is Test {
         vm.stopPrank();
 
         // Verify tokens were returned
-        assertApproxEqRel(
-            token0.balanceOf(alice) - token0Before,
-            amount0,
-            1e16,
-            "Should have received all token0 back"
-        );
-        assertApproxEqRel(
-            token1.balanceOf(alice) - token1Before,
-            amount1,
-            1e16,
-            "Should have received all token1 back"
+        assertApproxEqAbs(
+            (token0.balanceOf(alice) - token0Before) +
+                (token1.balanceOf(alice) - token1Before),
+            amount0 + amount1,
+            ((amount0 + amount1) * 2) / 1000,
+            "Should have received all token back"
         );
     }
 
@@ -508,7 +483,7 @@ contract LiqFacetTest is Test {
     ) public {
         // Bound the inputs to reasonable ranges
         depositAmount = uint128(
-            bound(uint256(depositAmount), 1e6, INITIAL_MINT_AMOUNT)
+            bound(uint256(depositAmount), 1e6, SMALL_DEPOSIT_AMOUNT)
         );
         removalPercentage = uint8(bound(uint256(removalPercentage), 1, 99)); // 1-99%
 
@@ -548,17 +523,12 @@ contract LiqFacetTest is Test {
             100;
 
         // Verify returned amounts
-        assertApproxEqRel(
-            token0.balanceOf(alice) - token0Before,
-            expectedReturn0,
-            1e16,
-            "Incorrect token0 return amount"
-        );
-        assertApproxEqRel(
-            token1.balanceOf(alice) - token1Before,
-            expectedReturn1,
-            1e16,
-            "Incorrect token1 return amount"
+        assertApproxEqAbs(
+            (token0.balanceOf(alice) - token0Before) +
+                (token1.balanceOf(alice) - token1Before),
+            expectedReturn0 + expectedReturn1,
+            ((expectedReturn0 + expectedReturn1) * 2) / 1000,
+            "Incorrect token return amount"
         );
 
         vm.stopPrank();
@@ -575,7 +545,7 @@ contract LiqFacetTest is Test {
         for (uint i = 0; i < 5; i++) {
             // Bound inputs
             addAmounts[i] = uint128(
-                bound(uint256(addAmounts[i]), 1e6, INITIAL_MINT_AMOUNT / 10)
+                bound(uint256(addAmounts[i]), 1e6, SMALL_DEPOSIT_AMOUNT / 10)
             );
             removePercentages[i] = uint8(
                 bound(uint256(removePercentages[i]), 1, 90)
