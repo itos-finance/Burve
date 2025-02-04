@@ -10,6 +10,7 @@ import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib} from "../Token.sol";
 import {BurveFacetBase} from "./Base.sol";
+import {TokenRegLib} from "../Token.sol";
 
 struct SimplexStorage {
     string name;

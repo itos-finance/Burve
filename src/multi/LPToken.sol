@@ -43,20 +43,17 @@ contract BurveMultiLPToken is ERC20 {
         require(value <= type(uint128).max);
         // Though in reality, due to other constraints in the pool this is not possible.
 
-        TransferHelper.safeTransferFrom(
-            depositToken,
-            _msgSender(),
-            address(this),
-            value
-        );
-        ERC20(depositToken).approve(address(burveMulti), value);
-        uint256 shares = burveMulti.addLiq(
-            address(this),
-            ClosureId.unwrap(cid),
-            depositToken,
-            uint128(value)
-        );
-        _mint(recipient, shares);
+        if (depositToken == address(0)) {
+            uint8 n = SimplexFacet(address(burveMulti)).numVertices();
+            uint128 depositValue = uint128(value / n);
+            uint128[] memory amounts = new uint128[](n);
+            for (uint256 i = 0; i < n; ++i) {
+                amounts[i] = depositValue;
+            }
+            this.mintWithMultipleTokens(recipient, msg.sender, amounts);
+        } else {
+            mintWithOneToken(recipient, depositToken, uint128(value));
+        }
     }
 
     /// Burns the given amount of LP tokens and get back its respective amount
@@ -88,5 +85,46 @@ contract BurveMultiLPToken is ERC20 {
         string memory poolName = SimplexFacet(_burveMulti).getName();
         string memory num = Strings.toString(ClosureId.unwrap(_cid));
         name = string.concat(poolName, "-", num);
+    }
+
+    /* Additional mint methods */
+
+    /// Mint liquidity into the CID using just one token.
+    /// @dev Most suitable when adding a small amount relative to the pool size.
+    function mintWithOneToken(
+        address recipient,
+        address token,
+        uint128 amount
+    ) public {
+        TransferHelper.safeTransferFrom(
+            token,
+            _msgSender(),
+            address(this),
+            amount
+        );
+        ERC20(depositToken).approve(address(burveMulti), amount);
+        uint256 shares = burveMulti.addLiq(
+            address(this),
+            ClosureId.unwrap(cid),
+            token,
+            amount
+        );
+        _mint(recipient, shares);
+    }
+
+    /// Mint liquidity into the CID by providing an amount (potentially zero) of each token.
+    /// @dev This type of minting avoids slippage.
+    function mintWithMultipleTokens(
+        address recipient,
+        address payer,
+        uint128[] calldata amounts
+    ) public {
+        uint256 shares = burveMulti.addLiq(
+            recipient,
+            payer,
+            ClosureId.unwrap(cid),
+            amounts
+        );
+        _mint(recipient, shares);
     }
 }
