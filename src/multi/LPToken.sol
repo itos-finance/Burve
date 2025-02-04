@@ -39,7 +39,8 @@ contract BurveMultiLPToken is ERC20 {
         if (account != _msgSender()) {
             _spendAllowance(account, _msgSender(), shares);
         }
-        burveMulti.removeLiq(_msgSender(), ClosureId.unwrap(cid), shares);
+        // TODO (terence) - Asset is actually owned by the LPToken, switch from msg.sender to address(this)
+        burveMulti.removeLiq(address(this), ClosureId.unwrap(cid), shares);
         _burn(account, shares);
     }
 

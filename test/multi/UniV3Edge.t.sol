@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {UniV3Edge} from "../../src/multi/UniV3Edge.sol";
 import {Edge} from "../../src/multi/Edge.sol";
@@ -59,17 +59,13 @@ contract UniV3EdgeTest is Test {
         bool zeroForOne,
         int256 amount
     ) internal view returns (uint160 newSqrtPriceX96) {
-        console.log("called");
         int24 startTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
-        console.log(startTick);
         uint128 startLiq = edge.updateLiquidity(
             startTick,
             edge.highTick,
             wideLiq
         );
-        console.log(startLiq);
         (uint256 startX, uint256 startY) = getBalances(sqrtPriceX96, wideLiq);
-        console.log("start balances", startX, startY);
         UniV3Edge.Slot0 memory slot0 = UniV3Edge.Slot0(
             0, // fee
             0, // feeProtocol
@@ -97,16 +93,11 @@ contract UniV3EdgeTest is Test {
             assertGt(y, 0);
             assertLt(x, 0);
         }
-        console.log("swapped");
-        console.log(x);
-        console.log(y);
-        console.log(finalTick);
         uint128 finalLiq = edge.updateLiquidity(finalTick, startTick, startLiq);
         (uint256 finalX, uint256 finalY) = getBalances(
             finalSqrtPriceX96,
             wideLiq
         );
-        console.log("final", finalLiq, finalX, finalY);
         if (x > 0) {
             assertApproxEqAbs(finalX - startX, uint256(x), 2);
         } else {

@@ -241,9 +241,10 @@ contract BurveMultiPoolTest is Test {
         uint256 amount1
     ) internal returns (uint256 shares) {
         vm.startPrank(provider);
-        uint128[] memory amounts = new uint128[](2);
+        uint128[] memory amounts = new uint128[](3);
         amounts[0] = uint128(amount0);
         amounts[1] = uint128(amount1);
+        amounts[2] = uint128(amount1);
         shares = lpToken.mintWithMultipleTokens(provider, provider, amounts);
         vm.stopPrank();
     }
@@ -365,7 +366,7 @@ contract BurveMultiPoolTest is Test {
             address(token0),
             address(token1),
             int256(swapAmount),
-            0
+            MIN_SQRT_PRICE_X96 + 1
         );
 
         (uint256 inAmount1, uint256 outAmount2) = swapFacet.swap(
@@ -373,7 +374,7 @@ contract BurveMultiPoolTest is Test {
             address(token1),
             address(token2),
             int256(outAmount1),
-            0
+            MIN_SQRT_PRICE_X96 + 1
         );
         vm.stopPrank();
 

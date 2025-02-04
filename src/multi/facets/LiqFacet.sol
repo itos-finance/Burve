@@ -70,7 +70,6 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
         if (tokenBalance == 0) revert TokenNotInClosure(cid, token);
         // Get the amount we added rounded down.
         uint256 addedBalance = tokenBalance - preBalance[idx];
-        console.log("addedBalance", addedBalance);
 
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
@@ -86,7 +85,6 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 uint256 priceX128 = (token < otherToken)
                     ? e.getInvPriceX128(tokenBalance, preBalance[i])
                     : e.getPriceX128(preBalance[i], tokenBalance);
-                console.log("bl;ash");
                 cumulativeValue += FullMath.mulX128(
                     preBalance[i],
                     priceX128,
@@ -94,7 +92,6 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 );
             }
         }
-        console.log("cumulative value", cumulativeValue);
         shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
     }
 
@@ -171,7 +168,6 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                     depositValue += postBalance[i] - preBalance[i];
                 } else {
                     Edge storage e = Store.edge(numeraire, otherToken);
-                    console.log("numpost", numerairePost);
                     uint256 priceX128 = (numeraire < otherToken)
                         ? e.getInvPriceX128(numerairePost, postBalance[i])
                         : e.getPriceX128(postBalance[i], numerairePost);
@@ -198,9 +194,8 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     ) external nonReentrant {
         ClosureId cid = ClosureId.wrap(_closureId);
         TokenRegistry storage tokenReg = Store.tokenRegistry();
-        uint256 percentX256 = AssetLib.remove(recipient, cid, shares); // todo pass in a different address to burn from?
+        uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares); // todo pass in a different address to burn from?
         uint256 n = TokenRegLib.numVertices();
-        console.log("numeraire part");
 
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);

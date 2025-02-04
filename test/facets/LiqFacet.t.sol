@@ -145,6 +145,7 @@ contract LiqFacetTest is Test {
         vm.stopPrank();
     }
 
+    // TODO (terence) examine
     function testSwapThenRemoveSeedLiquidity() public {
         vm.startPrank(bob);
         swapFacet.swap(

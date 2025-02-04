@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.0;
 
-import {console} from "forge-std/Test.sol";
-
 /// @title Contains 512-bit math functions
 /// @author Uniswap Team
 /// @notice Facilitates multiplication and division that can have overflow of an intermediate value without any loss of precision
@@ -144,18 +142,15 @@ library FullMath {
 
         // Make division exact by subtracting out the remainder.
         uint256 remainder;
-        console.log("prep");
         assembly {
             remainder := mulmod(num, X128, denominator)
             remainder := mulmod(remainder, X128, denominator)
         }
-        console.log("remainder", remainder);
         // Subtract out the remainder. Now remainder holds the fractional portion.
         assembly {
             num := sub(num, gt(remainder, 0))
             remainder := sub(0, remainder)
         }
-        console.log("subtract remainder", num, remainder);
         // Factor powers of two out of denominator
         // Compute largest power of two divisor of denominator.
         // Always >= 1.
@@ -166,7 +161,6 @@ library FullMath {
         assembly {
             denominator := div(denominator, twos)
         }
-        console.log("twos", twos);
 
         // Shift in bits from the whole into the fraction. For this we need
         // to flip `twos` such that it is 2**256 / twos.
@@ -174,7 +168,6 @@ library FullMath {
         assembly {
             twos := add(div(sub(0, twos), twos), 1)
         }
-        console.log("shift twos");
         unchecked {
             remainder |= num * twos;
 
@@ -189,7 +182,6 @@ library FullMath {
             // We know the result is entirely fractional.
             result = remainder * inv;
         }
-        console.log("inverted");
         return result;
     }
 
