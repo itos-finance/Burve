@@ -14,7 +14,7 @@ import {TransferHelper} from "../TransferHelper.sol";
 contract BurveMultiLPToken is ERC20 {
     LiqFacet public burveMulti;
     ClosureId public cid; // Which cid this governs
-    address public depositToken; // Which token we're depositing. Can be freely changed.
+    error NotImplemented(); // generic mint is not implemented for Burve LP tokens.
 
     constructor(
         ClosureId _cid,
@@ -24,36 +24,10 @@ contract BurveMultiLPToken is ERC20 {
         burveMulti = LiqFacet(_burveMulti);
     }
 
-    /// Tell us beforehand which token you want to deposit.
-    /// Use a multicall contract to set this and then mint. We'll transferFrom
-    /// this token and mint with it, so even if you mess this up, or someone changes
-    /// this from under you because you didn't do it in a multicall, you won't even
-    /// transfer the tokens unless you gave an approval for some reason. And even then you'll
-    /// just end up with LP tokens.
-    function setDepositToken(address newDepositToken) external {
-        // Anyone can set this.
-        depositToken = newDepositToken;
-    }
-
-    /// Mints the tokens for shares in the underlying burve multi pool.
-    /// The liquidity is indirectly owned by this contract.
-    /// @param value The amount of the deposit token you want to deposit.
-    function mint(address recipient, uint256 value) external {
-        // We only allow adding at most this amount of a token.
-        require(value <= type(uint128).max);
-        // Though in reality, due to other constraints in the pool this is not possible.
-
-        if (depositToken == address(0)) {
-            uint8 n = SimplexFacet(address(burveMulti)).numVertices();
-            uint128 depositValue = uint128(value / n);
-            uint128[] memory amounts = new uint128[](n);
-            for (uint256 i = 0; i < n; ++i) {
-                amounts[i] = depositValue;
-            }
-            this.mintWithMultipleTokens(recipient, msg.sender, amounts);
-        } else {
-            mintWithOneToken(recipient, depositToken, uint128(value));
-        }
+    /// the burve lp token leave the mint unimplemented. Rather use the
+    /// single or multi-token mint below.
+    function mint(address, uint256) external pure {
+        revert NotImplemented();
     }
 
     /// Burns the given amount of LP tokens and get back its respective amount
@@ -95,15 +69,19 @@ contract BurveMultiLPToken is ERC20 {
         address recipient,
         address token,
         uint128 amount
-    ) public {
+    ) external returns (uint256 shares) {
+        // We only allow adding at most this amount of a token.
+        require(amount <= type(uint128).max);
+        // Though in reality, due to other constraints in the pool this is not possible.
+
         TransferHelper.safeTransferFrom(
             token,
             _msgSender(),
             address(this),
             amount
         );
-        ERC20(depositToken).approve(address(burveMulti), amount);
-        uint256 shares = burveMulti.addLiq(
+        ERC20(token).approve(address(burveMulti), amount);
+        shares = burveMulti.addLiq(
             address(this),
             ClosureId.unwrap(cid),
             token,
@@ -117,9 +95,9 @@ contract BurveMultiLPToken is ERC20 {
     function mintWithMultipleTokens(
         address recipient,
         address payer,
-        uint128[] calldata amounts
-    ) public {
-        uint256 shares = burveMulti.addLiq(
+        uint128[] memory amounts
+    ) external returns (uint256 shares) {
+        shares = burveMulti.addLiq(
             recipient,
             payer,
             ClosureId.unwrap(cid),

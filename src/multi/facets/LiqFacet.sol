@@ -167,7 +167,6 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 address otherToken = tokenReg.tokens[i];
                 if (otherToken == numeraire) {
                     // price = 1
-                    console.log("numeraire part");
                     initialValue += preBalance[i];
                     depositValue += postBalance[i] - preBalance[i];
                 } else {
@@ -199,8 +198,10 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     ) external nonReentrant {
         ClosureId cid = ClosureId.wrap(_closureId);
         TokenRegistry storage tokenReg = Store.tokenRegistry();
-        uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares);
+        uint256 percentX256 = AssetLib.remove(recipient, cid, shares); // todo pass in a different address to burn from?
         uint256 n = TokenRegLib.numVertices();
+        console.log("numeraire part");
+
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);

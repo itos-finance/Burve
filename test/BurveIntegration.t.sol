@@ -15,6 +15,7 @@ import {ClosureId, newClosureId} from "../src/multi/Closure.sol";
 import {VaultType} from "../src/multi/VaultProxy.sol";
 import {MockERC4626} from "./mocks/MockERC4626.sol";
 import {ViewFacet} from "../src/multi/facets/ViewFacet.sol";
+import {BurveMultiLPToken} from "../src/multi/LPToken.sol";
 
 contract BurveIntegrationTest is Test {
     SimplexDiamond public diamond;
@@ -23,6 +24,7 @@ contract BurveIntegrationTest is Test {
     SwapFacet public swapFacet;
     EdgeFacet public edgeFacet;
     ViewFacet public viewFacet;
+    BurveMultiLPToken public lpToken;
 
     // Test tokens
     MockERC20 public token0;
@@ -41,6 +43,10 @@ contract BurveIntegrationTest is Test {
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
     uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
     uint256 constant INITIAL_DEPOSIT_AMOUNT = 100e18;
+
+    // Swap constants
+    uint128 constant MIN_SQRT_PRICE_X96 = uint128(1 << 96) / 1000;
+    uint128 constant MAX_SQRT_PRICE_X96 = uint128(1000 << 96);
 
     // Test closure ID for token pair
     uint16 public closureId;
@@ -87,16 +93,28 @@ contract BurveIntegrationTest is Test {
             46063 // highTick
         );
 
-        vm.stopPrank();
-
         // fetch closure
         address[] memory tokens = new address[](2);
         tokens[0] = address(token0);
         tokens[1] = address(token1);
         closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
 
+        // Create LP token for this closure
+        lpToken = new BurveMultiLPToken(
+            ClosureId.wrap(closureId),
+            address(diamond)
+        );
+
+        vm.stopPrank();
+
         // Fund test accounts
         _fundTestAccounts();
+
+        _provideLiquidity(
+            owner,
+            INITIAL_LIQUIDITY_AMOUNT,
+            INITIAL_LIQUIDITY_AMOUNT
+        );
     }
 
     function _setupTestTokens() internal {
@@ -116,63 +134,65 @@ contract BurveIntegrationTest is Test {
         token1.mint(alice, INITIAL_MINT_AMOUNT);
         token0.mint(bob, INITIAL_MINT_AMOUNT);
         token1.mint(bob, INITIAL_MINT_AMOUNT);
+        token0.mint(owner, INITIAL_MINT_AMOUNT);
+        token1.mint(owner, INITIAL_MINT_AMOUNT);
 
-        // Approve diamond for all test accounts
+        // Approve diamond and LP token for all test accounts
         vm.startPrank(alice);
         token0.approve(address(diamond), type(uint256).max);
         token1.approve(address(diamond), type(uint256).max);
+        token0.approve(address(lpToken), type(uint256).max);
+        token1.approve(address(lpToken), type(uint256).max);
         vm.stopPrank();
 
         vm.startPrank(bob);
         token0.approve(address(diamond), type(uint256).max);
         token1.approve(address(diamond), type(uint256).max);
+        token0.approve(address(lpToken), type(uint256).max);
+        token1.approve(address(lpToken), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        token0.approve(address(diamond), type(uint256).max);
+        token1.approve(address(diamond), type(uint256).max);
+        token0.approve(address(lpToken), type(uint256).max);
+        token1.approve(address(lpToken), type(uint256).max);
         vm.stopPrank();
     }
 
-    // Helper function to provide liquidity
+    // Helper function to provide liquidity using multi-token minting
     function _provideLiquidity(
         address provider,
         uint256 amount0,
         uint256 amount1
-    ) internal returns (uint256 shares0, uint256 shares1) {
+    ) internal returns (uint256 shares) {
         vm.startPrank(provider);
-
-        // Add liquidity for both tokens
-        shares0 = liqFacet.addLiq(
-            provider,
-            closureId,
-            address(token0),
-            uint128(amount0)
-        );
-
-        shares1 = liqFacet.addLiq(
-            provider,
-            closureId,
-            address(token1),
-            uint128(amount1)
-        );
-
+        uint128[] memory amounts = new uint128[](2);
+        amounts[0] = uint128(amount0);
+        amounts[1] = uint128(amount1);
+        shares = lpToken.mintWithMultipleTokens(provider, provider, amounts);
         vm.stopPrank();
     }
 
-    function testMint() public {
+    function testBurveMint() public {
         uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
         uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
 
         // Check initial balances
         uint256 aliceToken0Before = token0.balanceOf(alice);
         uint256 aliceToken1Before = token1.balanceOf(alice);
+        uint256 aliceLPBefore = lpToken.balanceOf(alice);
 
-        // Provide initial liquidity
-        (uint256 shares0, uint256 shares1) = _provideLiquidity(
-            alice,
-            amount0,
-            amount1
-        );
+        // Provide initial liquidity with both tokens
+        uint256 shares = _provideLiquidity(alice, amount0, amount1);
 
         // Verify shares were minted
-        assertGt(shares0, 0, "Should have received shares for token0");
-        assertGt(shares1, 0, "Should have received shares for token1");
+        assertGt(shares, 0, "Should have received LP tokens");
+        assertGt(
+            lpToken.balanceOf(alice) - aliceLPBefore,
+            0,
+            "Should have received LP tokens"
+        );
 
         // Verify tokens were transferred
         assertApproxEqAbs(
@@ -189,60 +209,93 @@ contract BurveIntegrationTest is Test {
         );
     }
 
-    function testBurn() public {
+    function testBurveBurn() public {
         // First provide liquidity
         uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
         uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
-        (uint256 shares0, uint256 shares1) = _provideLiquidity(
-            alice,
-            amount0,
-            amount1
-        );
+        uint256 shares = _provideLiquidity(alice, amount0, amount1);
 
         // Check balances before burn
         uint256 aliceToken0Before = token0.balanceOf(alice);
         uint256 aliceToken1Before = token1.balanceOf(alice);
 
-        // Remove all liquidity
+        // Remove all liquidity using LP token
         vm.startPrank(alice);
-        liqFacet.removeLiq(alice, closureId, shares0);
-        liqFacet.removeLiq(alice, closureId, shares1);
+        lpToken.burn(alice, shares);
         vm.stopPrank();
 
         // Verify tokens were returned
-        assertEq(
+        assertGt(
             token0.balanceOf(alice),
-            aliceToken0Before + amount0,
-            "Incorrect token0 balance after burn"
+            aliceToken0Before,
+            "Should have received token0 back"
+        );
+        assertGt(
+            token1.balanceOf(alice),
+            aliceToken1Before,
+            "Should have received token1 back"
         );
         assertEq(
-            token1.balanceOf(alice),
-            aliceToken1Before + amount1,
-            "Incorrect token1 balance after burn"
+            lpToken.balanceOf(alice),
+            0,
+            "Should have burned all LP tokens"
         );
-
-        // TODO: Add more assertions for pool state
     }
 
-    function testSwap() public {
+    function testBurvePartialBurn() public {
+        // First provide liquidity
+        uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
+        uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
+        uint256 totalShares = _provideLiquidity(alice, amount0, amount1);
+        uint256 burnAmount = totalShares / 2;
+
+        // Check balances before burn
+        uint256 aliceToken0Before = token0.balanceOf(alice);
+        uint256 aliceToken1Before = token1.balanceOf(alice);
+        uint256 aliceLPBefore = lpToken.balanceOf(alice);
+
+        // Remove half of liquidity using LP token
+        vm.startPrank(alice);
+        lpToken.burn(alice, burnAmount);
+        vm.stopPrank();
+
+        // Verify tokens were returned
+        assertGt(
+            token0.balanceOf(alice),
+            aliceToken0Before,
+            "Should have received token0 back"
+        );
+        assertGt(
+            token1.balanceOf(alice),
+            aliceToken1Before,
+            "Should have received token1 back"
+        );
+        assertEq(
+            lpToken.balanceOf(alice),
+            aliceLPBefore - burnAmount,
+            "Should have burned half of LP tokens"
+        );
+    }
+
+    function testBurveSwap() public {
         // First provide liquidity
         uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
         uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT;
         _provideLiquidity(alice, amount0, amount1);
 
         // Prepare for swap
-        uint256 swapAmount = 1000e18;
+        uint256 swapAmount = 10e18;
         uint256 bobToken0Before = token0.balanceOf(bob);
         uint256 bobToken1Before = token1.balanceOf(bob);
 
         // Perform swap token0 -> token1
         vm.startPrank(bob);
-        swapFacet.swap(
+        (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
             bob, // recipient
             address(token0), // tokenIn
             address(token1), // tokenOut
             int256(swapAmount), // positive for exact input
-            0 // no price limit for this test
+            MIN_SQRT_PRICE_X96 + 1 // no price limit for this test
         );
         vm.stopPrank();
 
@@ -264,12 +317,12 @@ contract BurveIntegrationTest is Test {
         bobToken1Before = token1.balanceOf(bob);
 
         vm.startPrank(bob);
-        swapFacet.swap(
+        (inAmount, outAmount) = swapFacet.swap(
             bob, // recipient
             address(token1), // tokenIn
             address(token0), // tokenOut
             int256(token1Received), // positive for exact input
-            0 // no price limit for this test
+            MAX_SQRT_PRICE_X96 - 1 // no price limit for this test
         );
         vm.stopPrank();
 

@@ -76,7 +76,7 @@ contract SimplexDiamond is IDiamond {
                 keccak256("addLiq(address,uint16,address,uint128)")
             );
             liqSelectors[1] = bytes4(
-                keccak256("addLiq(address,uint16,uint128[])")
+                keccak256("addLiq(address,address,uint16,uint128[])")
             );
             liqSelectors[2] = LiqFacet.removeLiq.selector;
             cuts[3] = FacetCut({

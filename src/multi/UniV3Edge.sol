@@ -89,15 +89,14 @@ library UniV3Edge {
         )
     {
         require(amountSpecified != 0, "AS");
-        // TODO: is this not allowing 0 to be input as the price limit?
-        // require(
-        //     zeroForOne
-        //         ? sqrtPriceLimitX96 < slot0Start.sqrtPriceX96 &&
-        //             sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO
-        //         : sqrtPriceLimitX96 > slot0Start.sqrtPriceX96 &&
-        //             sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO,
-        //     "SPL"
-        // );
+        require(
+            zeroForOne
+                ? sqrtPriceLimitX96 < slot0Start.sqrtPriceX96 &&
+                    sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO
+                : sqrtPriceLimitX96 > slot0Start.sqrtPriceX96 &&
+                    sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO,
+            "SPL"
+        );
 
         slot0Start.feeProtocol = zeroForOne
             ? (slot0Start.feeProtocol % 16)

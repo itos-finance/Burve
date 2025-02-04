@@ -33,6 +33,13 @@ contract LiqFacetTest is Test {
     address public alice = makeAddr("alice");
     address public bob = makeAddr("bob");
 
+    // shares that the pool is seeded with in the
+    uint256 seed;
+
+    // Swap constants
+    uint128 constant MIN_SQRT_PRICE_X96 = uint128(1 << 96) / 1000;
+    uint128 constant MAX_SQRT_PRICE_X96 = uint128(1000 << 96);
+
     uint16 public closureId;
     uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
     uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100_000e18;
@@ -101,7 +108,7 @@ contract LiqFacetTest is Test {
         uint128[] memory initAmounts = new uint128[](2);
         initAmounts[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
         initAmounts[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
-        liqFacet.addLiq(owner, closureId, initAmounts);
+        seed = liqFacet.addLiq(owner, owner, closureId, initAmounts);
         vm.stopPrank();
     }
 
@@ -131,6 +138,28 @@ contract LiqFacetTest is Test {
         vm.stopPrank();
     }
 
+    /// removes the seeded liquidity in the setUp function
+    function testRemoveSeedLiquidity() public {
+        vm.startPrank(owner);
+        liqFacet.removeLiq(owner, closureId, seed);
+        vm.stopPrank();
+    }
+
+    function testSwapThenRemoveSeedLiquidity() public {
+        vm.startPrank(bob);
+        swapFacet.swap(
+            bob,
+            address(token0),
+            address(token1),
+            int256(10e18),
+            MIN_SQRT_PRICE_X96 + 1
+        );
+        vm.stopPrank();
+        vm.startPrank(owner);
+        liqFacet.removeLiq(owner, closureId, seed);
+        vm.stopPrank();
+    }
+
     function testInitialLiquidityProvision() public {
         uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
         uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT;
@@ -140,7 +169,7 @@ contract LiqFacetTest is Test {
         uint128[] memory initAmounts = new uint128[](2);
         initAmounts[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
         initAmounts[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
-        uint256 shares = liqFacet.addLiq(alice, closureId, initAmounts);
+        uint256 shares = liqFacet.addLiq(alice, alice, closureId, initAmounts);
 
         // Record balances before removal
         uint256 token0Before = token0.balanceOf(alice);
@@ -415,7 +444,7 @@ contract LiqFacetTest is Test {
         amounts[1] = uint128(amount1);
 
         // Add liquidity using multi-amount function
-        uint256 shares = liqFacet.addLiq(alice, closureId, amounts);
+        uint256 shares = liqFacet.addLiq(alice, alice, closureId, amounts);
 
         // Record balances before removal
         uint256 token0Before = token0.balanceOf(alice);
@@ -456,7 +485,7 @@ contract LiqFacetTest is Test {
         amounts[1] = amount1;
 
         // Add liquidity using multi-amount function
-        uint256 shares = liqFacet.addLiq(alice, closureId, amounts);
+        uint256 shares = liqFacet.addLiq(alice, alice, closureId, amounts);
 
         // Record balances before removal
         uint256 token0Before = token0.balanceOf(alice);
