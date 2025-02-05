@@ -90,10 +90,6 @@ contract Burve is ERC20 {
 
         island = IKodiakIsland(_island);
 
-        if (_pool == address(0x0)) {
-            revert PoolIsZeroAddress();
-        }
-
         if (_island != address(0x0) && address(island.pool()) != _pool) {
             revert MismatchedIslandPool(_island, _pool);
         }
@@ -215,6 +211,15 @@ contract Burve is ERC20 {
     function burnRange(TickRange memory range, uint128 liq) internal {
         if (range.lower == 0 && range.upper == 0) {
             (, , uint256 burnShares) = getAmountsFromIslandLiq(liq);
+
+            // Transfer required tokens to this contract
+            TransferHelper.safeTransferFrom(
+                address(island),
+                msg.sender,
+                address(this),
+                burnShares
+            );
+
             island.burn(burnShares, msg.sender);
         } else {
             (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
@@ -325,6 +330,10 @@ contract Burve is ERC20 {
     function nameFromPool(
         address _pool
     ) private view returns (string memory name) {
+        if (_pool == address(0x0)) {
+            revert PoolIsZeroAddress();
+        }
+
         address t0 = IUniswapV3Pool(_pool).token0();
         address t1 = IUniswapV3Pool(_pool).token1();
         name = string.concat(

@@ -14,20 +14,19 @@ import {StdUtils} from "forge-std/StdUtils.sol";
 import {TransferHelper} from "./../../src/TransferHelper.sol";
 
 contract BurveTest is ForkableTest {
-    Burve public burveV3;
-    Burve public burveIsland;
+    Burve public burveIsland; // island only
+    Burve public burveV3; // v3 only
+    Burve public burve; // island + v3
+
+    IUniswapV3Pool pool;
 
     function forkSetup() internal virtual override {
-        IUniswapV3Pool uniPool = IUniswapV3Pool(
+        // Pool info
+        pool = IUniswapV3Pool(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
         );
-        (, int24 currentTick, , , , , ) = uniPool.slot0();
-        int24 tickSpacing = uniPool.tickSpacing();
-        int24 clampedCurrentTick = currentTick - (currentTick % tickSpacing);
-
-        int24 rangeWidth = 100;
-        TickRange[] memory ranges = new TickRange[](2);
-        uint128[] memory weights = new uint128[](2);
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
 
         // Burve Island
         TickRange[] memory islandRanges = new TickRange[](1);
@@ -44,24 +43,39 @@ contract BurveTest is ForkableTest {
         );
 
         // Burve V3
-
-        rangeWidth = 10 * tickSpacing;
-        ranges[0] = TickRange(
-            clampedCurrentTick - rangeWidth,
-            clampedCurrentTick + rangeWidth
+        int24 v3RangeWidth = 10 * tickSpacing;
+        TickRange[] memory v3Ranges = new TickRange[](1);
+        v3Ranges[0] = TickRange(
+            clampedCurrentTick - v3RangeWidth,
+            clampedCurrentTick + v3RangeWidth
         );
-        rangeWidth = 100 * tickSpacing;
+
+        uint128[] memory v3Weights = new uint128[](1);
+        v3Weights[0] = 1;
+
+        burveV3 = new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            address(0x0),
+            v3Ranges,
+            v3Weights
+        );
+
+        // Burve
+        int24 rangeWidth = 100 * tickSpacing;
+        TickRange[] memory ranges = new TickRange[](2);
+        ranges[0] = TickRange(0, 0);
         ranges[1] = TickRange(
             clampedCurrentTick - rangeWidth,
             clampedCurrentTick + rangeWidth
         );
 
+        uint128[] memory weights = new uint128[](2);
         weights[0] = 3;
         weights[1] = 1;
 
-        burveV3 = new Burve(
+        burve = new Burve(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
-            address(0x0),
+            BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
             ranges,
             weights
         );
@@ -76,43 +90,161 @@ contract BurveTest is ForkableTest {
     }
 
     // Tests
-    // - constructor
     // - mint
     // - burn
     // - getInfo
 
     // Contructor Tests
 
-    function testV3Setup() public forkOnly {
-        IUniswapV3Pool uniPool = IUniswapV3Pool(
-            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
-        );
-        (, int24 currentTick, , , , , ) = uniPool.slot0();
-        int24 tickSpacing = uniPool.tickSpacing();
+    function testBurveIslandSetup() public view forkOnly {
+        assertEq(address(burveIsland.pool()), address(pool), "burveIsland pool address");
+        assertEq(address(burveIsland.token0()), pool.token0(), "burveIsland token0 address");
+        assertEq(address(burveIsland.token1()), pool.token1(), "burveIsland token1 address");
 
-        assertEq(address(burveV3.pool()), address(uniPool), "pool address");
-        assertEq(address(burveV3.token0()), uniPool.token0(), "token0 address");
-        assertEq(address(burveV3.token1()), uniPool.token1(), "token1 address");
+        assertEq(address(burveIsland.island()), BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "burveIsland island address");
 
-        assertEq(address(burveV3.island()), address(0x0), "island address");
-
-        (int24 lower, int24 upper) = burveV3.ranges(0);
-        assertEq(lower, currentTick - 10 * tickSpacing, "range 0 lower");
-        assertEq(upper, currentTick + 10 * tickSpacing, "range 0 upper");
-        (lower, upper) = burveV3.ranges(1);
-        assertEq(lower, currentTick - 100 * tickSpacing, "range 1 lower");
-        assertEq(upper, currentTick + 100 * tickSpacing, "range 1 upper");
+        (int24 lower, int24 upper) = burveIsland.ranges(0);
+        assertEq(lower, 0, "burveIsland range 0 lower");
+        assertEq(upper, 0, "burveIsland range 0 upper");
 
         assertEq(
             burveV3.distX96(0),
+            1 << 96,
+            "burveIsland distX96 0"
+        ); // 1/1
+    }
+
+    function testBurveV3Setup() public view forkOnly {
+        assertEq(address(burveV3.pool()), address(pool), "burveV3 pool address");
+        assertEq(address(burveV3.token0()), pool.token0(), "burveV3 token0 address");
+        assertEq(address(burveV3.token1()), pool.token1(), "burveV3 token1 address");
+
+        assertEq(address(burveV3.island()), address(0x0), "burveV3 island address");
+
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+        int24 rangeWidth = 10 * tickSpacing;
+
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+        assertEq(lower, clampedCurrentTick - rangeWidth, "burveV3 range 0 lower");
+        assertEq(upper, clampedCurrentTick + rangeWidth, "burveV3 range 0 upper");
+
+        assertEq(
+            burveV3.distX96(0),
+            1 << 96,
+            "burveV3 distX96 0"
+        ); // 1/1
+    }
+
+    function testBurveSetup() public view forkOnly {
+        assertEq(address(burve.pool()), address(pool), "burve pool address");
+        assertEq(address(burve.token0()), pool.token0(), "burve token0 address");
+        assertEq(address(burve.token1()), pool.token1(), "burve token1 address");
+
+        assertEq(address(burve.island()), address(BartioAddresses.KODIAK_HONEY_NECT_ISLAND), "burve island address");
+
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+        int24 rangeWidth = 100 * tickSpacing;
+
+        (int24 lower, int24 upper) = burve.ranges(0);
+        assertEq(lower, 0, "burve range 0 lower");
+        assertEq(upper, 0, "burve range 0 upper");
+        (lower, upper) = burve.ranges(1);
+        assertEq(lower, clampedCurrentTick - rangeWidth, "burve range 1 lower");
+        assertEq(upper, clampedCurrentTick + rangeWidth, "burve range 1 upper");
+
+        assertEq(
+            burve.distX96(0),
             59421121885698253195157962752,
-            "distX96 0"
+            "burve distX96 0"
         ); // 3/4
         assertEq(
-            burveV3.distX96(1),
+            burve.distX96(1),
             19807040628566084398385987584,
-            "distX96 1"
+            "burve distX96 1"
         ); // 1/4
+    }
+
+    function testCreateRevertPoolIsZeroAddress() public forkOnly {
+        vm.expectRevert(Burve.PoolIsZeroAddress.selector);
+        
+        new Burve(address(0x0), address(0x0), new TickRange[](0), new uint128[](0));
+    }
+
+    function testCreateRevertMismatchIslandPool() public forkOnly {
+        address poolAddr = BartioAddresses.KODIAK_HONEY_NECT_POOL_V3;
+        address islandAddr = BartioAddresses.KODIAK_BERA_YEET_ISLAND_NEW;
+        
+        vm.expectRevert(abi.encodeWithSelector(Burve.MismatchedIslandPool.selector, islandAddr, poolAddr));
+        
+        new Burve(poolAddr, islandAddr, new TickRange[](0), new uint128[](0));
+    }
+
+    function testCreateRevertMismatchedRangeWeightLengths() public forkOnly {
+        vm.expectRevert(abi.encodeWithSelector(Burve.MismatchedRangeWeightLengths.selector, 1, 0));
+        
+        new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            address(0x0), 
+            new TickRange[](1), 
+            new uint128[](0)
+        );
+    }
+
+    function testCreateRevertIslandRangeWithNoIsland() public forkOnly {
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(0, 0);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 3;
+
+        vm.expectRevert(Burve.NoIsland.selector);
+
+        new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            address(0x0), 
+            ranges, 
+            weights
+        );
+    }
+
+    function testCreateRevertInvalidRangeLower() public forkOnly {
+        int24 tickSpacing = pool.tickSpacing();
+ 
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(tickSpacing - 1, tickSpacing * 2);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 3;
+
+        vm.expectRevert(abi.encodeWithSelector(Burve.InvalidRange.selector, ranges[0].lower, ranges[0].upper));
+
+        new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            BartioAddresses.KODIAK_HONEY_NECT_ISLAND, 
+            ranges, 
+            weights
+        );
+    }
+
+    function testCreateRevertInvalidRangeUpper() public forkOnly {
+        int24 tickSpacing = pool.tickSpacing();
+ 
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(tickSpacing, tickSpacing * 2 + 1);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 3;
+
+        vm.expectRevert(abi.encodeWithSelector(Burve.InvalidRange.selector, ranges[0].lower, ranges[0].upper));
+
+        new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            BartioAddresses.KODIAK_HONEY_NECT_ISLAND, 
+            ranges, 
+            weights
+        );
     }
 
     // Mint Tests
@@ -133,6 +265,7 @@ contract BurveTest is ForkableTest {
         IERC20(uniPool.token1()).approve(address(burveV3), 10_000e18);
 
         burveV3.mint(address(user), 1000);
+        burveV3.burn(1000);
 
         vm.stopPrank();
     }
@@ -168,10 +301,12 @@ contract BurveTest is ForkableTest {
 
         burveIsland.mint(address(user), 1000);
 
+        IERC20(address(burveIsland.island())).approve(address(burveIsland), 10_000e18);
+
+        burveIsland.burn(1000);
+
         vm.stopPrank();
     }
-
-    function testAThing() public {}
 
     // function testCalcLiq() public {
     //     address poolAddr = 0x246c12D7F176B93e32015015dAB8329977de981B;
@@ -301,4 +436,12 @@ contract BurveTest is ForkableTest {
     //         roundUp
     //     );
     // }
+
+    // Helpers 
+
+    function getClampedCurrentTick() internal view returns (int24) {
+        (, int24 currentTick, , , , , ) = pool.slot0();
+        int24 tickSpacing = pool.tickSpacing();
+        return currentTick - (currentTick % tickSpacing);
+    }
 }
