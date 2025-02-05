@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {Edge} from "../Edge.sol";
 import {UniV3Edge} from "../UniV3Edge.sol";
 

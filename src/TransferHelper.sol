@@ -3,6 +3,7 @@
 pragma solidity >=0.6.0;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {console} from "forge-std/Test.sol";
 
 library TransferHelper {
     /// @notice Transfers tokens from the targeted address to the given destination
@@ -25,6 +26,10 @@ library TransferHelper {
                 value
             )
         );
+        console.log("inside safeTransferFrom");
+        console.log(success);
+        console.log("msg.sender ", msg.sender);
+        console.log("address(this) ", address(this));
         require(
             success && (data.length == 0 || abi.decode(data, (bool))),
             "STF"

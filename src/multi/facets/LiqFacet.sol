@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {ClosureId} from "../Closure.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
 import {VaultLib, VaultPointer} from "../VaultProxy.sol";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
 import {TransferHelper} from "./../TransferHelper.sol";
 import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
@@ -66,6 +66,9 @@ contract Burve is ERC20 {
         uint256 weightLength
     );
 
+    /// Thrown if the given tick range does not match the pools tick spacing.
+    error InvalidRange(int24 lower, int24 upper);
+
     /// If you burn too much liq at once, we can't collect that amount in one call.
     /// Please split up into multiple calls.
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
@@ -101,12 +104,23 @@ contract Burve is ERC20 {
             );
         }
 
+        int24 tickSpacing = pool.tickSpacing();
+
         // copy ranges to storage
         for (uint256 i = 0; i < _ranges.length; ++i) {
-            ranges.push(_ranges[i]);
+            TickRange memory range = _ranges[i];
 
-            if (_ranges[i].isIsland() && address(island) == address(0x0)) {
+            ranges.push(range);
+
+            if (range.isIsland() && address(island) == address(0x0)) {
                 revert NoIsland();
+            }
+
+            if (
+                (range.lower % tickSpacing != 0) ||
+                (range.upper % tickSpacing != 0)
+            ) {
+                revert InvalidRange(range.lower, range.upper);
             }
         }
 

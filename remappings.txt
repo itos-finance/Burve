@@ -1,5 +1,4 @@
-@openzeppelin/=lib/openzeppelin-contracts/contracts/
-openzeppelin-contracts/=lib/openzeppelin-contracts/
+@openzeppelin/=lib/openzeppelin-contracts/
 Commons/=lib/Commons/src/
 @Commons/=lib/Commons/src/
 CommonsTestLib/=lib/Commons/test/lib/
