@@ -140,8 +140,8 @@ contract Burve is ERC20 {
     /// @notice mints liquidity for the recipient
     function mint(address recipient, uint128 liq) external {
         for (uint256 i = 0; i < distX96.length; ++i) {
-            uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
-            mintRange(ranges[i], recipient, liqAmount);
+            uint128 rangeLiq = uint128(shift96(liq * distX96[i], true));
+            mintRange(ranges[i], recipient, rangeLiq);
         }
 
         _mint(recipient, liq);
@@ -157,44 +157,9 @@ contract Burve is ERC20 {
         address recipient,
         uint128 liq
     ) internal {
-        // mint the island
-        if (range.lower == 0 && range.upper == 0) {
-            if (address(island) == address(0x0)) {
-                revert NoIsland();
-            }
-
-            (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-
-            (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
-                sqrtRatioX96,
-                island.lowerTick(),
-                island.upperTick(),
-                liq
-            );
-
-            // Transfer required tokens to this contract
-            TransferHelper.safeTransferFrom(
-                token0,
-                msg.sender,
-                address(this),
-                amount0
-            );
-            TransferHelper.safeTransferFrom(
-                token1,
-                msg.sender,
-                address(this),
-                amount1
-            );
-
-            // Approve transfer to the island
-            ERC20(token0).approve(address(island), amount0);
-            ERC20(token1).approve(address(island), amount1);
-
-            (, , uint256 shares) = island.getMintAmounts(amount0, amount1);
-
-            island.mint(shares, recipient);
+        if (range.isIsland()) {
+            mintIsland(recipient, liq);
         } else {
-            // mint the V3 ranges
             pool.mint(
                 address(this),
                 range.lower,
@@ -205,13 +170,41 @@ contract Burve is ERC20 {
         }
     }
 
+    function mintIsland(address recipient, uint128 liq) internal {
+        (
+            uint256 amount0,
+            uint256 amount1,
+            uint256 shares
+        ) = getAmountsFromIslandLiq(liq);
+
+        // Transfer required tokens to this contract
+        TransferHelper.safeTransferFrom(
+            token0,
+            msg.sender,
+            address(this),
+            amount0
+        );
+        TransferHelper.safeTransferFrom(
+            token1,
+            msg.sender,
+            address(this),
+            amount1
+        );
+
+        // Approve transfer to the island
+        ERC20(token0).approve(address(island), amount0);
+        ERC20(token1).approve(address(island), amount1);
+
+        island.mint(shares, recipient);
+    }
+
     /// @notice burns liquidity for the msg.sender
     function burn(uint128 liq) external {
         _burn(msg.sender, liq);
 
         for (uint256 i = 0; i < distX96.length; ++i) {
-            uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
-            burnRange(ranges[i], liqAmount);
+            uint128 rangeLiq = uint128(shift96(liq * distX96[i], true));
+            burnRange(ranges[i], rangeLiq);
         }
     }
 
@@ -221,7 +214,7 @@ contract Burve is ERC20 {
     /// @param liq The amount of liquidity to burn.
     function burnRange(TickRange memory range, uint128 liq) internal {
         if (range.lower == 0 && range.upper == 0) {
-            uint256 burnShares = islandLiqToShares(liq);
+            (, , uint256 burnShares) = getAmountsFromIslandLiq(liq);
             island.burn(burnShares, msg.sender);
         } else {
             (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
@@ -275,24 +268,25 @@ contract Burve is ERC20 {
 
     /// @notice Calculates the amount of shares for an island given the liquidity.
     /// @param liq The liquidity to convert to shares.
+    /// @return amount0 The amount of token0.
+    /// @return amount1 The amount of token1.
     /// @return shares The amount of shares.
-    function islandLiqToShares(
+    function getAmountsFromIslandLiq(
         uint128 liq
-    ) internal view returns (uint256 shares) {
-        if (address(island) == address(0x0)) {
-            revert NoIsland();
-        }
-
+    ) internal view returns (uint256 amount0, uint256 amount1, uint256 shares) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
-        (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
+        (uint256 amount0Max, uint256 amount1Max) = getAmountsFromLiquidity(
             sqrtRatioX96,
             island.lowerTick(),
             island.upperTick(),
             liq
         );
 
-        (, , shares) = island.getMintAmounts(amount0, amount1);
+        (amount0, amount1, shares) = island.getMintAmounts(
+            amount0Max,
+            amount1Max
+        );
     }
 
     /// @notice Converts the amount of liquidity to amount0 and amount1.
