@@ -8,6 +8,7 @@ import {TransferHelper} from "./../TransferHelper.sol";
 import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
 import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
 import {TickMath} from "./integrations/uniswap/TickMath.sol";
+import {LiquidityCalculations} from "./lib/LiquidityCalculations.sol";
 
 using TickRangeImpl for TickRange global;
 
@@ -171,7 +172,7 @@ contract Burve is ERC20 {
             uint256 amount0,
             uint256 amount1,
             uint256 shares
-        ) = getAmountsFromIslandLiq(liq);
+        ) = LiquidityCalculations.getAmountsFromIslandLiquidity(island, liq);
 
         // Transfer required tokens to this contract
         TransferHelper.safeTransferFrom(
@@ -210,7 +211,7 @@ contract Burve is ERC20 {
     /// @param liq The amount of liquidity to burn.
     function burnRange(TickRange memory range, uint128 liq) internal {
         if (range.lower == 0 && range.upper == 0) {
-            (, , uint256 burnShares) = getAmountsFromIslandLiq(liq);
+            (, , uint256 burnShares) = LiquidityCalculations.getAmountsFromIslandLiquidity(island, liq);
 
             // Transfer required tokens to this contract
             TransferHelper.safeTransferFrom(
@@ -270,51 +271,6 @@ contract Burve is ERC20 {
     }
 
     /* internal helpers */
-
-    /// @notice Calculates the amount of shares for an island given the liquidity.
-    /// @param liq The liquidity to convert to shares.
-    /// @return amount0 The amount of token0.
-    /// @return amount1 The amount of token1.
-    /// @return shares The amount of shares.
-    function getAmountsFromIslandLiq(
-        uint128 liq
-    ) internal view returns (uint256 amount0, uint256 amount1, uint256 shares) {
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-
-        (uint256 amount0Max, uint256 amount1Max) = getAmountsFromLiquidity(
-            sqrtRatioX96,
-            island.lowerTick(),
-            island.upperTick(),
-            liq
-        );
-
-        (amount0, amount1, shares) = island.getMintAmounts(
-            amount0Max,
-            amount1Max
-        );
-    }
-
-    /// @notice Converts the amount of liquidity to amount0 and amount1.
-    /// @param sqrtRatioX96 The price from slot0.
-    /// @param tickLower The lower bound.
-    /// @param tickUpper The upper bound.
-    /// @param liquidity The liquidity to find amounts for.
-    function getAmountsFromLiquidity(
-        uint160 sqrtRatioX96,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 liquidity
-    ) internal pure returns (uint256 amount0, uint256 amount1) {
-        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
-        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
-        (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
-            sqrtRatioX96,
-            sqrtRatioAX96,
-            sqrtRatioBX96,
-            liquidity,
-            false
-        );
-    }
 
     function shift96(
         uint256 a,

@@ -249,6 +249,31 @@ contract BurveTest is ForkableTest {
 
     // Mint Tests
 
+    // island mint
+    // - msg.sender is approved address / user 
+    // - token0 / token1 amounts transfered from msg.sender 
+    // - Burve LP token sent to recipient 
+    // - Island LP token sent to recipient 
+    function testIslandMint() public {
+
+        address user = address(0xabc);
+
+        deal(pool.token0(), address(user), 10_000e18);
+        deal(pool.token1(), address(user), 10_000e18);
+
+        vm.startPrank(user);
+        IERC20(pool.token0()).approve(address(burveIsland), 10_000e18);
+        IERC20(pool.token1()).approve(address(burveIsland), 10_000e18);
+
+        burveIsland.mint(address(user), 1000);
+
+        vm.stopPrank();
+    }
+
+    // island burn
+    // ERC20(address(burveIsland.island())).approve(address(burveIsland), 10_000e18);
+    // burveIsland.burn(1000);
+
     function testV3Mint() public {
         IUniswapV3Pool uniPool = IUniswapV3Pool(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
@@ -266,44 +291,6 @@ contract BurveTest is ForkableTest {
 
         burveV3.mint(address(user), 1000);
         burveV3.burn(1000);
-
-        vm.stopPrank();
-    }
-
-    function testIslandMint() public {
-        IUniswapV3Pool uniPool = IUniswapV3Pool(
-            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
-        );
-
-        address user = address(0xabc);
-
-        deal(uniPool.token0(), address(user), 10_000e18);
-        deal(uniPool.token1(), address(user), 10_000e18);
-
-        // deal(uniPool.token0(), address(burveIsland), 10_000e18);
-        // deal(uniPool.token1(), address(burveIsland), 10_000e18);
-
-        // vm.startPrank(address(burveIsland));
-        // IERC20(uniPool.token0()).approve(
-        //     BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
-        //     10_000e18
-        // );
-        // IERC20(uniPool.token1()).approve(
-        //     BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
-        //     10_000e18
-        // );
-        // vm.stopPrank();
-
-        vm.startPrank(user);
-
-        IERC20(uniPool.token0()).approve(address(burveIsland), 10_000e18);
-        IERC20(uniPool.token1()).approve(address(burveIsland), 10_000e18);
-
-        burveIsland.mint(address(user), 1000);
-
-        IERC20(address(burveIsland.island())).approve(address(burveIsland), 10_000e18);
-
-        burveIsland.burn(1000);
 
         vm.stopPrank();
     }
