@@ -27,19 +27,14 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
 
     /// Add liquidity in a simple way with just one token.
     /// This is a cheap and convenient method for small deposits that won't move the peg very much.
-    /// @dev TODO: Should we add a payer parameter?
     function addLiq(
         address recipient,
+        address payer,
         uint16 _closureId,
         address token,
         uint128 amount
     ) external nonReentrant validToken(token) returns (uint256 shares) {
-        TransferHelper.safeTransferFrom(
-            token,
-            msg.sender,
-            address(this),
-            amount
-        );
+        TransferHelper.safeTransferFrom(token, payer, address(this), amount);
 
         ClosureId cid = ClosureId.wrap(_closureId);
         // This validates the token is registered.

@@ -112,21 +112,27 @@ contract BurveMultiPoolTest is Test {
         // Add initial liquidity
         _provideLiquidity(
             owner,
+            owner,
             lpToken01,
             INITIAL_LIQUIDITY_AMOUNT,
-            INITIAL_LIQUIDITY_AMOUNT
+            INITIAL_LIQUIDITY_AMOUNT,
+            INITIAL_DEPOSIT_AMOUNT
         );
         _provideLiquidity(
+            owner,
             owner,
             lpToken12,
             INITIAL_LIQUIDITY_AMOUNT,
-            INITIAL_LIQUIDITY_AMOUNT
+            INITIAL_LIQUIDITY_AMOUNT,
+            INITIAL_DEPOSIT_AMOUNT
         );
         _provideLiquidity(
             owner,
+            owner,
             lpToken02,
             INITIAL_LIQUIDITY_AMOUNT,
-            INITIAL_LIQUIDITY_AMOUNT
+            INITIAL_LIQUIDITY_AMOUNT,
+            INITIAL_DEPOSIT_AMOUNT
         );
     }
 
@@ -236,16 +242,18 @@ contract BurveMultiPoolTest is Test {
     // Helper function to provide liquidity using LP token
     function _provideLiquidity(
         address provider,
+        address payer,
         BurveMultiLPToken lpToken,
         uint256 amount0,
-        uint256 amount1
+        uint256 amount1,
+        uint256 amount2
     ) internal returns (uint256 shares) {
-        vm.startPrank(provider);
+        vm.startPrank(payer);
         uint128[] memory amounts = new uint128[](3);
         amounts[0] = uint128(amount0);
         amounts[1] = uint128(amount1);
-        amounts[2] = uint128(amount1);
-        shares = lpToken.mintWithMultipleTokens(provider, provider, amounts);
+        amounts[2] = uint128(amount2);
+        shares = lpToken.mintWithMultipleTokens(provider, payer, amounts);
         vm.stopPrank();
     }
 
@@ -253,21 +261,27 @@ contract BurveMultiPoolTest is Test {
         // Provide liquidity to all pairs
         uint256 shares01 = _provideLiquidity(
             alice,
+            alice,
             lpToken01,
+            INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT
         );
 
         uint256 shares12 = _provideLiquidity(
             alice,
+            alice,
             lpToken12,
+            INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT
         );
 
         uint256 shares02 = _provideLiquidity(
             alice,
+            alice,
             lpToken02,
+            INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT
         );
@@ -289,21 +303,27 @@ contract BurveMultiPoolTest is Test {
         // First provide liquidity to all pairs
         uint256 shares01 = _provideLiquidity(
             alice,
+            alice,
             lpToken01,
+            INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT
         );
 
         uint256 shares12 = _provideLiquidity(
             alice,
+            alice,
             lpToken12,
+            INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT
         );
 
         uint256 shares02 = _provideLiquidity(
             alice,
+            alice,
             lpToken02,
+            INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT,
             INITIAL_DEPOSIT_AMOUNT
         );

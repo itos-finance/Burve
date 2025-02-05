@@ -73,7 +73,7 @@ contract SimplexDiamond is IDiamond {
         {
             bytes4[] memory liqSelectors = new bytes4[](3);
             liqSelectors[0] = bytes4(
-                keccak256("addLiq(address,uint16,address,uint128)")
+                keccak256("addLiq(address,address,uint16,address,uint128)")
             );
             liqSelectors[1] = bytes4(
                 keccak256("addLiq(address,address,uint16,uint128[])")

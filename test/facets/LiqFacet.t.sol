@@ -202,6 +202,7 @@ contract LiqFacetTest is Test {
         vm.startPrank(alice);
         uint256 aliceShares0 = liqFacet.addLiq(
             alice,
+            alice,
             closureId,
             address(token0),
             uint128(amount)
@@ -211,6 +212,7 @@ contract LiqFacetTest is Test {
         // Bob adds same amount of liquidity
         vm.startPrank(bob);
         uint256 bobShares0 = liqFacet.addLiq(
+            bob,
             bob,
             closureId,
             address(token0),
@@ -263,11 +265,13 @@ contract LiqFacetTest is Test {
         vm.startPrank(alice);
         uint256 aliceShares0 = liqFacet.addLiq(
             alice,
+            alice,
             closureId,
             address(token0),
             uint128(amount)
         );
         uint256 aliceShares1 = liqFacet.addLiq(
+            alice,
             alice,
             closureId,
             address(token1),
@@ -279,11 +283,13 @@ contract LiqFacetTest is Test {
         vm.startPrank(bob);
         uint256 bobShares0 = liqFacet.addLiq(
             bob,
+            bob,
             closureId,
             address(token0),
             uint128(amount)
         );
         uint256 bobShares1 = liqFacet.addLiq(
+            bob,
             bob,
             closureId,
             address(token1),
@@ -393,11 +399,13 @@ contract LiqFacetTest is Test {
         vm.startPrank(alice);
         uint256 shares0 = liqFacet.addLiq(
             alice,
+            alice,
             closureId,
             address(token0),
             uint128(amount)
         );
         uint256 shares1 = liqFacet.addLiq(
+            alice,
             alice,
             closureId,
             address(token1),
@@ -522,12 +530,14 @@ contract LiqFacetTest is Test {
         // Provide initial liquidity
         uint256 shares0 = liqFacet.addLiq(
             alice,
+            alice,
             closureId,
             address(token0),
             depositAmount
         );
 
         uint256 shares1 = liqFacet.addLiq(
+            alice,
             alice,
             closureId,
             address(token1),
@@ -584,11 +594,13 @@ contract LiqFacetTest is Test {
             // Add liquidity
             uint256 newShares0 = liqFacet.addLiq(
                 alice,
+                alice,
                 closureId,
                 address(token0),
                 addAmounts[i]
             );
             uint256 newShares1 = liqFacet.addLiq(
+                alice,
                 alice,
                 closureId,
                 address(token1),

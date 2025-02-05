@@ -39,8 +39,7 @@ contract BurveMultiLPToken is ERC20 {
         if (account != _msgSender()) {
             _spendAllowance(account, _msgSender(), shares);
         }
-        // TODO (terence) - Asset is actually owned by the LPToken, switch from msg.sender to address(this)
-        burveMulti.removeLiq(address(this), ClosureId.unwrap(cid), shares);
+        burveMulti.removeLiq(account, ClosureId.unwrap(cid), shares);
         _burn(account, shares);
     }
 
@@ -50,16 +49,16 @@ contract BurveMultiLPToken is ERC20 {
     ) private view returns (string memory name) {
         string memory poolName = SimplexFacet(_burveMulti).getName();
         string memory num = Strings.toString(ClosureId.unwrap(_cid));
-        name = string.concat("BurveMulti", poolName, "-", num);
+        name = string.concat("BurveMulti", "-", poolName, "-", num);
     }
 
     function getSymbol(
         ClosureId _cid,
         address _burveMulti
-    ) private view returns (string memory name) {
+    ) private view returns (string memory symbol) {
         string memory poolName = SimplexFacet(_burveMulti).getName();
         string memory num = Strings.toString(ClosureId.unwrap(_cid));
-        name = string.concat(poolName, "-", num);
+        symbol = string.concat(poolName, "-", num);
     }
 
     /* Additional mint methods */
@@ -68,18 +67,13 @@ contract BurveMultiLPToken is ERC20 {
     /// @dev Most suitable when adding a small amount relative to the pool size.
     function mintWithOneToken(
         address recipient,
+        address payer,
         address token,
         uint128 amount
     ) external returns (uint256 shares) {
-        TransferHelper.safeTransferFrom(
-            token,
-            _msgSender(),
-            address(this),
-            amount
-        );
-        ERC20(token).approve(address(burveMulti), amount);
         shares = burveMulti.addLiq(
             address(this),
+            payer,
             ClosureId.unwrap(cid),
             token,
             amount
@@ -95,7 +89,7 @@ contract BurveMultiLPToken is ERC20 {
         uint128[] memory amounts
     ) external returns (uint256 shares) {
         shares = burveMulti.addLiq(
-            recipient,
+            address(this),
             payer,
             ClosureId.unwrap(cid),
             amounts

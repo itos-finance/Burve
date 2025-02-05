@@ -112,6 +112,7 @@ contract BurveIntegrationTest is Test {
 
         _provideLiquidity(
             owner,
+            owner,
             INITIAL_LIQUIDITY_AMOUNT,
             INITIAL_LIQUIDITY_AMOUNT
         );
@@ -163,14 +164,15 @@ contract BurveIntegrationTest is Test {
     // Helper function to provide liquidity using multi-token minting
     function _provideLiquidity(
         address provider,
+        address payer,
         uint256 amount0,
         uint256 amount1
     ) internal returns (uint256 shares) {
-        vm.startPrank(provider);
+        vm.startPrank(payer);
         uint128[] memory amounts = new uint128[](2);
         amounts[0] = uint128(amount0);
         amounts[1] = uint128(amount1);
-        shares = lpToken.mintWithMultipleTokens(provider, provider, amounts);
+        shares = lpToken.mintWithMultipleTokens(provider, payer, amounts);
         vm.stopPrank();
     }
 
@@ -184,7 +186,7 @@ contract BurveIntegrationTest is Test {
         uint256 aliceLPBefore = lpToken.balanceOf(alice);
 
         // Provide initial liquidity with both tokens
-        uint256 shares = _provideLiquidity(alice, amount0, amount1);
+        uint256 shares = _provideLiquidity(alice, alice, amount0, amount1);
 
         // Verify shares were minted
         assertGt(shares, 0, "Should have received LP tokens");
@@ -213,7 +215,7 @@ contract BurveIntegrationTest is Test {
         // First provide liquidity
         uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
         uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
-        uint256 shares = _provideLiquidity(alice, amount0, amount1);
+        uint256 shares = _provideLiquidity(alice, alice, amount0, amount1);
 
         // Check balances before burn
         uint256 aliceToken0Before = token0.balanceOf(alice);
@@ -246,7 +248,7 @@ contract BurveIntegrationTest is Test {
         // First provide liquidity
         uint256 amount0 = INITIAL_DEPOSIT_AMOUNT;
         uint256 amount1 = INITIAL_DEPOSIT_AMOUNT;
-        uint256 totalShares = _provideLiquidity(alice, amount0, amount1);
+        uint256 totalShares = _provideLiquidity(alice, alice, amount0, amount1);
         uint256 burnAmount = totalShares / 2;
 
         // Check balances before burn
@@ -281,7 +283,7 @@ contract BurveIntegrationTest is Test {
         // First provide liquidity
         uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
         uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT;
-        _provideLiquidity(alice, amount0, amount1);
+        _provideLiquidity(alice, alice, amount0, amount1);
 
         // Prepare for swap
         uint256 swapAmount = 10e18;
