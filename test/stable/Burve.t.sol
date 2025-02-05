@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -12,6 +12,7 @@ import {IUniswapV3Pool} from "../../src/stable/integrations/kodiak/IUniswapV3Poo
 import {ForkableTest} from "@Commons/Test/ForkableTest.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 import {TransferHelper} from "./../../src/TransferHelper.sol";
+import {LiquidityCalculations} from "../../src/stable/lib/LiquidityCalculations.sol";
 
 contract BurveTest is ForkableTest {
     Burve public burveIsland; // island only
@@ -19,12 +20,17 @@ contract BurveTest is ForkableTest {
     Burve public burve; // island + v3
 
     IUniswapV3Pool pool;
+    IERC20 token0;
+    IERC20 token1;
 
     function forkSetup() internal virtual override {
         // Pool info
         pool = IUniswapV3Pool(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
         );
+        token0 = IERC20(pool.token0());
+        token1 = IERC20(pool.token1());
+
         int24 tickSpacing = pool.tickSpacing();
         int24 clampedCurrentTick = getClampedCurrentTick();
 
@@ -98,8 +104,8 @@ contract BurveTest is ForkableTest {
 
     function testBurveIslandSetup() public view forkOnly {
         assertEq(address(burveIsland.pool()), address(pool), "burveIsland pool address");
-        assertEq(address(burveIsland.token0()), pool.token0(), "burveIsland token0 address");
-        assertEq(address(burveIsland.token1()), pool.token1(), "burveIsland token1 address");
+        assertEq(address(burveIsland.token0()), address(token0), "burveIsland token0 address");
+        assertEq(address(burveIsland.token1()), address(token1), "burveIsland token1 address");
 
         assertEq(address(burveIsland.island()), BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "burveIsland island address");
 
@@ -116,8 +122,8 @@ contract BurveTest is ForkableTest {
 
     function testBurveV3Setup() public view forkOnly {
         assertEq(address(burveV3.pool()), address(pool), "burveV3 pool address");
-        assertEq(address(burveV3.token0()), pool.token0(), "burveV3 token0 address");
-        assertEq(address(burveV3.token1()), pool.token1(), "burveV3 token1 address");
+        assertEq(address(burveV3.token0()), address(token0), "burveV3 token0 address");
+        assertEq(address(burveV3.token1()), address(token1), "burveV3 token1 address");
 
         assertEq(address(burveV3.island()), address(0x0), "burveV3 island address");
 
@@ -138,8 +144,8 @@ contract BurveTest is ForkableTest {
 
     function testBurveSetup() public view forkOnly {
         assertEq(address(burve.pool()), address(pool), "burve pool address");
-        assertEq(address(burve.token0()), pool.token0(), "burve token0 address");
-        assertEq(address(burve.token1()), pool.token1(), "burve token1 address");
+        assertEq(address(burve.token0()), address(token0), "burve token0 address");
+        assertEq(address(burve.token1()), address(token1), "burve token1 address");
 
         assertEq(address(burve.island()), address(BartioAddresses.KODIAK_HONEY_NECT_ISLAND), "burve island address");
 
@@ -254,20 +260,68 @@ contract BurveTest is ForkableTest {
     // - token0 / token1 amounts transfered from msg.sender 
     // - Burve LP token sent to recipient 
     // - Island LP token sent to recipient 
-    function testIslandMint() public {
-
+    
+    function testIslandMintSenderIsRecipient() public {
         address user = address(0xabc);
+        uint128 liq = 10_000;
 
-        deal(pool.token0(), address(user), 10_000e18);
-        deal(pool.token1(), address(user), 10_000e18);
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+
+        deal(address(token0), address(user), mint0);
+        deal(address(token1), address(user), mint1);
 
         vm.startPrank(user);
-        IERC20(pool.token0()).approve(address(burveIsland), 10_000e18);
-        IERC20(pool.token1()).approve(address(burveIsland), 10_000e18);
+    
+        token0.approve(address(burveIsland), mint0);
+        token1.approve(address(burveIsland), mint1);
 
-        burveIsland.mint(address(user), 1000);
+        burveIsland.mint(address(user), liq);
 
         vm.stopPrank();
+
+        assertEq(token0.balanceOf(address(user)), 0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), 0, "user token1 balance");
+        assertEq(
+            IERC20(burveIsland.island()).balanceOf(user),
+            mintShares,
+            "user island LP balance"
+        );
+        assertEq(
+            IERC20(burveIsland).balanceOf(user),
+            liq,
+            "user burve LP balance"
+        );
+    }
+
+    function testIslandMintSenderNotRecipient() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 liq = 10_000;
+
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+
+        deal(address(token0), sender, mint0);
+        deal(address(token1), sender, mint1);
+
+        token0.approve(address(burveIsland), mint0);
+        token1.approve(address(burveIsland), mint1);
+
+        burveIsland.mint(address(user), liq);
+
+        assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
+        assertEq(token1.balanceOf(address(sender)), 0, "sender token1 balance");
+        assertEq(
+            IERC20(burveIsland.island()).balanceOf(user),
+            mintShares,
+            "user island LP balance"
+        );
+        assertEq(
+            IERC20(burveIsland).balanceOf(user),
+            liq,
+            "user burve LP balance"
+        );
     }
 
     // island burn
