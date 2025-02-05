@@ -260,7 +260,7 @@ contract BurveTest is ForkableTest {
     // - token0 / token1 amounts transfered from msg.sender 
     // - Burve LP token sent to recipient 
     // - Island LP token sent to recipient 
-    
+
     function testIslandMintSenderIsRecipient() public {
         address user = address(0xabc);
         uint128 liq = 10_000;
@@ -319,6 +319,59 @@ contract BurveTest is ForkableTest {
         );
         assertEq(
             IERC20(burveIsland).balanceOf(user),
+            liq,
+            "user burve LP balance"
+        );
+    }
+
+    function testV3MintSenderIsRecipient() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 liq = 10_000;
+
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq);
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+    
+        token0.approve(address(burveV3), mint0);
+        token1.approve(address(burveV3), mint1);
+
+        burveV3.mint(address(user), liq);
+
+        assertEq(token0.balanceOf(address(sender)), 0, "sende token0 balance");
+        assertEq(token1.balanceOf(address(sender)), 0, "sende token1 balance");
+        assertEq(
+            IERC20(burveV3).balanceOf(user),
+            liq,
+            "user burve LP balance"
+        );
+    }
+
+    function testV3MintSenderNotRecipient() public {
+        address user = address(0xabc);
+        uint128 liq = 10_000;
+
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq);
+
+        deal(address(token0), address(user), mint0);
+        deal(address(token1), address(user), mint1);
+
+        vm.startPrank(user);
+    
+        token0.approve(address(burveV3), mint0);
+        token1.approve(address(burveV3), mint1);
+
+        burveV3.mint(address(user), liq);
+
+        vm.stopPrank();
+
+        assertEq(token0.balanceOf(address(user)), 0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), 0, "user token1 balance");
+        assertEq(
+            IERC20(burveV3).balanceOf(user),
             liq,
             "user burve LP balance"
         );
@@ -484,5 +537,24 @@ contract BurveTest is ForkableTest {
         (, int24 currentTick, , , , , ) = pool.slot0();
         int24 tickSpacing = pool.tickSpacing();
         return currentTick - (currentTick % tickSpacing);
+    }
+
+    /// @dev rounds up
+    function getAmountsFromRangeLiquidity(
+        TickRange memory range,
+        uint128 liquidity
+    ) internal view returns (uint256 amount0, uint256 amount1) {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(range.lower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(range.upper);
+
+        (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtRatioX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            liquidity,
+            true
+        );
     }
 }
