@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Burve, TickRange, TickRangeImpl} from "../../src/stable/Burve.sol";
+import {Burve, TickRange, TickRangeImpl, Info} from "../../src/stable/Burve.sol";
 import {BartioAddresses} from "./../utils/BaritoAddresses.sol";
 import {IKodiakIsland} from "../../src/stable/integrations/kodiak/IKodiakIsland.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -99,77 +99,76 @@ contract BurveTest is ForkableTest {
 
     // Tests
     // - burn
-    // - getInfo
 
     // Contructor Tests
 
     function testIslandSetup() public view forkOnly {
-        assertEq(address(burveIsland.pool()), address(pool), "burveIsland pool address");
-        assertEq(address(burveIsland.token0()), address(token0), "burveIsland token0 address");
-        assertEq(address(burveIsland.token1()), address(token1), "burveIsland token1 address");
+        assertEq(address(burveIsland.pool()), address(pool), "pool address");
+        assertEq(address(burveIsland.token0()), address(token0), "token0 address");
+        assertEq(address(burveIsland.token1()), address(token1), "token1 address");
 
-        assertEq(address(burveIsland.island()), BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "burveIsland island address");
+        assertEq(address(burveIsland.island()), BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "island address");
 
         (int24 lower, int24 upper) = burveIsland.ranges(0);
-        assertEq(lower, 0, "burveIsland range 0 lower");
-        assertEq(upper, 0, "burveIsland range 0 upper");
+        assertEq(lower, 0, "range 0 lower");
+        assertEq(upper, 0, "range 0 upper");
 
         assertEq(
             burveV3.distX96(0),
             1 << 96,
-            "burveIsland distX96 0"
+            "distX96 0"
         ); // 1/1
     }
 
     function testV3Setup() public view forkOnly {
-        assertEq(address(burveV3.pool()), address(pool), "burveV3 pool address");
-        assertEq(address(burveV3.token0()), address(token0), "burveV3 token0 address");
-        assertEq(address(burveV3.token1()), address(token1), "burveV3 token1 address");
+        assertEq(address(burveV3.pool()), address(pool), "pool address");
+        assertEq(address(burveV3.token0()), address(token0), "token0 address");
+        assertEq(address(burveV3.token1()), address(token1), "token1 address");
 
-        assertEq(address(burveV3.island()), address(0x0), "burveV3 island address");
+        assertEq(address(burveV3.island()), address(0x0), "island address");
 
         int24 tickSpacing = pool.tickSpacing();
         int24 clampedCurrentTick = getClampedCurrentTick();
         int24 rangeWidth = 10 * tickSpacing;
 
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        assertEq(lower, clampedCurrentTick - rangeWidth, "burveV3 range 0 lower");
-        assertEq(upper, clampedCurrentTick + rangeWidth, "burveV3 range 0 upper");
+        assertEq(lower, clampedCurrentTick - rangeWidth, "range 0 lower");
+        assertEq(upper, clampedCurrentTick + rangeWidth, "range 0 upper");
 
         assertEq(
             burveV3.distX96(0),
             1 << 96,
-            "burveV3 distX96 0"
+            "distX96 0"
         ); // 1/1
     }
 
     function testSetup() public view forkOnly {
-        assertEq(address(burve.pool()), address(pool), "burve pool address");
-        assertEq(address(burve.token0()), address(token0), "burve token0 address");
-        assertEq(address(burve.token1()), address(token1), "burve token1 address");
+        assertEq(address(burve.pool()), address(pool), "pool address");
+        assertEq(address(burve.token0()), address(token0), "token0 address");
+        assertEq(address(burve.token1()), address(token1), "token1 address");
 
-        assertEq(address(burve.island()), address(BartioAddresses.KODIAK_HONEY_NECT_ISLAND), "burve island address");
+        assertEq(address(burve.island()), address(BartioAddresses.KODIAK_HONEY_NECT_ISLAND), "island address");
 
         int24 tickSpacing = pool.tickSpacing();
         int24 clampedCurrentTick = getClampedCurrentTick();
         int24 rangeWidth = 100 * tickSpacing;
 
         (int24 lower, int24 upper) = burve.ranges(0);
-        assertEq(lower, 0, "burve range 0 lower");
-        assertEq(upper, 0, "burve range 0 upper");
+        assertEq(lower, 0, "range 0 lower");
+        assertEq(upper, 0, "range 0 upper");
         (lower, upper) = burve.ranges(1);
-        assertEq(lower, clampedCurrentTick - rangeWidth, "burve range 1 lower");
-        assertEq(upper, clampedCurrentTick + rangeWidth, "burve range 1 upper");
+        assertEq(lower, clampedCurrentTick - rangeWidth, "range 1 lower");
+        assertEq(upper, clampedCurrentTick + rangeWidth, "range 1 upper");
 
         assertEq(
             burve.distX96(0),
             59421121885698253195157962752,
-            "burve distX96 0"
+            "distX96 0"
         ); // 3/4
         assertEq(
             burve.distX96(1),
             19807040628566084398385987584,
-            "burve distX96 1"
+            "distX96 1"
         ); // 1/4
     }
 
@@ -458,6 +457,64 @@ contract BurveTest is ForkableTest {
     // island burn
     // ERC20(address(burveIsland.island())).approve(address(burveIsland), 10_000e18);
     // burveIsland.burn(1000);
+
+    // Get Info Tests 
+
+    function testIslandGetInfo() public view forkOnly {
+        Info memory info = burveIsland.getInfo();
+
+        assertEq(info.pool, address(pool), "pool address");
+
+        assertEq(info.island, BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "island address");
+
+        assertEq(info.ranges.length, 1, "ranges length");
+        assertEq(info.ranges[0].lower, 0, "range 0 lower");
+        assertEq(info.ranges[0].upper, 0, "range 0 upper");
+
+        assertEq(info.distX96.length, 1, "distX96 length");
+        assertEq(info.distX96[0], 1 << 96, "distX96 0");
+    }
+
+    function testV3GetInfo() public view forkOnly {
+        Info memory info = burveV3.getInfo();
+
+        assertEq(info.pool, address(pool), "pool address");
+
+        assertEq(info.island, address(0x0), "island address");
+
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+        int24 rangeWidth = 10 * tickSpacing;
+
+        assertEq(info.ranges.length, 1, "ranges length");
+        assertEq(info.ranges[0].lower, clampedCurrentTick - rangeWidth, "range 0 lower");
+        assertEq(info.ranges[0].upper, clampedCurrentTick + rangeWidth, "range 0 upper");
+
+        assertEq(info.distX96.length, 1, "distX96 length");
+        assertEq(info.distX96[0], 1 << 96, "distX96 0");
+    }
+
+    function testGetInfo() public view forkOnly {
+        Info memory info = burve.getInfo();
+
+        assertEq(info.pool, address(pool), "pool address");
+
+        assertEq(info.island, BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "island address");
+
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+        int24 rangeWidth = 100 * tickSpacing;
+
+        assertEq(info.ranges.length, 2, "ranges length");
+        assertEq(info.ranges[0].lower, 0, "range 0 lower");
+        assertEq(info.ranges[0].upper, 0, "range 0 upper");
+        assertEq(info.ranges[1].lower, clampedCurrentTick - rangeWidth, "range 0 lower");
+        assertEq(info.ranges[1].upper, clampedCurrentTick + rangeWidth, "range 0 upper");
+
+        assertEq(info.distX96.length, 2, "distX96 length");
+        assertEq(info.distX96[0], 59421121885698253195157962752, "distX96 0"); // 3/4
+        assertEq(info.distX96[1], 19807040628566084398385987584, "distX96 1"); // 1/4
+    }
 
     // Helpers 
 
