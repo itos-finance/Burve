@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {console} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
 import {TransferHelper} from "./../TransferHelper.sol";
@@ -158,8 +159,40 @@ contract Burve is ERC20 {
     ) internal {
         // mint the island
         if (range.lower == 0 && range.upper == 0) {
-            uint256 mintShares = islandLiqToShares(liq);
-            island.mint(mintShares, recipient);
+            if (address(island) == address(0x0)) {
+                revert NoIsland();
+            }
+
+            (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+
+            (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
+                sqrtRatioX96,
+                island.lowerTick(),
+                island.upperTick(),
+                liq
+            );
+
+            // Transfer required tokens to this contract
+            TransferHelper.safeTransferFrom(
+                token0,
+                msg.sender,
+                address(this),
+                amount0
+            );
+            TransferHelper.safeTransferFrom(
+                token1,
+                msg.sender,
+                address(this),
+                amount1
+            );
+
+            // Approve transfer to the island
+            ERC20(token0).approve(address(island), amount0);
+            ERC20(token1).approve(address(island), amount1);
+
+            (, , uint256 shares) = island.getMintAmounts(amount0, amount1);
+
+            island.mint(shares, recipient);
         } else {
             // mint the V3 ranges
             pool.mint(

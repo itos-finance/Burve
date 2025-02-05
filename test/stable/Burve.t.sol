@@ -30,18 +30,18 @@ contract BurveTest is ForkableTest {
         uint128[] memory weights = new uint128[](2);
 
         // Burve Island
-        ranges[0] = TickRange(0, 0);
-        ranges[1] = TickRange(-1000, 1000);
+        TickRange[] memory islandRanges = new TickRange[](1);
+        islandRanges[0] = TickRange(0, 0);
 
-        weights[0] = 2;
-        weights[1] = 1;
+        uint128[] memory islandWeights = new uint128[](1);
+        islandWeights[0] = 1;
 
-        // burveIsland = new Burve(
-        //     BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
-        //     BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
-        //     [TickRange(0, 0), TickRange(-1000, 1000)],
-        //     [2, 1]
-        // );
+        burveIsland = new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+            islandRanges,
+            islandWeights
+        );
 
         // Burve V3
 
@@ -72,6 +72,7 @@ contract BurveTest is ForkableTest {
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             "HONEY_NECT_POOL_V3"
         );
+        vm.label(BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "HONEY_NECT_ISLAND");
     }
 
     // Tests
@@ -132,6 +133,40 @@ contract BurveTest is ForkableTest {
         IERC20(uniPool.token1()).approve(address(burveV3), 10_000e18);
 
         burveV3.mint(address(user), 1000);
+
+        vm.stopPrank();
+    }
+
+    function testIslandMint() public {
+        IUniswapV3Pool uniPool = IUniswapV3Pool(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
+        );
+
+        address user = address(0xabc);
+
+        deal(uniPool.token0(), address(user), 10_000e18);
+        deal(uniPool.token1(), address(user), 10_000e18);
+
+        // deal(uniPool.token0(), address(burveIsland), 10_000e18);
+        // deal(uniPool.token1(), address(burveIsland), 10_000e18);
+
+        // vm.startPrank(address(burveIsland));
+        // IERC20(uniPool.token0()).approve(
+        //     BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+        //     10_000e18
+        // );
+        // IERC20(uniPool.token1()).approve(
+        //     BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+        //     10_000e18
+        // );
+        // vm.stopPrank();
+
+        vm.startPrank(user);
+
+        IERC20(uniPool.token0()).approve(address(burveIsland), 10_000e18);
+        IERC20(uniPool.token1()).approve(address(burveIsland), 10_000e18);
+
+        burveIsland.mint(address(user), 1000);
 
         vm.stopPrank();
     }
