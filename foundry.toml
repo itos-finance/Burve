@@ -1,5 +1,4 @@
 [profile.default]
-via_ir = true
 evm_version = 'cancun'
 src = "src"
 out = "out"
