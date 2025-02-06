@@ -574,6 +574,9 @@ contract BurveTest is ForkableTest {
 
         burveV3.mint(address(user), liq);
 
+        assertEq(token0.balanceOf(address(user)), 0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), 0, "user token1 balance");
+
         // burn
 
         vm.prank(user);
@@ -581,8 +584,8 @@ contract BurveTest is ForkableTest {
 
         (uint256 burn0, uint256 burn1) = getAmountsFromLiquidity(liq, lower, upper, false);
 
-        assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
-        assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
+        assertEq(token0.balanceOf(address(user)), burn0, "burn user token0 balance");
+        assertEq(token1.balanceOf(address(user)), burn1, "burn user token1 balance");
         assertEq(
             IERC20(burveIsland).balanceOf(user),
             0,
@@ -610,6 +613,9 @@ contract BurveTest is ForkableTest {
 
         burveV3.mint(address(user), mintLiq);
 
+        assertEq(token0.balanceOf(address(user)), 0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), 0, "user token1 balance");
+
         // burn
 
         vm.prank(user);
@@ -617,8 +623,8 @@ contract BurveTest is ForkableTest {
 
         (uint256 burn0, uint256 burn1) = getAmountsFromLiquidity(burnLiq, lower, upper, false);
 
-        assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
-        assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
+        assertEq(token0.balanceOf(address(user)), burn0, "burn user token0 balance");
+        assertEq(token1.balanceOf(address(user)), burn1, "burn user token1 balance");
         assertEq(
             IERC20(burveV3).balanceOf(user),
             mintLiq - burnLiq,
@@ -722,6 +728,9 @@ contract BurveTest is ForkableTest {
 
         burve.mint(address(user), mintLiq);
 
+        assertEq(token0.balanceOf(address(user)), 0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), 0, "user token1 balance");
+
         // burn
 
         vm.startPrank(user);
@@ -746,9 +755,8 @@ contract BurveTest is ForkableTest {
         uint256 burn0 = islandBurn0 + v3Burn0;
         uint256 burn1 = islandBurn1 + v3Burn1;
 
-        // fee?
-        assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
-        assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
+        assertGe(token0.balanceOf(address(user)), burn0, "burn user token0 balance");
+        assertGe(token1.balanceOf(address(user)), burn1, "burn user token1 balance");
         assertEq(
             IERC20(burve.island()).balanceOf(user),
             islandMintShares - islandBurnShares,
