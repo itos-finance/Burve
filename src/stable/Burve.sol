@@ -167,6 +167,9 @@ contract Burve is ERC20 {
         }
     }
 
+    /// @notice Mints to the island.
+    /// @param recipient The recipient of the minted liquidity.
+    /// @param liq The amount of liquidity to mint.
     function mintIsland(address recipient, uint128 liq) internal {
         (
             uint256 amount0,
