@@ -213,7 +213,7 @@ contract Burve is ERC20 {
     /// @param range The range to burn from.
     /// @param liq The amount of liquidity to burn.
     function burnRange(TickRange memory range, uint128 liq) internal {
-        if (range.lower == 0 && range.upper == 0) {
+        if (range.isIsland()) {
             // minting share calculation should be consistent when burning
             // but minted token amounts should be ignored
             (, , uint256 burnShares) = LiquidityCalculations.getMintAmountsFromIslandLiquidity(island, liq);
