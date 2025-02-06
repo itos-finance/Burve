@@ -97,9 +97,6 @@ contract BurveTest is ForkableTest {
         vm.label(BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "HONEY_NECT_ISLAND");
     }
 
-    // Tests
-    // - burn
-
     // Contructor Tests
 
     function testIslandSetup() public view forkOnly {
@@ -323,7 +320,7 @@ contract BurveTest is ForkableTest {
         uint128 liq = 10_000;
 
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq);
+        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, true);
 
         deal(address(token0), address(user), mint0);
         deal(address(token1), address(user), mint1);
@@ -352,7 +349,7 @@ contract BurveTest is ForkableTest {
         uint128 liq = 10_000;
 
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq);
+        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, true);
 
         deal(address(token0), address(sender), mint0);
         deal(address(token1), address(sender), mint1);
@@ -383,7 +380,7 @@ contract BurveTest is ForkableTest {
         // v3 liq
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, true);
 
         uint256 mint0 = islandMint0 + v3Mint0;
         uint256 mint1 = islandMint1 + v3Mint1;
@@ -427,7 +424,7 @@ contract BurveTest is ForkableTest {
         // v3 liq
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, true);
 
         uint256 mint0 = islandMint0 + v3Mint0;
         uint256 mint1 = islandMint1 + v3Mint1;
@@ -453,6 +450,314 @@ contract BurveTest is ForkableTest {
             "user burve LP balance"
         );
     }
+
+    // Burn Tests 
+
+    function testBurnIslandFull() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 liq = 10_000;
+
+        // mint
+
+        (uint256 mint0, uint256 mint1, ) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+
+        deal(address(token0), sender, mint0);
+        deal(address(token1), sender, mint1);
+
+        token0.approve(address(burveIsland), mint0);
+        token1.approve(address(burveIsland), mint1);
+
+        burveIsland.mint(address(user), liq);
+
+        // burn
+
+        vm.startPrank(user);
+
+        // approve Island LP tokens for transfer to Burve
+        uint256 islandLPBalance = IERC20(burveIsland.island()).balanceOf(user);
+        IERC20(address(burveIsland.island())).approve(address(burveIsland), islandLPBalance);
+
+        (uint256 burn0, uint256 burn1, ) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+
+        uint256 priorBalance0 = token0.balanceOf(user);
+        uint256 priorBalance1 = token1.balanceOf(user);
+
+        burveIsland.burn(liq);
+
+        vm.stopPrank();
+
+        // fee?
+        assertEq(token0.balanceOf(address(user)), priorBalance0 + burn0 - 1, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), priorBalance1 + burn1 - 1, "user token1 balance");
+        assertEq(
+            IERC20(burveIsland.island()).balanceOf(user),
+            0,
+            "user island LP balance"
+        );
+        assertEq(
+            IERC20(burveIsland).balanceOf(user),
+            0,
+            "user burve LP balance"
+        );
+    }
+
+    function testBurnIslandPartial() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 mintLiq = 10_000;
+        uint128 burnLiq = 1_000;
+
+        // mint
+
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burveIsland.island(), mintLiq);
+
+        deal(address(token0), sender, mint0);
+        deal(address(token1), sender, mint1);
+
+        token0.approve(address(burveIsland), mint0);
+        token1.approve(address(burveIsland), mint1);
+
+        burveIsland.mint(address(user), mintLiq);
+
+        // burn
+
+        vm.startPrank(user);
+
+        // approve Island LP tokens for transfer to Burve
+        uint256 islandLPBalance = IERC20(burveIsland.island()).balanceOf(user);
+        IERC20(address(burveIsland.island())).approve(address(burveIsland), islandLPBalance);
+
+        (uint256 burn0, uint256 burn1, uint256 burnShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burveIsland.island(), burnLiq);
+
+        uint256 priorBalance0 = token0.balanceOf(user);
+        uint256 priorBalance1 = token1.balanceOf(user);
+
+        burveIsland.burn(burnLiq);
+
+        vm.stopPrank();
+
+        // fee?
+        assertEq(token0.balanceOf(address(user)), priorBalance0 + burn0 - 1, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), priorBalance1 + burn1 - 1, "user token1 balance");
+        assertEq(
+            IERC20(burveIsland.island()).balanceOf(user),
+            mintShares - burnShares,
+            "user island LP balance"
+        );
+        assertEq(
+            IERC20(burveIsland).balanceOf(user),
+            mintLiq - burnLiq,
+            "user burve LP balance"
+        );
+    }
+
+    function testBurnV3Full() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 liq = 10_000;
+
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+
+        // mint 
+
+        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, true);
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+    
+        token0.approve(address(burveV3), mint0);
+        token1.approve(address(burveV3), mint1);
+
+        burveV3.mint(address(user), liq);
+
+        // burn
+
+        vm.prank(user);
+        burveV3.burn(liq);
+
+        (uint256 burn0, uint256 burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, false);
+
+        assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
+        assertEq(
+            IERC20(burveIsland).balanceOf(user),
+            0,
+            "user burve LP balance"
+        );
+    }
+
+    function testBurnV3Partial() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 mintLiq = 10_000;
+        uint128 burnLiq = 1_000;
+
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+
+        // mint 
+
+        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), mintLiq, true);
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+    
+        token0.approve(address(burveV3), mint0);
+        token1.approve(address(burveV3), mint1);
+
+        burveV3.mint(address(user), mintLiq);
+
+        // burn
+
+        vm.prank(user);
+        burveV3.burn(burnLiq);
+
+        (uint256 burn0, uint256 burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), burnLiq, false);
+
+        assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
+        assertEq(
+            IERC20(burveV3).balanceOf(user),
+            mintLiq - burnLiq,
+            "user burve LP balance"
+        );
+    }
+
+    function testBurnFull() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 liq = 10_000;
+
+        // island liq
+        uint128 islandLiq = uint128(shift96(liq * burve.distX96(0), true));
+        (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burve.island(), islandLiq);
+
+        // v3 liq
+        uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
+        (int24 lower, int24 upper) = burve.ranges(1);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, true);
+
+        uint256 mint0 = islandMint0 + v3Mint0;
+        uint256 mint1 = islandMint1 + v3Mint1;
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+    
+        token0.approve(address(burve), mint0);
+        token1.approve(address(burve), mint1);
+
+        burve.mint(address(user), liq);
+
+        // burn
+
+        vm.startPrank(user);
+
+        // approve Island LP tokens for transfer to Burve
+        uint256 islandLPBalance = IERC20(burve.island()).balanceOf(user);
+        IERC20(address(burve.island())).approve(address(burve), islandLPBalance);
+
+        burve.burn(liq);
+
+        vm.stopPrank();
+
+        (uint256 islandBurn0, uint256 islandBurn1, ) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burve.island(), islandLiq);
+        
+        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, false);
+
+        uint256 burn0 = islandBurn0 + v3Burn0;
+        uint256 burn1 = islandBurn1 + v3Burn1;
+
+        // fee?
+        assertEq(token0.balanceOf(address(user)), burn0 - 2, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), burn1 - 1, "user token1 balance");
+        assertEq(
+            IERC20(burve.island()).balanceOf(user),
+            0,
+            "user island LP balance"
+        );
+        assertEq(
+            IERC20(burve).balanceOf(user),
+            0,
+            "user burve LP balance"
+        );
+    }
+
+    function testBurnPartial() public {
+        address sender = address(this);
+        address user = address(0xabc);
+        uint128 mintLiq = 10_000;
+        uint128 burnLiq = 1_000;
+
+        // island liq
+        uint128 islandMintLiq = uint128(shift96(mintLiq * burve.distX96(0), true));
+        (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burve.island(), islandMintLiq);
+
+        // v3 liq
+        uint128 v3MintLiq = uint128(shift96(mintLiq * burve.distX96(1), true));
+        (int24 lower, int24 upper) = burve.ranges(1);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3MintLiq, true);
+
+        uint256 mint0 = islandMint0 + v3Mint0;
+        uint256 mint1 = islandMint1 + v3Mint1;
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+    
+        token0.approve(address(burve), mint0);
+        token1.approve(address(burve), mint1);
+
+        burve.mint(address(user), mintLiq);
+
+        // burn
+
+        vm.startPrank(user);
+
+        // approve Island LP tokens for transfer to Burve
+        uint256 islandLPBalance = IERC20(burve.island()).balanceOf(user);
+        IERC20(address(burve.island())).approve(address(burve), islandLPBalance);
+
+        burve.burn(burnLiq);
+
+        vm.stopPrank();
+
+        uint128 islandBurnLiq = uint128(shift96(burnLiq * burve.distX96(0), true));
+        (uint256 islandBurn0, uint256 islandBurn1, uint256 islandBurnShares) = LiquidityCalculations
+            .getAmountsFromIslandLiquidity(burve.island(), islandBurnLiq);
+        
+        uint128 v3BurnLiq = uint128(shift96(burnLiq * burve.distX96(1), true));
+        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3BurnLiq, false);
+
+        uint256 burn0 = islandBurn0 + v3Burn0;
+        uint256 burn1 = islandBurn1 + v3Burn1;
+
+        // fee?
+        assertEq(token0.balanceOf(address(user)), burn0 - 1, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), burn1 - 1, "user token1 balance");
+        assertEq(
+            IERC20(burve.island()).balanceOf(user),
+            islandMintShares - islandBurnShares,
+            "user island LP balance"
+        );
+        assertEq(
+            IERC20(burve).balanceOf(user),
+            mintLiq - burnLiq,
+            "user burve LP balance"
+        );
+    }
+
+    // burn 
+    // - revert if no position
+    // - token0 / token1 transfered to msg.sender
+    // - island LP transfered from msg.sender 
+    // - burve LP transfered from msg.sender
+    // - parital / full burn 
 
     // island burn
     // ERC20(address(burveIsland.island())).approve(address(burveIsland), 10_000e18);
@@ -524,10 +829,10 @@ contract BurveTest is ForkableTest {
         return currentTick - (currentTick % tickSpacing);
     }
 
-    /// @dev rounds up
     function getAmountsFromRangeLiquidity(
         TickRange memory range,
-        uint128 liquidity
+        uint128 liquidity,
+        bool roundUp
     ) internal view returns (uint256 amount0, uint256 amount1) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
@@ -539,7 +844,7 @@ contract BurveTest is ForkableTest {
             sqrtRatioAX96,
             sqrtRatioBX96,
             liquidity,
-            true
+            roundUp
         );
     }
 
