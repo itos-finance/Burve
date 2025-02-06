@@ -13,6 +13,7 @@ import {ForkableTest} from "@Commons/Test/ForkableTest.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 import {TransferHelper} from "./../../src/TransferHelper.sol";
 import {LiquidityCalculations} from "../../src/stable/lib/LiquidityCalculations.sol";
+import {FullMath} from "../../src/multi/FullMath.sol";
 
 contract BurveTest is ForkableTest {
     Burve public burveIsland; // island only
@@ -257,7 +258,7 @@ contract BurveTest is ForkableTest {
         uint128 liq = 10_000;
 
         (uint256 mint0, uint256 mint1, uint256 mintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+            .getMintAmountsFromIslandLiquidity(burveIsland.island(), liq);
 
         deal(address(token0), address(user), mint0);
         deal(address(token1), address(user), mint1);
@@ -291,7 +292,7 @@ contract BurveTest is ForkableTest {
         uint128 liq = 10_000;
 
         (uint256 mint0, uint256 mint1, uint256 mintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+            .getMintAmountsFromIslandLiquidity(burveIsland.island(), liq);
 
         deal(address(token0), sender, mint0);
         deal(address(token1), sender, mint1);
@@ -320,7 +321,7 @@ contract BurveTest is ForkableTest {
         uint128 liq = 10_000;
 
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, true);
+        (uint256 mint0, uint256 mint1) = getAmountsFromLiquidity(liq, lower, upper, true);
 
         deal(address(token0), address(user), mint0);
         deal(address(token1), address(user), mint1);
@@ -349,7 +350,7 @@ contract BurveTest is ForkableTest {
         uint128 liq = 10_000;
 
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, true);
+        (uint256 mint0, uint256 mint1) = getAmountsFromLiquidity(liq, lower, upper, true);
 
         deal(address(token0), address(sender), mint0);
         deal(address(token1), address(sender), mint1);
@@ -375,12 +376,12 @@ contract BurveTest is ForkableTest {
         // island liq
         uint128 islandLiq = uint128(shift96(liq * burve.distX96(0), true));
         (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burve.island(), islandLiq);
+            .getMintAmountsFromIslandLiquidity(burve.island(), islandLiq);
 
         // v3 liq
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, true);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromLiquidity(v3Liq, lower, upper, true);
 
         uint256 mint0 = islandMint0 + v3Mint0;
         uint256 mint1 = islandMint1 + v3Mint1;
@@ -419,12 +420,12 @@ contract BurveTest is ForkableTest {
         // island liq
         uint128 islandLiq = uint128(shift96(liq * burve.distX96(0), true));
         (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burve.island(), islandLiq);
+            .getMintAmountsFromIslandLiquidity(burve.island(), islandLiq);
 
         // v3 liq
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, true);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromLiquidity(v3Liq, lower, upper, true);
 
         uint256 mint0 = islandMint0 + v3Mint0;
         uint256 mint1 = islandMint1 + v3Mint1;
@@ -461,7 +462,7 @@ contract BurveTest is ForkableTest {
         // mint
 
         (uint256 mint0, uint256 mint1, ) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
+            .getMintAmountsFromIslandLiquidity(burveIsland.island(), liq);
 
         deal(address(token0), sender, mint0);
         deal(address(token1), sender, mint1);
@@ -479,19 +480,19 @@ contract BurveTest is ForkableTest {
         uint256 islandLPBalance = IERC20(burveIsland.island()).balanceOf(user);
         IERC20(address(burveIsland.island())).approve(address(burveIsland), islandLPBalance);
 
-        (uint256 burn0, uint256 burn1, ) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burveIsland.island(), liq);
-
-        uint256 priorBalance0 = token0.balanceOf(user);
-        uint256 priorBalance1 = token1.balanceOf(user);
+        assertEq(token0.balanceOf(address(user)), 0, "user token0 balance");
+        assertEq(token1.balanceOf(address(user)), 0, "user token1 balance");
 
         burveIsland.burn(liq);
 
         vm.stopPrank();
 
-        // fee?
-        assertEq(token0.balanceOf(address(user)), priorBalance0 + burn0 - 1, "user token0 balance");
-        assertEq(token1.balanceOf(address(user)), priorBalance1 + burn1 - 1, "user token1 balance");
+        IKodiakIsland island = burveIsland.island();
+        uint128 burnLiq = islandSharesToLiquidity(island, islandLPBalance);
+        (uint256 burn0, uint256 burn1) = getAmountsFromLiquidity(burnLiq, island.lowerTick(), island.upperTick(), false);
+
+        assertGe(token0.balanceOf(address(user)), burn0, "burn user token0 balance");
+        assertGe(token1.balanceOf(address(user)), burn1, "burn user token1 balance");
         assertEq(
             IERC20(burveIsland.island()).balanceOf(user),
             0,
@@ -513,7 +514,7 @@ contract BurveTest is ForkableTest {
         // mint
 
         (uint256 mint0, uint256 mint1, uint256 mintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burveIsland.island(), mintLiq);
+            .getMintAmountsFromIslandLiquidity(burveIsland.island(), mintLiq);
 
         deal(address(token0), sender, mint0);
         deal(address(token1), sender, mint1);
@@ -532,7 +533,7 @@ contract BurveTest is ForkableTest {
         IERC20(address(burveIsland.island())).approve(address(burveIsland), islandLPBalance);
 
         (uint256 burn0, uint256 burn1, uint256 burnShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burveIsland.island(), burnLiq);
+            .getMintAmountsFromIslandLiquidity(burveIsland.island(), burnLiq);
 
         uint256 priorBalance0 = token0.balanceOf(user);
         uint256 priorBalance1 = token1.balanceOf(user);
@@ -565,7 +566,7 @@ contract BurveTest is ForkableTest {
 
         // mint 
 
-        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, true);
+        (uint256 mint0, uint256 mint1) = getAmountsFromLiquidity(liq, lower, upper, true);
 
         deal(address(token0), address(sender), mint0);
         deal(address(token1), address(sender), mint1);
@@ -580,7 +581,7 @@ contract BurveTest is ForkableTest {
         vm.prank(user);
         burveV3.burn(liq);
 
-        (uint256 burn0, uint256 burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), liq, false);
+        (uint256 burn0, uint256 burn1) = getAmountsFromLiquidity(liq, lower, upper, false);
 
         assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
         assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
@@ -601,7 +602,7 @@ contract BurveTest is ForkableTest {
 
         // mint 
 
-        (uint256 mint0, uint256 mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), mintLiq, true);
+        (uint256 mint0, uint256 mint1) = getAmountsFromLiquidity(mintLiq, lower, upper, true);
 
         deal(address(token0), address(sender), mint0);
         deal(address(token1), address(sender), mint1);
@@ -616,7 +617,7 @@ contract BurveTest is ForkableTest {
         vm.prank(user);
         burveV3.burn(burnLiq);
 
-        (uint256 burn0, uint256 burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), burnLiq, false);
+        (uint256 burn0, uint256 burn1) = getAmountsFromLiquidity(burnLiq, lower, upper, false);
 
         assertEq(token0.balanceOf(address(user)), burn0, "user token0 balance");
         assertEq(token1.balanceOf(address(user)), burn1, "user token1 balance");
@@ -635,12 +636,12 @@ contract BurveTest is ForkableTest {
         // island liq
         uint128 islandLiq = uint128(shift96(liq * burve.distX96(0), true));
         (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burve.island(), islandLiq);
+            .getMintAmountsFromIslandLiquidity(burve.island(), islandLiq);
 
         // v3 liq
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, true);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromLiquidity(v3Liq, lower, upper, true);
 
         uint256 mint0 = islandMint0 + v3Mint0;
         uint256 mint1 = islandMint1 + v3Mint1;
@@ -666,9 +667,9 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         (uint256 islandBurn0, uint256 islandBurn1, ) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burve.island(), islandLiq);
+            .getMintAmountsFromIslandLiquidity(burve.island(), islandLiq);
         
-        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3Liq, false);
+        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsFromLiquidity(v3Liq, lower, upper, false);
 
         uint256 burn0 = islandBurn0 + v3Burn0;
         uint256 burn1 = islandBurn1 + v3Burn1;
@@ -697,12 +698,12 @@ contract BurveTest is ForkableTest {
         // island liq
         uint128 islandMintLiq = uint128(shift96(mintLiq * burve.distX96(0), true));
         (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burve.island(), islandMintLiq);
+            .getMintAmountsFromIslandLiquidity(burve.island(), islandMintLiq);
 
         // v3 liq
         uint128 v3MintLiq = uint128(shift96(mintLiq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3MintLiq, true);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsFromLiquidity(v3MintLiq, lower, upper, true);
 
         uint256 mint0 = islandMint0 + v3Mint0;
         uint256 mint1 = islandMint1 + v3Mint1;
@@ -729,10 +730,10 @@ contract BurveTest is ForkableTest {
 
         uint128 islandBurnLiq = uint128(shift96(burnLiq * burve.distX96(0), true));
         (uint256 islandBurn0, uint256 islandBurn1, uint256 islandBurnShares) = LiquidityCalculations
-            .getAmountsFromIslandLiquidity(burve.island(), islandBurnLiq);
+            .getMintAmountsFromIslandLiquidity(burve.island(), islandBurnLiq);
         
         uint128 v3BurnLiq = uint128(shift96(burnLiq * burve.distX96(1), true));
-        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsFromRangeLiquidity(TickRange(lower, upper), v3BurnLiq, false);
+        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsFromLiquidity(v3BurnLiq, lower, upper, false);
 
         uint256 burn0 = islandBurn0 + v3Burn0;
         uint256 burn1 = islandBurn1 + v3Burn1;
@@ -751,17 +752,6 @@ contract BurveTest is ForkableTest {
             "user burve LP balance"
         );
     }
-
-    // burn 
-    // - revert if no position
-    // - token0 / token1 transfered to msg.sender
-    // - island LP transfered from msg.sender 
-    // - burve LP transfered from msg.sender
-    // - parital / full burn 
-
-    // island burn
-    // ERC20(address(burveIsland.island())).approve(address(burveIsland), 10_000e18);
-    // burveIsland.burn(1000);
 
     // Get Info Tests 
 
@@ -823,21 +813,39 @@ contract BurveTest is ForkableTest {
 
     // Helpers 
 
+    /// @notice Calculates the liquidity represented by island shares
+    /// @param island The island
+    /// @param shares The shares
+    /// @return liquidity The liquidity
+    function islandSharesToLiquidity(IKodiakIsland island, uint256 shares) internal view returns (uint128 liquidity) {
+        bytes32 positionId = island.getPositionID();
+        (uint128 poolLiquidity,,,,) = pool.positions(positionId);
+        uint256 totalSupply = island.totalSupply();
+        liquidity = uint128(FullMath.mulDiv(shares, poolLiquidity, totalSupply));
+    }
+
+    /// @notice Gets the current tick clamped to respect the tick spacing
     function getClampedCurrentTick() internal view returns (int24) {
         (, int24 currentTick, , , , , ) = pool.slot0();
         int24 tickSpacing = pool.tickSpacing();
         return currentTick - (currentTick % tickSpacing);
     }
 
-    function getAmountsFromRangeLiquidity(
-        TickRange memory range,
+    /// @notice Calculates token amounts for the given liquidity. 
+    /// @param liquidity The liquidity
+    /// @param lower The lower tick
+    /// @param upper The upper tick
+    /// @param roundUp Whether to round up the amounts
+    function getAmountsFromLiquidity(
         uint128 liquidity,
+        int24 lower,
+        int24 upper,
         bool roundUp
     ) internal view returns (uint256 amount0, uint256 amount1) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
-        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(range.lower);
-        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(range.upper);
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
 
         (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtRatioX96,

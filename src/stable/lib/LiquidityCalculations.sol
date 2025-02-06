@@ -11,13 +11,13 @@ library LiquidityCalculations {
     /// @notice Calculates the token and share amounts for an island given the liquidity.
     /// @param island The island 
     /// @param liquidity The liquidity
-    /// @return amount0 The amount of token0 in the provided liquidity
-    /// @return amount1 The amount of token1 in the provided liquidity
-    /// @return shares The amount of island shares that the liquidity represents
-    function getAmountsFromIslandLiquidity(
+    /// @return mint0 The amount of token0 in the provided liquidity when minting
+    /// @return mint1 The amount of token1 in the provided liquidity when minting
+    /// @return mintShares The amount of island shares that the liquidity represents
+    function getMintAmountsFromIslandLiquidity(
         IKodiakIsland island,
         uint128 liquidity
-    ) internal view returns (uint256 amount0, uint256 amount1, uint256 shares) {
+    ) internal view returns (uint256 mint0, uint256 mint1, uint256 mintShares) {
         (uint160 sqrtRatioX96, , , , , , ) = island.pool().slot0();
 
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(island.lowerTick());
@@ -31,7 +31,7 @@ library LiquidityCalculations {
             false
         );
 
-        (amount0, amount1, shares) = island.getMintAmounts(
+        (mint0, mint1, mintShares) = island.getMintAmounts(
             amount0Max,
             amount1Max
         );

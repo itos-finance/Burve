@@ -172,7 +172,7 @@ contract Burve is ERC20 {
             uint256 amount0,
             uint256 amount1,
             uint256 shares
-        ) = LiquidityCalculations.getAmountsFromIslandLiquidity(island, liq);
+        ) = LiquidityCalculations.getMintAmountsFromIslandLiquidity(island, liq);
 
         // Transfer required tokens to this contract
         TransferHelper.safeTransferFrom(
@@ -211,7 +211,9 @@ contract Burve is ERC20 {
     /// @param liq The amount of liquidity to burn.
     function burnRange(TickRange memory range, uint128 liq) internal {
         if (range.lower == 0 && range.upper == 0) {
-            (, , uint256 burnShares) = LiquidityCalculations.getAmountsFromIslandLiquidity(island, liq);
+            // minting share calculation should be consistent when burning
+            // but minted token amounts should be ignored
+            (, , uint256 burnShares) = LiquidityCalculations.getMintAmountsFromIslandLiquidity(island, liq);
 
             // Transfer required tokens to this contract
             TransferHelper.safeTransferFrom(
