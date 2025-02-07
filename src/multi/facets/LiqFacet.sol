@@ -12,6 +12,7 @@ import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../FullMath.sol";
 import {AssetLib} from "../Asset.sol";
 import {BurveFacetBase} from "./Base.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -24,6 +25,31 @@ functions here.
 contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     error TokenNotInClosure(ClosureId cid, address token);
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
+
+    event SingleLiquidityAdded(
+        address indexed recipient,
+        address indexed payer,
+        uint16 indexed closureId,
+        address token,
+        uint128 amount,
+        uint256 shares
+    );
+
+    event MultiLiquidityAdded(
+        address indexed recipient,
+        address indexed payer,
+        uint16 indexed closureId,
+        uint128[] amounts,
+        uint256 shares
+    );
+
+    event LiquidityRemoved(
+        address indexed recipient,
+        address indexed burner,
+        uint16 indexed closureId,
+        uint256 shares,
+        uint256[] tokenAmounts
+    );
 
     /// Add liquidity in a simple way with just one token.
     /// This is a cheap and convenient method for small deposits that won't move the peg very much.
@@ -88,6 +114,15 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
             }
         }
         shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
+
+        emit SingleLiquidityAdded(
+            recipient,
+            payer,
+            _closureId,
+            token,
+            amount,
+            shares
+        );
     }
 
     /// A true liquidity add to all vertices in a given CID.
@@ -127,12 +162,15 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 if (addAmount > 0) {
                     address token = tokenReg.tokens[i];
                     // Get those tokens to this contract.
+                    console.log("before");
+                    console.log("token", token);
                     TransferHelper.safeTransferFrom(
                         token,
                         payer,
                         address(this),
                         addAmount
                     );
+                    console.log("after");
                     // Move to the vault.
                     vPtr.deposit(cid, addAmount);
                     postBalance[i] = vPtr.balance(cid, false);
@@ -180,6 +218,8 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
             }
         }
         shares = AssetLib.add(recipient, cid, depositValue, initialValue);
+
+        emit MultiLiquidityAdded(recipient, payer, _closureId, amounts, shares);
     }
 
     function removeLiq(
@@ -192,6 +232,7 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
         uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares); // todo pass in a different address to burn from?
         uint256 n = TokenRegLib.numVertices();
 
+        uint256[] memory withdrawnAmounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);
@@ -203,6 +244,15 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
             vPtr.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
+            withdrawnAmounts[i] = withdraw;
         }
+
+        emit LiquidityRemoved(
+            recipient,
+            msg.sender,
+            _closureId,
+            shares,
+            withdrawnAmounts
+        );
     }
 }

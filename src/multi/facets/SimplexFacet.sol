@@ -18,6 +18,23 @@ struct SimplexStorage {
 }
 contract SimplexFacet is BurveFacetBase {
     event NewName(string newName);
+    event VertexAdded(
+        address indexed token,
+        address indexed vault,
+        VaultType vaultType
+    );
+    event FeesWithdrawn(
+        address indexed token,
+        address indexed recipient,
+        uint256 amount
+    );
+    event DefaultEdgeUpdated(
+        uint128 amplitude,
+        int24 lowTick,
+        int24 highTick,
+        uint24 fee,
+        uint8 feeProtocol
+    );
 
     /// Convert your token of interest to the vertex id which you can
     /// sum with other vertex ids to create a closure Id.
@@ -30,6 +47,7 @@ contract SimplexFacet is BurveFacetBase {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
+        emit VertexAdded(token, vault, vType);
     }
 
     /// Get the number of currently installed vertices
@@ -50,6 +68,7 @@ contract SimplexFacet is BurveFacetBase {
         // 3. When someone donates.
         // Therefore we can just withdraw from this contract to resolve all three.
         TransferHelper.safeTransfer(token, msg.sender, amount);
+        emit FeesWithdrawn(token, msg.sender, amount);
     }
 
     /// These will be the paramters used by all edges on construction.
@@ -64,6 +83,7 @@ contract SimplexFacet is BurveFacetBase {
         Edge storage defaultE = Store.simplex().defaultEdge;
         defaultE.setRange(amplitude, lowTick, highTick);
         defaultE.setFee(fee, feeProtocol);
+        emit DefaultEdgeUpdated(amplitude, lowTick, highTick, fee, feeProtocol);
     }
 
     function setName(string calldata newName) external {

@@ -126,7 +126,6 @@ contract SimplexDiamond is IDiamond {
             });
         }
 
-        /// TODO: figure out why I can't add these during test setup, but it works if i just add them to the diamond
         {
             // Add storage facet using LibDiamond directly since we're the owner
             bytes4[] memory selectors = new bytes4[](6);

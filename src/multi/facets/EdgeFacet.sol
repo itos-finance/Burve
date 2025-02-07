@@ -9,6 +9,13 @@ import {BurveFacetBase} from "./Base.sol";
 contract EdgeFacet is BurveFacetBase {
     error InvalidTickRange();
     event EdgeFeeUpdated(address token0, address token1, uint24 fee);
+    event EdgeRangeUpdated(
+        address indexed token0,
+        address indexed token1,
+        uint128 amplitude,
+        int24 lowTick,
+        int24 highTick
+    );
 
     /// Set the swap parameters for a single edge.
     function setEdge(
@@ -23,6 +30,7 @@ contract EdgeFacet is BurveFacetBase {
         // We use the raw edge so we can preemptively set settings even if the vertices
         // aren't in use.
         Store.rawEdge(token0, token1).setRange(amplitude, lowTick, highTick);
+        emit EdgeRangeUpdated(token0, token1, amplitude, lowTick, highTick);
     }
 
     function setEdgeFee(

@@ -1,0 +1,298 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.27;
+
+import {console2 as console} from "forge-std/console2.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {ForkableTest} from "Commons/Test/ForkableTest.sol";
+import {Auto165} from "Commons/ERC/Auto165.sol";
+
+import {SimplexDiamond} from "../../src/multi/Diamond.sol";
+import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
+import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
+import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
+import {BurveFacets, InitLib} from "../../src/InitLib.sol";
+import {BurveMultiLPToken} from "../../src/multi/LPToken.sol";
+import {VaultType} from "../../src/multi/VaultProxy.sol";
+import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
+import {ClosureId} from "../../src/multi/Closure.sol";
+
+/// @title BurveCustomForkTest - fork test for custom token setup
+/// @notice Sets up Burve with HONEY, USDe and rUSD using Dolomite vaults
+contract BurveCustomForkTest is ForkableTest, Auto165 {
+    // Core contracts
+    SimplexDiamond public diamond;
+    LiqFacet public liqFacet;
+    SimplexFacet public simplexFacet;
+    SwapFacet public swapFacet;
+    ViewFacet public viewFacet;
+
+    // Tokens
+    // IERC20 public usdc;  // Commented out for now
+    IERC20 public honey;
+    IERC20 public usde;
+    IERC20 public rUsd;
+
+    // Dolomite vaults
+    // IERC4626 public usdcVault;  // Commented out for now
+    IERC4626 public honeyVault;
+    IERC4626 public usdeVault;
+    IERC4626 public rUsdVault;
+
+    // LP tokens
+    mapping(uint16 => BurveMultiLPToken) public lpTokens;
+
+    // Constants
+    uint256 public constant INITIAL_MINT_AMOUNT = 1000000e18;
+    uint256 public constant INITIAL_LIQUIDITY_AMOUNT = 5e18;
+    uint256 public constant INITIAL_DEPOSIT_AMOUNT = 5e18;
+
+    function forkSetup() internal virtual override {
+        // Initialize token interfaces from addresses
+        // usdc = IERC20(vm.envAddress("USDC"));  // Commented out for now
+        honey = IERC20(vm.envAddress("HONEY"));
+        usde = IERC20(vm.envAddress("USDe"));
+        rUsd = IERC20(vm.envAddress("rUSD"));
+
+        // Initialize Dolomite vault interfaces
+        // usdcVault = IERC4626(vm.envAddress("DOLOMITE_USDC_VAULT"));  // Commented out for now
+        honeyVault = IERC4626(vm.envAddress("DOLOMITE_HONEY_VAULT"));
+        usdeVault = IERC4626(vm.envAddress("DOLOMITE_USDe_VAULT"));
+        rUsdVault = IERC4626(vm.envAddress("DOLOMITE_rUSD_VAULT"));
+
+        // Deploy the diamond and facets
+        BurveFacets memory burveFacets = InitLib.deployFacets();
+        diamond = new SimplexDiamond(burveFacets);
+
+        // Cast the diamond address to the facet interfaces
+        liqFacet = LiqFacet(address(diamond));
+        simplexFacet = SimplexFacet(address(diamond));
+        swapFacet = SwapFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
+
+        // Set up the pool configuration similar to Env.s.sol
+        simplexFacet.setName("stables");
+        simplexFacet.setDefaultEdge(101, -46063, 46063, 3000, 200);
+
+        // Add vertices for each token-vault pair
+        // simplexFacet.addVertex(address(usdc), address(usdcVault), VaultType.E4626);  // Commented out for now
+        simplexFacet.addVertex(
+            address(honey),
+            address(honeyVault),
+            VaultType.E4626
+        );
+        simplexFacet.addVertex(
+            address(usde),
+            address(usdeVault),
+            VaultType.E4626
+        );
+        simplexFacet.addVertex(
+            address(rUsd),
+            address(rUsdVault),
+            VaultType.E4626
+        );
+
+        // Setup edges between all pairs
+        _setupEdges();
+
+        // Setup closures and LP tokens
+        _setupClosuresAndLPTokens();
+    }
+
+    function deploySetup() internal pure override {
+        revert("Use fork testing for Burve integration tests");
+    }
+
+    function postSetup() internal override {
+        // Label addresses for better trace output
+        // vm.label(address(usdc), "USDC");  // Commented out for now
+        vm.label(address(honey), "HONEY");
+        vm.label(address(usde), "USDe");
+        vm.label(address(rUsd), "rUSD");
+        // vm.label(address(usdcVault), "vUSDC");  // Commented out for now
+        vm.label(address(honeyVault), "vHONEY");
+        vm.label(address(usdeVault), "vUSDe");
+        vm.label(address(rUsdVault), "vrUSD");
+        vm.label(address(diamond), "BurveDiamond");
+
+        // Fund test contract with tokens
+        // deal(address(usdc), address(this), INITIAL_MINT_AMOUNT);  // Commented out for now
+        deal(address(honey), address(this), INITIAL_MINT_AMOUNT);
+        deal(address(usde), address(this), INITIAL_MINT_AMOUNT);
+        deal(address(rUsd), address(this), INITIAL_MINT_AMOUNT);
+
+        // Approve tokens for diamond
+        // usdc.approve(address(diamond), type(uint256).max);  // Commented out for now
+        honey.approve(address(diamond), type(uint256).max);
+        usde.approve(address(diamond), type(uint256).max);
+        rUsd.approve(address(diamond), type(uint256).max);
+    }
+
+    function _setupEdges() internal {
+        address[] memory tokens = new address[](3);
+        tokens[0] = address(honey);
+        tokens[1] = address(usde);
+        tokens[2] = address(rUsd);
+
+        // Create edges between all token pairs
+        for (uint256 i = 0; i < tokens.length; i++) {
+            for (uint256 j = i + 1; j < tokens.length; j++) {
+                EdgeFacet(address(diamond)).setEdge(
+                    tokens[i],
+                    tokens[j],
+                    101, // amplitude
+                    -46063, // lowTick
+                    46063 // highTick
+                );
+            }
+        }
+    }
+
+    function _setupClosuresAndLPTokens() internal {
+        address[] memory tokens = new address[](3);
+        tokens[0] = address(honey);
+        tokens[1] = address(usde);
+        tokens[2] = address(rUsd);
+
+        // Generate all possible 2-token combinations
+        for (uint256 i = 0; i < tokens.length; i++) {
+            for (uint256 j = i + 1; j < tokens.length; j++) {
+                address[] memory pair = new address[](2);
+                pair[0] = tokens[i];
+                pair[1] = tokens[j];
+
+                uint16 closureId = ClosureId.unwrap(
+                    viewFacet.getClosureId(pair)
+                );
+                lpTokens[closureId] = new BurveMultiLPToken(
+                    ClosureId.wrap(closureId),
+                    address(diamond)
+                );
+            }
+        }
+
+        // Generate 3-token combination
+        address[] memory triple = new address[](3);
+        triple[0] = tokens[0];
+        triple[1] = tokens[1];
+        triple[2] = tokens[2];
+
+        uint16 closureId = ClosureId.unwrap(viewFacet.getClosureId(triple));
+        lpTokens[closureId] = new BurveMultiLPToken(
+            ClosureId.wrap(closureId),
+            address(diamond)
+        );
+    }
+
+    function testAddLiquidityHoneyUsde() public {
+        // Start acting as the deployer
+        address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
+        vm.startPrank(deployer);
+
+        // Fund the deployer with tokens
+        deal(address(honey), deployer, INITIAL_MINT_AMOUNT);
+        deal(address(usde), deployer, INITIAL_MINT_AMOUNT);
+
+        // Get the existing LP token instance for HONEY-USDe pair
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(honey);
+        tokens[1] = address(usde);
+        uint16 closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
+        BurveMultiLPToken lpToken = lpTokens[closureId];
+
+        // Print initial balances
+        console.log("Initial HONEY balance:", honey.balanceOf(deployer));
+        console.log("Initial USDe balance:", usde.balanceOf(deployer));
+        console.log("Initial LP token balance:", lpToken.balanceOf(deployer));
+
+        // Prepare amounts for liquidity provision
+        uint128[] memory amounts = new uint128[](3);
+        amounts[0] = uint128(INITIAL_DEPOSIT_AMOUNT); // HONEY amount
+        amounts[1] = uint128(INITIAL_DEPOSIT_AMOUNT); // USDe amount
+        amounts[2] = 0;
+
+        // Approve LP token to spend our tokens
+        honey.approve(address(lpToken), type(uint256).max);
+        usde.approve(address(lpToken), type(uint256).max);
+
+        // Add liquidity
+        uint256 shares = lpToken.mintWithMultipleTokens(
+            deployer,
+            deployer,
+            amounts
+        );
+
+        // Print final balances
+        console.log("Shares received:", shares);
+        console.log("Final HONEY balance:", honey.balanceOf(deployer));
+        console.log("Final USDe balance:", usde.balanceOf(deployer));
+        console.log("Final LP token balance:", lpToken.balanceOf(deployer));
+
+        // Verify we received shares
+        assertGt(shares, 0, "Should have received LP shares");
+        assertEq(
+            lpToken.balanceOf(deployer),
+            shares,
+            "LP token balance should match shares"
+        );
+
+        vm.stopPrank();
+    }
+
+    function testAddLiquidityUsdeRusd() public {
+        // Start acting as the deployer
+        address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
+        vm.startPrank(deployer);
+
+        // Fund the deployer with tokens
+        deal(address(usde), deployer, INITIAL_MINT_AMOUNT);
+        deal(address(rUsd), deployer, INITIAL_MINT_AMOUNT);
+
+        // Get the existing LP token instance for USDe-rUSD pair
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(usde);
+        tokens[1] = address(rUsd);
+        uint16 closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
+        BurveMultiLPToken lpToken = lpTokens[closureId];
+
+        // Print initial balances
+        console.log("Initial USDe balance:", usde.balanceOf(deployer));
+        console.log("Initial rUSD balance:", rUsd.balanceOf(deployer));
+        console.log("Initial LP token balance:", lpToken.balanceOf(deployer));
+
+        // Prepare amounts for liquidity provision
+        uint128[] memory amounts = new uint128[](3);
+        amounts[0] = 0;
+        amounts[1] = uint128(INITIAL_DEPOSIT_AMOUNT); // USDe amount
+        amounts[2] = uint128(INITIAL_DEPOSIT_AMOUNT); // rUSD amount
+
+        // Approve LP token to spend our tokens
+        usde.approve(address(lpToken), type(uint256).max);
+        rUsd.approve(address(lpToken), type(uint256).max);
+
+        // Add liquidity
+        uint256 shares = lpToken.mintWithMultipleTokens(
+            deployer,
+            deployer,
+            amounts
+        );
+
+        // Print final balances
+        console.log("Shares received:", shares);
+        console.log("Final USDe balance:", usde.balanceOf(deployer));
+        console.log("Final rUSD balance:", rUsd.balanceOf(deployer));
+        console.log("Final LP token balance:", lpToken.balanceOf(deployer));
+
+        // Verify we received shares
+        assertGt(shares, 0, "Should have received LP shares");
+        assertEq(
+            lpToken.balanceOf(deployer),
+            shares,
+            "LP token balance should match shares"
+        );
+
+        vm.stopPrank();
+    }
+}

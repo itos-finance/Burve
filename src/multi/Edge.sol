@@ -60,9 +60,9 @@ library EdgeImpl {
 
     event Swap(
         address sender,
-        address recipient,
-        address token0,
-        address token1,
+        address indexed recipient,
+        address indexed token0,
+        address indexed token1,
         int256 amount0,
         int256 amount1,
         uint160 sqrtPriceX96,

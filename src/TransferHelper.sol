@@ -3,6 +3,7 @@
 pragma solidity >=0.6.0;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
 library TransferHelper {
     /// @notice Transfers tokens from the targeted address to the given destination
@@ -17,6 +18,7 @@ library TransferHelper {
         address to,
         uint256 value
     ) internal {
+        console.log("bfoe");
         (bool success, bytes memory data) = token.call(
             abi.encodeWithSelector(
                 IERC20.transferFrom.selector,
@@ -25,6 +27,7 @@ library TransferHelper {
                 value
             )
         );
+        console.log("bfo2e", success);
         require(
             success && (data.length == 0 || abi.decode(data, (bool))),
             "STF"

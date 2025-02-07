@@ -8,6 +8,7 @@ import {AssetStorage} from "../Asset.sol";
 import {VaultStorage} from "../VaultProxy.sol";
 import {SimplexStorage} from "./SimplexFacet.sol";
 import {ClosureId, newClosureId} from "../Closure.sol";
+import {TokenRegLib, TokenRegistry} from "../Token.sol";
 
 /// @notice Mock facet that exposes storage access functions for testing
 contract ViewFacet {
@@ -72,5 +73,29 @@ contract ViewFacet {
 
     function getDefaultEdge() external view returns (Edge memory) {
         return Store.simplex().defaultEdge;
+    }
+
+    /// @notice Get the number of vertices in the system
+    function numVertices() external view returns (uint8) {
+        return TokenRegLib.numVertices();
+    }
+
+    /// @notice Get the index of a token in the registry
+    /// @return idx The index of the token, or revert if not registered
+    function getTokenIndex(address token) external view returns (uint8 idx) {
+        return TokenRegLib.getIdx(token);
+    }
+
+    /// @notice Check if a token is in a closure
+    /// @param closureId The closure ID to check
+    /// @param token The token address to check
+    /// @return True if the token is in the closure
+    function isTokenInClosure(
+        uint16 closureId,
+        address token
+    ) external view returns (bool) {
+        ClosureId cid = ClosureId.wrap(closureId);
+        uint8 idx = TokenRegLib.getIdx(token);
+        return cid.contains(newVertexId(idx));
     }
 }
