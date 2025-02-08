@@ -67,7 +67,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
         // We denote value in the given token.
-        uint256 cumulativeValue = tokenBalance;
+        uint256 cumulativeValue = preBalance[idx];
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint256 i = 0; i < n; ++i) {
             if (i == idx) {
