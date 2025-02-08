@@ -22,8 +22,6 @@ library AssetLib {
         AssetStorage storage assets = Store.assets();
         uint256 total = assets.totalShares[cid];
         if (total == 0) {
-            // There are no existing deposits for this CID.
-            require(num == denom, "NDE");
             shares = num;
         } else {
             shares = FullMath.mulDiv(num, total, denom);
