@@ -11,4 +11,8 @@ library BartioAddresses {
     /// Kodiak islands (new)
     address public constant KODIAK_BERA_YEET_ISLAND_NEW =
         address(0x0001513F4a1f86da0f02e647609E9E2c630B3a14);
+
+    /// Kodiak V3 Pools
+    address public constant KODIAK_HONEY_NECT_POOL_V3 =
+        address(0x246c12D7F176B93e32015015dAB8329977de981B);
 }

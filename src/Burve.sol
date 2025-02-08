@@ -65,6 +65,10 @@ contract Burve is ERC20 {
     /// Please split up into multiple calls.
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
 
+    /// Thrown during the uniswapV3MintCallback if the msg.sender is not the pool. 
+    /// Only the uniswap pool has permission to call this.
+    error UniswapV3MintCallbackSenderNotPool(address sender);
+
     /// @param _pool The pool we are wrapping
     /// @param _island The optional island we are wrapping
     /// @param _ranges the n ranges
@@ -195,6 +199,10 @@ contract Burve is ERC20 {
         uint256 amount1Owed,
         bytes calldata data
     ) external {
+        if (msg.sender != address(pool)) {
+            revert UniswapV3MintCallbackSenderNotPool(msg.sender);
+        }
+
         address source = abi.decode(data, (address));
         TransferHelper.safeTransferFrom(
             token0,
