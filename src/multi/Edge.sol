@@ -202,7 +202,7 @@ library EdgeImpl {
         address token0,
         address token1,
         bool roundUp
-    ) private view returns (UniV3Edge.Slot0 memory slot0) {
+    ) internal view returns (UniV3Edge.Slot0 memory slot0) {
         // If this edge has never been called before we will set ourselves to the default edge
         if (self.amplitude == 0) {
             self = Store.simplex().defaultEdge;
@@ -433,7 +433,7 @@ library EdgeImpl {
         // Due to our constraints this is smaller than 26 non-fractional bits.
         // We can't go straight to X192 because we DON'T know if that will fit, but
         // X128 is more than enough precision. The other 64 is to match b^2.
-        uint256 yxX192 = (y << (128 / x)) << 64;
+        uint256 yxX192 = ((y << 128) / x) << 64;
         // Due to our constaints, this only has at most 16 = 4 + 12 positive bits.
         uint256 bX96 = self.amplitude *
             uint256(self.highSqrtPriceX96 - self.lowSqrtPriceX96);
@@ -459,14 +459,14 @@ library EdgeImpl {
         uint256 b2X96 = roundUp
             ? FullMath.mulDivRoundingUp(y, self.invHighSqrtPriceX96, x)
             : FullMath.mulDiv(y, self.invHighSqrtPriceX96, x);
-        uint256 yxX192 = (y << (128 / x)) << 64;
+        uint256 yxX192 = ((y << 128) / x) << 64;
         uint256 amp1 = self.amplitude + 1;
         uint256 numX96;
         if (b1X96 > b2X96) {
-            uint256 bX96 = b1X96 - b2X96;
+            uint256 bX96 = (b1X96 - b2X96) * self.amplitude;
             numX96 = sqrt(bX96 * bX96 + 4 * yxX192 * amp1 * amp1) + bX96;
         } else {
-            uint256 bX96 = b2X96 - b1X96;
+            uint256 bX96 = (b2X96 - b1X96) * self.amplitude;
             numX96 = sqrt(bX96 * bX96 + 4 * yxX192 * amp1 * amp1) - bX96;
         }
         uint256 denom = 2 * amp1;
