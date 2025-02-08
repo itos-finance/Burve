@@ -408,7 +408,7 @@ library EdgeImpl {
         // Due to our constraints this is smaller than 26 non-fractional bits.
         // We can't go straight to X192 because we DON'T know if that will fit, but
         // X128 is more than enough precision. The other 64 is to match b^2.
-        uint256 xyX192 = (x << (128 / y)) << 64;
+        uint256 xyX192 = ((x << 128) / y) << 64;
         // Due to our constaints, this only has at most 16 = 4 + 12 positive bits.
         uint256 bX96 = self.amplitude *
             uint256(self.invLowSqrtPriceX96 - self.invHighSqrtPriceX96);
