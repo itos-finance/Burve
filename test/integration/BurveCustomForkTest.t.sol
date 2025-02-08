@@ -41,6 +41,9 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
     IERC4626 public usdeVault;
     IERC4626 public rUsdVault;
 
+    uint128 constant MIN_SQRT_PRICE_X96 = uint128(1 << 96) / 1000;
+    uint128 constant MAX_SQRT_PRICE_X96 = uint128(1000 << 96);
+
     // LP tokens
     mapping(uint16 => BurveMultiLPToken) public lpTokens;
 
@@ -195,6 +198,10 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         deal(address(honey), deployer, INITIAL_MINT_AMOUNT);
         deal(address(usde), deployer, INITIAL_MINT_AMOUNT);
 
+        honey.approve(address(diamond), type(uint256).max);
+        usde.approve(address(diamond), type(uint256).max);
+        rUsd.approve(address(diamond), type(uint256).max);
+
         // Get the existing LP token instance for HONEY-USDe pair
         address[] memory tokens = new address[](2);
         tokens[0] = address(honey);
@@ -236,6 +243,63 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
             lpToken.balanceOf(deployer),
             shares,
             "LP token balance should match shares"
+        );
+
+        vm.stopPrank();
+
+        // Setup trader account for swap testing
+        address trader = makeAddr("trader");
+        uint256 tradeAmount = 1e18; // 1 token
+
+        // Fund trader with HONEY
+        deal(address(honey), trader, tradeAmount * 2);
+
+        vm.startPrank(trader);
+        // Record initial balances
+        uint256 initialHoneyBalance = honey.balanceOf(trader);
+        uint256 initialUsdeBalance = usde.balanceOf(trader);
+
+        // Approve tokens for trading
+        honey.approve(address(diamond), type(uint256).max);
+        usde.approve(address(diamond), type(uint256).max);
+
+        // Perform HONEY -> USDe swap
+        (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
+            trader, // recipient
+            address(honey), // inToken
+            address(usde), // outToken
+            int256(tradeAmount), // amountSpecified
+            MAX_SQRT_PRICE_X96 - 1
+        );
+
+        // Verify swap results
+        assertGt(outAmount, 0, "Should have received USDe tokens");
+        assertEq(
+            honey.balanceOf(trader),
+            initialHoneyBalance - inAmount,
+            "HONEY balance should be reduced by trade amount"
+        );
+        assertEq(
+            usde.balanceOf(trader),
+            initialUsdeBalance + outAmount,
+            "USDe balance should be increased by swap output"
+        );
+
+        // Perform reverse swap USDe -> HONEY
+        (uint256 reverseInAmount, uint256 reverseOutAmount) = swapFacet.swap(
+            trader, // recipient
+            address(usde), // inToken
+            address(honey), // outToken
+            int256(outAmount), // amountSpecified
+            MIN_SQRT_PRICE_X96 + 1
+        );
+
+        // Verify reverse swap results
+        assertGt(reverseOutAmount, 0, "Should have received HONEY tokens");
+        assertLt(
+            reverseOutAmount,
+            tradeAmount,
+            "Should receive less HONEY than original trade due to fees"
         );
 
         vm.stopPrank();
@@ -291,6 +355,63 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
             lpToken.balanceOf(deployer),
             shares,
             "LP token balance should match shares"
+        );
+
+        vm.stopPrank();
+
+        // Setup trader account for swap testing
+        address trader = makeAddr("trader");
+        uint256 tradeAmount = 1e18; // 1 token
+
+        // Fund trader with USDe
+        deal(address(usde), trader, tradeAmount * 2);
+
+        vm.startPrank(trader);
+        // Record initial balances
+        uint256 initialUsdeBalance = usde.balanceOf(trader);
+        uint256 initialRusdBalance = rUsd.balanceOf(trader);
+
+        // Approve tokens for trading
+        usde.approve(address(diamond), type(uint256).max);
+        rUsd.approve(address(diamond), type(uint256).max);
+
+        // Perform USDe -> rUSD swap
+        (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
+            trader, // recipient
+            address(usde), // inToken
+            address(rUsd), // outToken
+            int256(tradeAmount), // amountSpecified
+            MIN_SQRT_PRICE_X96 + 1
+        );
+
+        // Verify swap results
+        assertGt(outAmount, 0, "Should have received rUSD tokens");
+        assertEq(
+            usde.balanceOf(trader),
+            initialUsdeBalance - inAmount,
+            "USDe balance should be reduced by trade amount"
+        );
+        assertEq(
+            rUsd.balanceOf(trader),
+            initialRusdBalance + outAmount,
+            "rUSD balance should be increased by swap output"
+        );
+
+        // Perform reverse swap rUSD -> USDe
+        (uint256 reverseInAmount, uint256 reverseOutAmount) = swapFacet.swap(
+            trader, // recipient
+            address(rUsd), // inToken
+            address(usde), // outToken
+            int256(outAmount), // amountSpecified
+            MAX_SQRT_PRICE_X96 - 1
+        );
+
+        // Verify reverse swap results
+        assertGt(reverseOutAmount, 0, "Should have received USDe tokens");
+        assertLt(
+            reverseOutAmount,
+            tradeAmount,
+            "Should receive less USDe than original trade due to fees"
         );
 
         vm.stopPrank();
