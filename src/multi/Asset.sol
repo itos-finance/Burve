@@ -41,8 +41,7 @@ library AssetLib {
         if (shares == total) {
             percentX256 = type(uint256).max;
         } else {
-            // percentX256 = FullMath.mulDivX256(shares, total);
-            percentX256 = FullMath.mulDiv(shares, 1 << 255, total) << 1;
+            percentX256 = FullMath.mulDivX256(shares, total);
         }
         // Will error on underflow.
         assets.shares[owner][cid] -= shares;
