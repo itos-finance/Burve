@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-
-import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
-import { IUniswapV3Pool } from "./integrations/kodiak/IUniswapV3Pool.sol";
-import { TransferHelper } from "./TransferHelper.sol";
-import { IKodiakIsland } from "./integrations/kodiak/IKodiakIsland.sol";
-import { LiquidityAmounts } from "./integrations/uniswap/LiquidityAmounts.sol";
-import { TickMath } from "./integrations/uniswap/TickMath.sol";
+import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
+import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
+import {TransferHelper} from "./TransferHelper.sol";
+import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
+import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
+import {TickMath} from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
-
 
 /// Defines the tick range of an AMM position.
 struct TickRange {
@@ -65,7 +63,7 @@ contract Burve is ERC20 {
     /// Please split up into multiple calls.
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
 
-    /// Thrown during the uniswapV3MintCallback if the msg.sender is not the pool. 
+    /// Thrown during the uniswapV3MintCallback if the msg.sender is not the pool.
     /// Only the uniswap pool has permission to call this.
     error UniswapV3MintCallbackSenderNotPool(address sender);
 
@@ -74,6 +72,7 @@ contract Burve is ERC20 {
     /// @param _ranges the n ranges
     /// @param _weights n weights defining the relative liquidity for each range.
     constructor(
+        address stationProxy,
         address _pool,
         address _island,
         TickRange[] memory _ranges,
@@ -127,16 +126,24 @@ contract Burve is ERC20 {
             uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
             mintRange(ranges[i], recipient, liqAmount);
         }
+        totalLiq += liq;
 
-        _mint(recipient, liq);
+        uint256 shares = mulDiv(liq, totalLiq, totalShares);
+        _mint(recipient, shares); // Use this for total shares somewhere inside. # balance
+        oprah.distribute(recipient, shares);
+        totalShares += shares;
     }
 
-    /// @notice Helper method for minting to the given range. 
+    /// @notice Helper method for minting to the given range.
     /// Used to decipher between the island and v3 ranges.
     /// @param range The range to mint to.
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
-    function mintRange(TickRange memory range, address recipient, uint128 liq) internal {
+    function mintRange(
+        TickRange memory range,
+        address recipient,
+        uint128 liq
+    ) internal {
         // mint the island
         if (range.lower == 0 && range.upper == 0) {
             uint256 mintShares = islandLiqToShares(liq);
@@ -154,8 +161,10 @@ contract Burve is ERC20 {
     }
 
     /// @notice burns liquidity for the msg.sender
-    function burn(uint128 liq) external {
-        _burn(msg.sender, liq);
+    function burn(uint128 shares) external {
+        uint256 liq = mulDiv(shares, totalLiq, totalShares);
+        _burn(msg.sender, shares);
+        oprah.distribute(msg.sender, shares);
 
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
@@ -172,11 +181,7 @@ contract Burve is ERC20 {
             uint256 burnShares = islandLiqToShares(liq);
             island.burn(burnShares, msg.sender);
         } else {
-            (uint256 x, uint256 y) = pool.burn(
-                range.lower,
-                range.upper,
-                liq
-            );
+            (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
 
             if (x > type(uint128).max) revert TooMuchBurnedAtOnce(liq, x, true);
             if (y > type(uint128).max)
@@ -223,12 +228,14 @@ contract Burve is ERC20 {
     /// @notice Calculates the amount of shares for an island given the liquidity.
     /// @param liq The liquidity to convert to shares.
     /// @return shares The amount of shares.
-    function islandLiqToShares(uint128 liq) internal view returns (uint256 shares) {
+    function islandLiqToShares(
+        uint128 liq
+    ) internal view returns (uint256 shares) {
         if (address(island) == address(0x0)) {
             revert NoIsland();
         }
 
-        (uint160 sqrtRatioX96,,,,,,) = pool.slot0();
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
             sqrtRatioX96,
@@ -237,7 +244,7 @@ contract Burve is ERC20 {
             liq
         );
 
-        (,, shares) = island.getMintAmounts(amount0, amount1);
+        (, , shares) = island.getMintAmounts(amount0, amount1);
     }
 
     /// @notice Converts the amount of liquidity to amount0 and amount1.
@@ -300,5 +307,59 @@ contract Burve is ERC20 {
             ERC20(t1).symbol(),
             "-SLP-KDK"
         );
+    }
+
+    function compound() external {
+        AdminLib.validateOwner();
+        _compound();
+    }
+
+    function _compound() internal {
+        // query the balances you have available.
+        uint256 amount0 = stationProxy.queryBalance(token0);
+        uint256 amount1 = stationProxy.queryBalance(token1);
+        for (uint256 i = 0; i < ranges.length; ++i) {
+            (x, y) = ranges[i].collectFees();
+            amount0 += x;
+            amount1 += y;
+        }
+
+        uint256 liqX128 = 1 << 128;
+        uint256 neededTotal0;
+        uint256 neededTotal1;
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            uint128 liqAmount = uint128(shift96(liqX128 * distX96[i], true));
+            (uint256 needed0, uint256 needed1) = calcAmounts( // Get liquidity amounts
+                ranges[i],
+                recipient,
+                liqAmount
+            );
+            neededTotal0 += needed0;
+            neededTotal1 += needed1;
+        }
+        uint256 liq0 = FullMath.mulDiv(amount0, 1 << 128, neededTotal0);
+        uint256 liq1 = FullMath.mulDiv(amount1, 1 << 128, neededTotal1);
+        uint256 liq = min(liq0, liq1);
+        uint256 actualNeeded0 = mulDiv(liq, 1 << 128, neededTotal0);
+        uint256 actualNeeded1 = mulDiv(liq, 1 << 128, neededTotal1);
+        stationProxy.withdrawReward(token0, actualNeeded0);
+        stationProxy.withdrawReward(token1, actualNeeded1);
+
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
+            mintRange(ranges[i], recipient, liqAmount);
+        }
+        totalLiq += liq;
+        // don't issue shares
+    }
+
+    // Admin
+    function migrateStationProxy() external {
+        AdminLib.validateOwner();
+        // compound,
+        // Withdraw everything, lp tokens
+        // deposit LP tokens tothe new one.
+        // Withdraw bgt tokens and migrate to the new one.
+        // withdraw final reward and just send to the admin to deal with.
     }
 }
