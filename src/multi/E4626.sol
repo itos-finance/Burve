@@ -3,9 +3,10 @@ pragma solidity ^0.8.27;
 
 import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {FullMath} from "./FullMath.sol";
 import {VaultTemp} from "./VaultProxy.sol";
+import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 /** A simple e4626 wrapper that tracks ownership by closureId
  * Note that there are plenty of E4626's that have lockups
@@ -64,12 +65,16 @@ library VaultE4626Impl {
                 revert OverlappingOperations(address(self.vault));
 
             // Temporary approve the deposit.
-            self.token.approve(address(self.vault), assetsToDeposit);
+            SafeERC20.forceApprove(
+                self.token,
+                address(self.vault),
+                assetsToDeposit
+            );
             self.totalVaultShares += self.vault.deposit(
                 assetsToDeposit,
                 address(this)
             );
-            self.token.approve(address(self.vault), 0);
+            SafeERC20.forceApprove(self.token, address(self.vault), 0);
         } else if (assetsToWithdraw > 0) {
             // We don't need to hyper-optimize the receiver.
             self.totalVaultShares -= self.vault.withdraw(
