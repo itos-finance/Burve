@@ -65,7 +65,9 @@ contract BurveMultiLPToken is ERC20 {
     /// We give the underlying tokens to the msg.sender, since can own your tokens anyways.
     /// @param shares The number of shares/LP tokens to remove.
     function burn(address account, uint256 shares) external {
-        _spendAllowance(account, _msgSender(), shares);
+        if (account != _msgSender()) {
+            _spendAllowance(account, _msgSender(), shares);
+        }
         burveMulti.removeLiq(_msgSender(), ClosureId.unwrap(cid), shares);
         _burn(account, shares);
     }
