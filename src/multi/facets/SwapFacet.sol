@@ -4,15 +4,21 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import {Edge} from "../Edge.sol";
+import {BurveFacetBase} from "./Base.sol";
 
-contract SwapFacet is ReentrancyGuardTransient {
+contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     function swap(
         address recipient,
         address inToken,
         address outToken,
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
-    ) external nonReentrant returns (uint256 inAmount, uint256 outAmount) {
+    )
+        external
+        nonReentrant
+        validTokens(inToken, outToken)
+        returns (uint256 inAmount, uint256 outAmount)
+    {
         address token0;
         address token1;
         bool zeroForOne;

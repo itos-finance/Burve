@@ -37,6 +37,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         );
 
         ClosureId cid = ClosureId.wrap(_closureId);
+        // This validates the token is registered.
         uint8 idx = TokenRegLib.getIdx(token);
         uint256 n = TokenRegLib.numVertices();
 
