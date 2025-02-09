@@ -88,13 +88,13 @@ library VaultE4626Impl {
         ClosureId cid,
         uint256 amount
     ) internal {
-        // TODO we have to discount the new amount in total assets and new shares
-        // by any withdrawal fees.
         uint256 newlyAdding = FullMath.mulX128(
             temp.vars[1],
             temp.vars[3],
             true // Round up to round shares down.
         );
+        // Note that we do not include pending withdrawals, only pending deposits in this total amount
+        // because there should be no mixing of withdrawals and deposits.
         uint256 totalAssets = temp.vars[0] + newlyAdding;
 
         uint256 discountedAmount = FullMath.mulX128(
