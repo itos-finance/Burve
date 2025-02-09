@@ -39,13 +39,16 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory loupeFacetSelectors = new bytes4[](4);
+            bytes4[] memory loupeFacetSelectors = new bytes4[](5);
             loupeFacetSelectors[0] = DiamondLoupeFacet.facets.selector;
             loupeFacetSelectors[1] = DiamondLoupeFacet
                 .facetFunctionSelectors
                 .selector;
             loupeFacetSelectors[2] = DiamondLoupeFacet.facetAddresses.selector;
             loupeFacetSelectors[3] = DiamondLoupeFacet.facetAddress.selector;
+            loupeFacetSelectors[4] = DiamondLoupeFacet
+                .supportsInterface
+                .selector;
             cuts[1] = FacetCut({
                 facetAddress: address(new DiamondLoupeFacet()),
                 action: FacetCutAction.Add,
