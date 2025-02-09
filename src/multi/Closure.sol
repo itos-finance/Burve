@@ -76,10 +76,10 @@ library ClosureDistImpl {
     function normalize(ClosureDist memory self) internal pure {
         if (self.totalWeight == 0) revert AlreadyNormalized();
         for (uint256 i = 0; i < self.weights.length; ++i) {
-            self.weights[i] = FullMath.mulDivX256(
-                self.weights[i],
-                self.totalWeight
-            );
+            uint256 weight = self.weights[i];
+            self.weights[i] = (weight == self.totalWeight)
+                ? type(uint256).max
+                : FullMath.mulDivX256(self.weights[i], self.totalWeight);
         }
         self.totalWeight = 0;
     }
