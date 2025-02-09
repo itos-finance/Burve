@@ -25,8 +25,8 @@ uint16 constant MAX_AMP = 4000; // 4000 would be very excessive. Too much stabil
 // This let's us compute much more efficiently.
 // NOTE: We force all tokens 18 decimals to stay within this price range. We wrap
 // any non-compliant tokens with a thin 18 decimal wrapper.
-int24 constant MAX_NARROW_TICK = 46064;
-int24 constant MIN_NARROW_TICK = -MAX_NARROW_TICK;
+int24 constant MAX_NARROW_TICK = 46064; // Exclusive
+int24 constant MIN_NARROW_TICK = -MAX_NARROW_TICK; // Inclusive
 
 /*
     Contains all information relation to the pool used to swap between two vertices.
@@ -84,7 +84,7 @@ library EdgeImpl {
         int24 highTick
     ) internal {
         self.lowTick = lowTick;
-        require(lowTick > MIN_NARROW_TICK, "ERL");
+        require(lowTick >= MIN_NARROW_TICK, "ERL");
         self.highTick = highTick;
         require(highTick < MAX_NARROW_TICK, "ERH");
         self.amplitude = amplitude; // Liq in narrow range is (amplitude + 1) * wideLiq
