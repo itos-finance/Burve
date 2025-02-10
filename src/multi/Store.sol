@@ -41,7 +41,19 @@ library Store {
         return load().tokenReg;
     }
 
+    /// Returns an edge or the default edge if it isn't set up yet.
     function edge(
+        address token0,
+        address token1
+    ) internal view returns (Edge storage _edge) {
+        _edge = rawEdge(token0, token1);
+        if (_edge.amplitude == 0) {
+            _edge = load().simplex.defaultEdge;
+        }
+    }
+
+    /// Called when a function wants to access an edge, even if it isn't set up.
+    function rawEdge(
         address token0,
         address token1
     ) internal view returns (Edge storage _edge) {
