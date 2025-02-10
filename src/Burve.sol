@@ -72,6 +72,19 @@ contract Burve is ERC20 {
     /// Only the uniswap pool has permission to call this.
     error UniswapV3MintCallbackSenderNotPool(address sender);
 
+    /// Thrown if the price of the pool has moved outside the accepted range during mint / burn.
+    error SqrtPriceX96OverLimit(uint160 sqrtPriceX96, uint160 lowerSqrtPriceLimitX96, uint160 upperSqrtPriceLimitX96);
+
+    /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
+    modifier withinSqrtPX96Limits(uint160 lowerSqrtPriceLimitX96, uint160 upperSqrtPriceLimitX96) {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        if (sqrtRatioX96 < lowerSqrtPriceLimitX96 || sqrtRatioX96 > upperSqrtPriceLimitX96) {
+            revert SqrtPriceX96OverLimit(sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        }
+
+        _;
+    }
+
     /// @param _pool The pool we are wrapping
     /// @param _island The optional island we are wrapping
     /// @param _ranges the n ranges
@@ -125,7 +138,16 @@ contract Burve is ERC20 {
     }
 
     /// @notice mints liquidity for the recipient
-    function mint(address recipient, uint128 liq) external {
+    /// @param recipient The recipient of the minted liquidity.
+    /// @param liq The amount of liquidity to mint.
+    /// @param lowerSqrtPriceLimitX96 The lower price limit of the pool.
+    /// @param upperSqrtPriceLimitX96 The upper price limit of the pool.
+    function mint(
+        address recipient, 
+        uint128 liq,
+        uint160 lowerSqrtPriceLimitX96, 
+        uint160 upperSqrtPriceLimitX96
+    ) external withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96) {
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 liqAmount = uint128(shift96(liq * distX96[i], true));
             mintRange(ranges[i], recipient, liqAmount);
@@ -189,7 +211,14 @@ contract Burve is ERC20 {
     }
 
     /// @notice burns liquidity for the msg.sender
-    function burn(uint128 liq) external {
+    /// @param liq The amount of liquidity to mint.
+    /// @param lowerSqrtPriceLimitX96 The lower price limit of the pool.
+    /// @param upperSqrtPriceLimitX96 The upper price limit of the pool.
+    function burn(
+        uint128 liq,         
+        uint160 lowerSqrtPriceLimitX96, 
+        uint160 upperSqrtPriceLimitX96
+    ) external withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96) {
         _burn(msg.sender, liq);
 
         for (uint256 i = 0; i < distX96.length; ++i) {
@@ -203,7 +232,7 @@ contract Burve is ERC20 {
     /// @param range The range to burn from.
     /// @param liq The amount of liquidity to burn.
     function burnRange(TickRange memory range, uint128 liq) internal {
-        if (range.lower == 0 && range.upper == 0) {
+        if (range.isIsland()) {
             // minting share calculation should be consistent when burning
             // but minted token amounts should be ignored
             (, , uint256 burnShares) = getMintAmountsFromIslandLiquidity(liq);
@@ -265,7 +294,7 @@ contract Burve is ERC20 {
     function getMintAmountsFromIslandLiquidity(
         uint128 liquidity
     ) internal view returns (uint256 mint0, uint256 mint1, uint256 mintShares) {
-        (uint160 sqrtRatioX96, , , , , , ) = island.pool().slot0();
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(island.lowerTick());
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(island.upperTick());
