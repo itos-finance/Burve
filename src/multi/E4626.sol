@@ -6,8 +6,8 @@ import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {FullMath} from "./FullMath.sol";
 import {VaultTemp} from "./VaultProxy.sol";
-import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 /** A simple e4626 wrapper that tracks ownership by closureId
  * Note that there are plenty of E4626's that have lockups

@@ -189,7 +189,7 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         );
     }
 
-    function testAddLiquidityHoneyUsde() public {
+    function testAddLiquidityHoneyUsde() public forkOnly {
         // Start acting as the deployer
         address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
         vm.startPrank(deployer);
@@ -305,7 +305,7 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         vm.stopPrank();
     }
 
-    function testAddLiquidityUsdeRusd() public {
+    function testAddLiquidityUsdeRusd() public forkOnly {
         // Start acting as the deployer
         address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
         vm.startPrank(deployer);

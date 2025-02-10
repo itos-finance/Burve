@@ -97,7 +97,7 @@ contract BurveForkTest is ForkableTest, Auto165 {
         mead.approve(address(diamond), type(uint256).max);
     }
 
-    function testAddLiquidityMimHoney() public {
+    function testAddLiquidityMimHoney() public forkOnly {
         // Start acting as the deployer
         address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
         vm.startPrank(deployer);
