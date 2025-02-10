@@ -42,12 +42,23 @@ contract SimplexFacet is BurveFacetBase {
         return VertexId.unwrap(newVertexId(token));
     }
 
+    /// Convert your token of interest to the vertex id which you can
+    /// sum with other vertex ids to create a closure Id.
+    function getVertexId(address token) external view returns (uint16 vid) {
+        return VertexId.unwrap(newVertexId(token));
+    }
+
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
         emit VertexAdded(token, vault, vType);
+    }
+
+    /// Get the number of currently installed vertices
+    function numVertices() external view returns (uint8) {
+        return TokenRegLib.numVertices();
     }
 
     /// Get the number of currently installed vertices

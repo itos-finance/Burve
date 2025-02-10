@@ -8,7 +8,6 @@ import {UniV3Edge} from "../UniV3Edge.sol";
 import {BurveFacetBase} from "./Base.sol";
 
 contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
-    /// @dev Swap event is emitted by the edge
     function swap(
         address recipient,
         address inToken,
