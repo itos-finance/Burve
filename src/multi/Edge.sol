@@ -207,11 +207,6 @@ library EdgeImpl {
         address token1,
         bool roundUp
     ) internal view returns (UniV3Edge.Slot0 memory slot0) {
-        // If this edge has never been called before we will set ourselves to the default edge
-        if (self.amplitude == 0) {
-            self = Store.simplex().defaultEdge;
-            if (self.amplitude == 0) revert NoEdgeSettings(token0, token1);
-        }
         slot0.fee = self.fee;
         slot0.feeProtocol = self.feeProtocol;
         (slot0.sqrtPriceX96, slot0.tick, slot0.liquidity) = calcImpliedPool(
@@ -459,8 +454,6 @@ library EdgeImpl {
         uint256 y,
         bool roundUp
     ) private view returns (uint160 sqrtPriceX96, uint128 wideLiq) {
-        console2.log("x", x);
-        console2.log("y", y);
         uint256 b1X96 = self.lowSqrtPriceX96;
         uint256 b2X96 = roundUp
             ? FullMath.mulDivRoundingUp(y, self.invHighSqrtPriceX96, x)

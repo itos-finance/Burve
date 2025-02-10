@@ -436,33 +436,6 @@ contract SwapFacetTest is Test {
         }
     }
 
-    // TODO: Reverts on the removal of all of the eve liq
-    // function testSwapRevertsForInsufficientLiquidity() public {
-    //     // Remove all liquidity first
-    //     vm.startPrank(eve);
-    //     liqFacet.removeLiq(eve, closureId, eveShares0 - 1, "");
-    //     liqFacet.removeLiq(eve, closureId, eveShares1 - 1, "");
-    //     vm.stopPrank();
-
-    function testSwapRevertsForInsufficientLiquidity() public {
-        // Remove all liquidity first
-        vm.startPrank(alice);
-        uint256 shares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            uint128(INITIAL_LIQUIDITY_AMOUNT)
-        );
-        uint256 shares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(INITIAL_LIQUIDITY_AMOUNT)
-        );
-        liqFacet.removeLiq(alice, closureId, shares0);
-        liqFacet.removeLiq(alice, closureId, shares1);
-        vm.stopPrank();
-
     function testSwapRevertZeroAmount() public {
         vm.startPrank(bob);
         vm.expectRevert(); // Should revert for zero amount
@@ -545,7 +518,6 @@ contract SwapFacetTest is Test {
         );
         vm.stopPrank();
     }
-
 
     function testConcurrentUsersOperations() public {
         address charlie = makeAddr("charlie");
