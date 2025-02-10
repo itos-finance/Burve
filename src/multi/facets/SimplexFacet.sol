@@ -7,7 +7,7 @@ import {TransferHelper} from "../../TransferHelper.sol";
 import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegLib} from "../Token.sol";
+import {TokenRegLib, TokenRegistry} from "../Token.sol";
 
 struct SimplexStorage {
     string name;
@@ -39,7 +39,7 @@ contract SimplexFacet {
         TokenRegistry storage reg = Store.tokenRegistry();
         idxs = new int8[](tokens.length);
         for (uint256 i = 0; i < tokens.length; ++i) {
-            idxs[i] = reg.tokenIdx[tokens[i]];
+            idxs[i] = int8(reg.tokenIdx[tokens[i]]);
             if (idxs[i] == 0 && reg.tokens[0] != tokens[i]) {
                 idxs[i] = -1;
             }

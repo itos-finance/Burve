@@ -60,7 +60,7 @@ contract LiqFacet is ReentrancyGuardTransient {
                         addAmount
                     );
                     // Move to the vault.
-                    vPtr.deposit(cid, amount);
+                    vPtr.deposit(cid, addAmount);
                     postBalance[i] = vPtr.balance(cid, false);
                     // Commit the deposit.
                     vPtr.commit();
@@ -106,8 +106,9 @@ contract LiqFacet is ReentrancyGuardTransient {
                 }
             }
         }
-        if (initialValue == depositValue) revert DeMinimisDeposit();
-        shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
+        if (depositValue == 0) revert DeMinimisDeposit();
+        shares = AssetLib.add(recipient, cid, depositValue, initialValue);
+        if (shares == 0) revert DeMinimisDeposit();
     }
 
     function removeLiq(

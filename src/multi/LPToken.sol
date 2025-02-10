@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {ClosureId} from "./Closure.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
@@ -42,7 +43,11 @@ contract BurveMultiLPToken is ERC20 {
             address(this),
             value
         );
-        SafeERC20.forceApprove(depositToken, address(burveMulti), value);
+        SafeERC20.forceApprove(
+            IERC20(depositToken),
+            address(burveMulti),
+            value
+        );
         // Setup the single token deposit by fetching its token index.
         SimplexFacet simplex = SimplexFacet(address(burveMulti));
         address[] memory tokens = new address[](1);
@@ -81,7 +86,11 @@ contract BurveMultiLPToken is ERC20 {
                 address(this),
                 amounts[i]
             );
-            SafeERC20.forceApprove(tokens[i], address(burveMulti), amounts[i]);
+            SafeERC20.forceApprove(
+                IERC20(tokens[i]),
+                address(burveMulti),
+                amounts[i]
+            );
         }
 
         // Mint to ourselves and then give shares to the recipient.
