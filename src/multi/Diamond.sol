@@ -80,8 +80,10 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory swapSelectors = new bytes4[](1);
+            bytes4[] memory swapSelectors = new bytes4[](3);
             swapSelectors[0] = SwapFacet.swap.selector;
+            swapSelectors[1] = SwapFacet.simSwap.selector;
+            swapSelectors[2] = SwapFacet.getSqrtPrice.selector;
             cuts[4] = FacetCut({
                 facetAddress: swapFacet,
                 action: FacetCutAction.Add,
