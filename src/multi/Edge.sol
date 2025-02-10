@@ -115,8 +115,9 @@ library EdgeImpl {
 
     /* Interface functions */
 
-    // The main function to support.
-    // @param token0 The lower address token.
+    /// A complete swap function that calculates and exchanges one token for another.
+    /// @dev This does NOT modify edge.
+    /// @param token0 The lower address token.
     function swap(
         Edge storage self,
         address token0,
@@ -203,11 +204,6 @@ library EdgeImpl {
         address token1,
         bool roundUp
     ) internal view returns (UniV3Edge.Slot0 memory slot0) {
-        // If this edge has never been called before we will set ourselves to the default edge
-        if (self.amplitude == 0) {
-            self = Store.simplex().defaultEdge;
-            if (self.amplitude == 0) revert NoEdgeSettings(token0, token1);
-        }
         slot0.fee = self.fee;
         slot0.feeProtocol = self.feeProtocol;
         (slot0.sqrtPriceX96, slot0.tick, slot0.liquidity) = calcImpliedPool(

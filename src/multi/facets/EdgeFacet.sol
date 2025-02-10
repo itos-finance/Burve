@@ -17,7 +17,9 @@ contract EdgeFacet {
         int24 highTick
     ) external {
         AdminLib.validateOwner();
-        Store.edge(token0, token1).setRange(amplitude, lowTick, highTick);
+        // We use the raw edge so we can preemptively set settings even if the vertices
+        // aren't in use.
+        Store.rawEdge(token0, token1).setRange(amplitude, lowTick, highTick);
     }
 
     function setEdgeFee(
@@ -27,7 +29,9 @@ contract EdgeFacet {
         uint8 feeProtocol
     ) external {
         AdminLib.validateOwner();
-        Store.edge(token0, token1).setFee(fee, feeProtocol);
+        // We use the raw edge so we can preemptively set settings even if the vertices
+        // aren't in use.
+        Store.rawEdge(token0, token1).setFee(fee, feeProtocol);
         emit EdgeFeeUpdated(token0, token1, fee);
     }
 }
