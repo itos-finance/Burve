@@ -22,6 +22,30 @@ contract SimplexFacet {
         return VertexId.unwrap(newVertexId(token));
     }
 
+    /// Fetch the list of tokens registered in this simplex.
+    function getTokens() external view returns (address[] memory tokens) {
+        address[] storage _t = Store.tokenRegistry().tokens;
+        tokens = new address[](_t.length);
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            tokens[i] = _t[i];
+        }
+    }
+
+    /// Fetch the vertex index of the given token addresses.
+    /// Returns a negative value if the token is not present.
+    function getIndexes(
+        address[] calldata tokens
+    ) external view returns (int8[] memory idxs) {
+        TokenRegistry storage reg = Store.tokenRegistry();
+        idxs = new int8[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            idxs[i] = reg.tokenIdx[tokens[i]];
+            if (idxs[i] == 0 && reg.tokens[0] != tokens[i]) {
+                idxs[i] = -1;
+            }
+        }
+    }
+
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
