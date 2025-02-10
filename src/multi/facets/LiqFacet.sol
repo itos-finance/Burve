@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {ClosureId} from "../Closure.sol";
-import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
 import {VaultLib, VaultPointer} from "../VaultProxy.sol";
@@ -11,8 +11,6 @@ import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../FullMath.sol";
 import {AssetLib} from "../Asset.sol";
-import {BurveFacetBase} from "./Base.sol";
-import {console2 as console} from "forge-std/console2.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -22,120 +20,12 @@ import {console2 as console} from "forge-std/console2.sol";
  in their own ERC20 contract with mint functions that call the addLiq and removeLiq
 functions here.
 */
-contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
-    error TokenNotInClosure(ClosureId cid, address token);
+contract LiqFacet is ReentrancyGuardTransient {
+    error DeMinimisDeposit();
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
 
-    event SingleLiquidityAdded(
-        address indexed recipient,
-        address indexed payer,
-        uint16 indexed closureId,
-        address token,
-        uint128 amount,
-        uint256 shares
-    );
-
-    event MultiLiquidityAdded(
-        address indexed recipient,
-        address indexed payer,
-        uint16 indexed closureId,
-        uint128[] amounts,
-        uint256 shares
-    );
-
-    event LiquidityRemoved(
-        address indexed recipient,
-        address indexed burner,
-        uint16 indexed closureId,
-        uint256 shares,
-        uint256[] tokenAmounts
-    );
-
-    /// Add liquidity in a simple way with just one token.
-    /// This is a cheap and convenient method for small deposits that won't move the peg very much.
     function addLiq(
         address recipient,
-        address payer,
-        uint16 _closureId,
-        address token,
-        uint128 amount
-    ) external nonReentrant validToken(token) returns (uint256 shares) {
-        TransferHelper.safeTransferFrom(token, payer, address(this), amount);
-
-        ClosureId cid = ClosureId.wrap(_closureId);
-        // This validates the token is registered.
-        uint8 idx = TokenRegLib.getIdx(token);
-        uint256 n = TokenRegLib.numVertices();
-
-        uint128[] memory preBalance = new uint128[](n);
-        uint128 tokenBalance = 0;
-        for (uint8 i = 0; i < n; ++i) {
-            VertexId v = newVertexId(i);
-
-            if (cid.contains(v)) {
-                // We need to add it to the Vertex so we can use it in swaps.
-                Store.vertex(v).ensureClosure(cid);
-                // And we need to add it to the vault.
-                VaultPointer memory vPtr = VaultLib.get(v);
-                preBalance[i] = vPtr.balance(cid, true);
-                if (i == idx) {
-                    vPtr.deposit(cid, amount);
-                    tokenBalance = vPtr.balance(cid, false);
-                    // Commit the deposit.
-                    vPtr.commit();
-                }
-            }
-        }
-
-        // Check we actually deposited.
-        if (tokenBalance == 0) revert TokenNotInClosure(cid, token);
-        // Get the amount we added rounded down.
-        uint256 addedBalance = tokenBalance - preBalance[idx];
-
-        // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
-        // old price by doing a huge swap before to increase the value of their deposit.
-        // We denote value in the given token.
-        uint256 cumulativeValue = preBalance[idx]; // The denom is the value sans the deposit.
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        for (uint256 i = 0; i < n; ++i) {
-            if (i == idx) {
-                continue;
-            } else if (preBalance[i] != 0) {
-                address otherToken = tokenReg.tokens[i];
-                Edge storage e = Store.edge(token, otherToken);
-                uint256 priceX128 = (token < otherToken)
-                    ? e.getInvPriceX128(tokenBalance, preBalance[i])
-                    : e.getPriceX128(preBalance[i], tokenBalance);
-                cumulativeValue += FullMath.mulX128(
-                    preBalance[i],
-                    priceX128,
-                    true
-                );
-            }
-        }
-        shares = AssetLib.add(recipient, cid, addedBalance, cumulativeValue);
-
-        emit SingleLiquidityAdded(
-            recipient,
-            payer,
-            _closureId,
-            token,
-            amount,
-            shares
-        );
-    }
-
-    /// A true liquidity add to all vertices in a given CID.
-    /// @dev Use then when depositing a large amount of liquidity to avoid depegging and getting arb'd.
-    /// @param recipient Who owns the liquidity for the CID at the end.
-    /// @param _closureId The CID you would like to add liquidity to.
-    /// @param amounts A list of token amounts that we want to add. One for each token in the Simplex, NOT your CID.
-    /// Any token amounts given for a vertex not in the CID is ignored.
-    /// You can conveniently supply [amount, amount, amount, ...] if you want to supply the same amount to all vertices
-    /// in your CID.
-    function addLiq(
-        address recipient,
-        address payer,
         uint16 _closureId,
         uint128[] calldata amounts
     ) external nonReentrant returns (uint256 shares) {
@@ -145,11 +35,12 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
         if (amounts.length != n) {
             revert IncorrectAddAmountsList(amounts.length, n);
         }
-        require(amounts.length == n, "ALN");
+
         uint128[] memory preBalance = new uint128[](n);
         uint128[] memory postBalance = new uint128[](n);
         address numeraire; // We save one token to use as the value denomination.
         uint128 numerairePost; // The post balance for the numeraire to be used later.
+
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             if (cid.contains(v)) {
@@ -162,23 +53,21 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 if (addAmount > 0) {
                     address token = tokenReg.tokens[i];
                     // Get those tokens to this contract.
-                    console.log("before");
-                    console.log("token", token);
                     TransferHelper.safeTransferFrom(
                         token,
-                        payer,
+                        msg.sender,
                         address(this),
                         addAmount
                     );
-                    console.log("after");
                     // Move to the vault.
                     vPtr.deposit(cid, addAmount);
                     postBalance[i] = vPtr.balance(cid, false);
                     // Commit the deposit.
                     vPtr.commit();
-                    // Set a numeraire if we don't have one
+                    // Set a numeraire if we don't have one yet
                     if (numeraire == address(0)) {
                         numeraire = token;
+                        // We use an added token as the numeraire to save gas.
                         numerairePost = postBalance[i];
                     }
                 } else {
@@ -187,9 +76,9 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
             }
         }
 
-        // We can ONLY use the price AFTER adding the token balances or else someone can exploit the
+        // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
-        // We denote value in the first token we received.
+        // We denote value in the given token.
         uint256 initialValue;
         uint256 depositValue;
         for (uint256 i = 0; i < n; ++i) {
@@ -217,9 +106,9 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
                 }
             }
         }
+        if (depositValue == 0) revert DeMinimisDeposit();
         shares = AssetLib.add(recipient, cid, depositValue, initialValue);
-
-        emit MultiLiquidityAdded(recipient, payer, _closureId, amounts, shares);
+        if (shares == 0) revert DeMinimisDeposit();
     }
 
     function removeLiq(
@@ -229,10 +118,8 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
     ) external nonReentrant {
         ClosureId cid = ClosureId.wrap(_closureId);
         TokenRegistry storage tokenReg = Store.tokenRegistry();
-        uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares); // todo pass in a different address to burn from?
+        uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares);
         uint256 n = TokenRegLib.numVertices();
-
-        uint256[] memory withdrawnAmounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);
@@ -244,15 +131,6 @@ contract LiqFacet is ReentrancyGuardTransient, BurveFacetBase {
             vPtr.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
-            withdrawnAmounts[i] = withdraw;
         }
-
-        emit LiquidityRemoved(
-            recipient,
-            msg.sender,
-            _closureId,
-            shares,
-            withdrawnAmounts
-        );
     }
 }
