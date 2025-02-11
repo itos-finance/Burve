@@ -95,6 +95,18 @@ contract Burve is ERC20 {
         _;
     }
 
+    /// Thrown if the price of the pool has moved outside the accepted range during mint / burn.
+    error SqrtPriceX96OverLimit(uint160 sqrtPriceX96, uint160 lowerSqrtPriceLimitX96, uint160 upperSqrtPriceLimitX96);
+
+    /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
+    modifier withinSqrtPX96Limits(uint160 lowerSqrtPriceLimitX96, uint160 upperSqrtPriceLimitX96) {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        if (sqrtRatioX96 < lowerSqrtPriceLimitX96 || sqrtRatioX96 > upperSqrtPriceLimitX96) {
+            revert SqrtPriceX96OverLimit(sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        }
+        _;
+    }
+
     /// @param _pool The pool we are wrapping
     /// @param _island The optional island we are wrapping
     /// @param _ranges the n ranges
