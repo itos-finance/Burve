@@ -114,8 +114,7 @@ library VertexImpl {
 
         for (uint256 i = 0; i < homs.length; ++i) {
             // The user needs the exact amount for this.
-            uint256 scaledAmount = dist.scale(i, amount, true);
-            vProxy.withdraw(homs[i], scaledAmount);
+            vProxy.withdraw(homs[i], dist.scale(i, amount, true));
         }
         vProxy.commit(); // Commit our changes.
     }
