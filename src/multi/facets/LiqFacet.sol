@@ -10,7 +10,7 @@ import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../FullMath.sol";
-import {AssetLib} from "../Asset.sol";
+import {AssetStorage, AssetLib} from "../Asset.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -162,5 +162,28 @@ contract LiqFacet is ReentrancyGuardTransient {
         }
 
         emit RemoveLiquidity(recipient, _closureId, amounts, shares);
+    }
+
+    function viewRemoveLiq(
+        uint16 _closureId,
+        uint256 shares
+    ) external view returns (uint256[] memory) {
+        ClosureId cid = ClosureId.wrap(_closureId);
+        AssetStorage storage assets = Store.assets();
+        uint256 percentX256 = AssetLib.viewPercentX256(assets, cid, shares);
+        uint256 n = TokenRegLib.numVertices();
+
+        uint256[] memory withdrawnAmounts = new uint256[](n);
+        for (uint8 i = 0; i < n; ++i) {
+            VertexId v = newVertexId(i);
+            VaultPointer memory vPtr = VaultLib.get(v);
+            uint128 bal = vPtr.balance(cid, false);
+            if (bal == 0) continue;
+            // If there are tokens, we withdraw.
+            uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
+            withdrawnAmounts[i] = withdraw;
+        }
+
+        return withdrawnAmounts;
     }
 }
