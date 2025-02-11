@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
-import {TransferHelper} from "./TransferHelper.sol";
-import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
-import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
-import {TickMath} from "./integrations/uniswap/TickMath.sol";
+
+import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
+import { IUniswapV3Pool } from "./integrations/kodiak/IUniswapV3Pool.sol";
+import { TransferHelper } from "./TransferHelper.sol";
+import { IKodiakIsland } from "./integrations/kodiak/IKodiakIsland.sol";
+import { LiquidityAmounts } from "./integrations/uniswap/LiquidityAmounts.sol";
+import { TickMath } from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
 
@@ -134,15 +138,9 @@ contract Burve is ERC20 {
     /// @param range The range to mint to.
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
-    function mintRange(
-        TickRange memory range,
-        address recipient,
-        uint128 liq
-    ) internal {
-        // mint the island
-        if (range.lower == 0 && range.upper == 0) {
-            uint256 mintShares = islandLiqToShares(liq);
-            island.mint(mintShares, recipient);
+    function mintRange(TickRange memory range, address recipient, uint128 liq) internal {
+        if (range.isIsland()) {
+            mintIsland(recipient, liq);
         } else {
             // mint the V3 ranges
             pool.mint(
@@ -153,6 +151,40 @@ contract Burve is ERC20 {
                 abi.encode(msg.sender)
             );
         }
+    }
+
+    /// @notice Mints to the island.
+    /// @param recipient The recipient of the minted liquidity.
+    /// @param liq The amount of liquidity to mint.
+    function mintIsland(address recipient, uint128 liq) internal {
+        (
+            uint256 amount0,
+            uint256 amount1,
+            uint256 shares
+        ) = getMintAmountsFromIslandLiquidity(liq);
+
+        // transfer required tokens to this contract
+        TransferHelper.safeTransferFrom(
+            token0,
+            msg.sender,
+            address(this),
+            amount0
+        );
+        TransferHelper.safeTransferFrom(
+            token1,
+            msg.sender,
+            address(this),
+            amount1
+        );
+
+        // mint to the island
+        SafeERC20.forceApprove(IERC20(token0), address(island), amount0);
+        SafeERC20.forceApprove(IERC20(token1), address(island), amount1);
+
+        island.mint(shares, recipient);
+
+        SafeERC20.forceApprove(IERC20(token0), address(island), 0);
+        SafeERC20.forceApprove(IERC20(token1), address(island), 0);
     }
 
     /// @notice burns liquidity for the msg.sender
@@ -171,7 +203,9 @@ contract Burve is ERC20 {
     /// @param liq The amount of liquidity to burn.
     function burnRange(TickRange memory range, uint128 liq) internal {
         if (range.lower == 0 && range.upper == 0) {
-            uint256 burnShares = islandLiqToShares(liq);
+            // minting share calculation should be consistent when burning
+            // but minted token amounts should be ignored
+            (, , uint256 burnShares) = getMintAmountsFromIslandLiquidity(liq);
             island.burn(burnShares, msg.sender);
         } else {
             (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
@@ -218,47 +252,30 @@ contract Burve is ERC20 {
 
     /* internal helpers */
 
-    /// @notice Calculates the amount of shares for an island given the liquidity.
-    /// @param liq The liquidity to convert to shares.
-    /// @return shares The amount of shares.
-    function islandLiqToShares(
-        uint128 liq
-    ) internal view returns (uint256 shares) {
-        if (address(island) == address(0x0)) {
-            revert NoIsland();
-        }
-
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-
-        (uint256 amount0, uint256 amount1) = getAmountsFromLiquidity(
-            sqrtRatioX96,
-            island.lowerTick(),
-            island.upperTick(),
-            liq
-        );
-
-        (, , shares) = island.getMintAmounts(amount0, amount1);
-    }
-
-    /// @notice Converts the amount of liquidity to amount0 and amount1.
-    /// @param sqrtRatioX96 The price from slot0.
-    /// @param tickLower The lower bound.
-    /// @param tickUpper The upper bound.
-    /// @param liquidity The liquidity to find amounts for.
-    function getAmountsFromLiquidity(
-        uint160 sqrtRatioX96,
-        int24 tickLower,
-        int24 tickUpper,
+    /// @notice Calculates the token and share amounts for an island given the liquidity.
+    /// @param liquidity The liquidity
+    /// @return mint0 The amount of token0 in the provided liquidity when minting
+    /// @return mint1 The amount of token1 in the provided liquidity when minting
+    /// @return mintShares The amount of island shares that the liquidity represents
+    function getMintAmountsFromIslandLiquidity(
         uint128 liquidity
-    ) internal pure returns (uint256 amount0, uint256 amount1) {
-        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
-        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
-        (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
+    ) internal view returns (uint256 mint0, uint256 mint1, uint256 mintShares) {
+        (uint160 sqrtRatioX96, , , , , , ) = island.pool().slot0();
+
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(island.lowerTick());
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(island.upperTick());
+
+        (uint256 amount0Max, uint256 amount1Max) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtRatioX96,
             sqrtRatioAX96,
             sqrtRatioBX96,
             liquidity,
             false
+        );
+
+        (mint0, mint1, mintShares) = island.getMintAmounts(
+            amount0Max,
+            amount1Max
         );
     }
 

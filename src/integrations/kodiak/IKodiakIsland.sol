@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.19;
 
-import {IUniswapV3MintCallback} from "./pool/IUniswapV3MintCallback.sol";
-import {IUniswapV3SwapCallback} from "./pool/IUniswapV3SwapCallback.sol";
-import {IUniswapV3Pool} from "./IUniswapV3Pool.sol";
-import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IKodiakIsland is IUniswapV3MintCallback, IUniswapV3SwapCallback {
+import { IUniswapV3MintCallback } from "./pool/IUniswapV3MintCallback.sol";
+import { IUniswapV3SwapCallback } from "./pool/IUniswapV3SwapCallback.sol";
+import { IUniswapV3Pool } from "./IUniswapV3Pool.sol";
+
+interface IKodiakIsland is IERC20, IUniswapV3MintCallback, IUniswapV3SwapCallback {
     event Minted(
         address receiver,
         uint256 mintAmount,
