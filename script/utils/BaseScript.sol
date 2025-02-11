@@ -69,21 +69,21 @@ abstract contract BaseScript is Script {
 
     // Helper function to get the appropriate private key
     function _getPrivateKey() internal view returns (uint256) {
-        try vm.envUint("DEPLOYER_PRIVATE_KEY") returns (uint256 key) {
+        try vm.envUint("ANVIL_DEFAULT_KEY") returns (uint256 key) {
             return key;
         } catch {
-            // If not set, return Anvil's default private key from .env
-            return vm.envUint("ANVIL_DEFAULT_KEY");
+            // If not set, return the deployer's private key from .env
+            return vm.envUint("DEPLOYER_PRIVATE_KEY");
         }
     }
 
     // Helper function to get the appropriate sender address
     function _getSender() internal view returns (address) {
-        try vm.envAddress("DEPLOYER_PUBLIC_KEY") returns (address addr) {
+        try vm.envAddress("ANVIL_DEFAULT_ADDR") returns (address addr) {
             return addr;
         } catch {
-            // If not set, return Anvil's default address from .env
-            return vm.envAddress("ANVIL_DEFAULT_ADDR");
+            // If not set, return the deployer's public key from .env
+            return vm.envAddress("DEPLOYER_PUBLIC_KEY");
         }
     }
 
@@ -94,9 +94,7 @@ abstract contract BaseScript is Script {
         uint256 amount
     ) internal {
         MockERC20(token).mint(to, amount);
-        vm.startPrank(to);
         MockERC20(token).approve(address(diamond), amount);
-        vm.stopPrank();
     }
 
     // Helper to get LP token for a closure ID

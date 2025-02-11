@@ -125,13 +125,15 @@ contract SimplexDiamond is IDiamond {
 
         {
             // Add storage facet using LibDiamond directly since we're the owner
-            bytes4[] memory selectors = new bytes4[](6);
+            bytes4[] memory selectors = new bytes4[](8);
             selectors[0] = ViewFacet.getEdge.selector;
             selectors[1] = ViewFacet.getVertex.selector;
             selectors[2] = ViewFacet.getAssetShares.selector;
             selectors[3] = ViewFacet.getDefaultEdge.selector;
             selectors[4] = ViewFacet.getClosureId.selector;
             selectors[5] = ViewFacet.getPriceX128.selector;
+            selectors[6] = ViewFacet.getTokenIndex.selector;
+            selectors[7] = ViewFacet.isTokenInClosure.selector;
 
             cuts[7] = IDiamond.FacetCut({
                 facetAddress: address(new ViewFacet()),

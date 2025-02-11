@@ -17,9 +17,7 @@ contract RemoveLiquidity is BaseScript {
         BurveMultiLPToken lpToken = _getLPToken(closureId);
 
         // Approve LP token spending
-        vm.startPrank(_getSender());
         lpToken.approve(address(diamond), shares);
-        vm.stopPrank();
 
         // Remove liquidity
         liqFacet.removeLiq(recipient, closureId, shares);

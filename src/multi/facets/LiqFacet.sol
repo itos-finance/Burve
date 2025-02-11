@@ -24,6 +24,30 @@ contract LiqFacet is ReentrancyGuardTransient {
     error DeMinimisDeposit();
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
 
+    /// @notice Emitted when liquidity is added to a closure
+    /// @param recipient The address that received the LP shares
+    /// @param closureId The ID of the closure
+    /// @param amounts The amounts of each token added
+    /// @param shares The number of LP shares minted
+    event AddLiquidity(
+        address indexed recipient,
+        uint16 indexed closureId,
+        uint128[] amounts,
+        uint256 shares
+    );
+
+    /// @notice Emitted when liquidity is removed from a closure
+    /// @param recipient The address that received the tokens
+    /// @param closureId The ID of the closure
+    /// @param amounts The amounts given back on burning of the LP tokens
+    /// @param shares The number of LP shares burned
+    event RemoveLiquidity(
+        address indexed recipient,
+        uint16 indexed closureId,
+        uint256[] amounts,
+        uint256 shares
+    );
+
     function addLiq(
         address recipient,
         uint16 _closureId,
@@ -109,6 +133,8 @@ contract LiqFacet is ReentrancyGuardTransient {
         if (depositValue == 0) revert DeMinimisDeposit();
         shares = AssetLib.add(recipient, cid, depositValue, initialValue);
         if (shares == 0) revert DeMinimisDeposit();
+
+        emit AddLiquidity(recipient, _closureId, amounts, shares);
     }
 
     function removeLiq(
@@ -120,6 +146,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares);
         uint256 n = TokenRegLib.numVertices();
+        uint256[] memory amounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);
@@ -127,10 +154,13 @@ contract LiqFacet is ReentrancyGuardTransient {
             if (bal == 0) continue;
             // If there are tokens, we withdraw.
             uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
+            amounts[i] = withdraw;
             vPtr.withdraw(cid, withdraw);
             vPtr.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
         }
+
+        emit RemoveLiquidity(recipient, _closureId, amounts, shares);
     }
 }

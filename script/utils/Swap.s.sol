@@ -4,6 +4,9 @@ pragma solidity ^0.8.27;
 import "./BaseScript.sol";
 
 contract Swap is BaseScript {
+    uint128 constant MIN_SQRT_PRICE_X96 = uint128(1 << 96) / 1000;
+    uint128 constant MAX_SQRT_PRICE_X96 = uint128(1000 << 96);
+
     function run() external {
         // Load configuration from environment
         address recipient = vm.envOr("RECIPIENT", _getSender());
@@ -11,7 +14,7 @@ contract Swap is BaseScript {
         address outToken = vm.envAddress("OUT_TOKEN");
         int256 amountSpecified = int256(vm.envUint("AMOUNT")); // Positive for exact input, negative for exact output
         uint160 sqrtPriceLimitX96 = uint160(
-            vm.envOr("SQRT_PRICE_LIMIT", uint256(0))
+            vm.envOr("SQRT_PRICE_LIMIT", MIN_SQRT_PRICE_X96 + 1)
         );
 
         // Start broadcasting
