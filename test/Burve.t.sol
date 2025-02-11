@@ -115,7 +115,7 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveIsland), mint0);
         token1.approve(address(burveIsland), mint1);
 
-        burveIsland.mint(address(alice), liq);
+        burveIsland.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
@@ -145,7 +145,7 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveIsland), mint0);
         token1.approve(address(burveIsland), mint1);
 
-        burveIsland.mint(address(alice), liq);
+        burveIsland.mint(address(alice), liq, 0, type(uint128).max);
 
         assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
         assertEq(token1.balanceOf(address(sender)), 0, "sender token1 balance");
@@ -175,7 +175,7 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveV3), mint0);
         token1.approve(address(burveV3), mint1);
 
-        burveV3.mint(address(alice), liq);
+        burveV3.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
@@ -201,7 +201,7 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveV3), mint0);
         token1.approve(address(burveV3), mint1);
 
-        burveV3.mint(address(alice), liq);
+        burveV3.mint(address(alice), liq, 0, type(uint128).max);
 
         assertEq(token0.balanceOf(address(sender)), 0, "sende token0 balance");
         assertEq(token1.balanceOf(address(sender)), 0, "sende token1 balance");
@@ -235,7 +235,7 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burve), mint0);
         token1.approve(address(burve), mint1);
 
-        burve.mint(address(alice), liq);
+        burve.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
@@ -275,7 +275,7 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burve), mint0);
         token1.approve(address(burve), mint1);
 
-        burve.mint(address(alice), liq);
+        burve.mint(address(alice), liq, 0, type(uint128).max);
 
         assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
         assertEq(token1.balanceOf(address(sender)), 0, "sender token1 balance");
@@ -353,6 +353,40 @@ contract BurveTest is ForkableTest {
             )
         );
         burveV3.uniswapV3MintCallback(0, 0, abi.encode(address(this)));
+    }
+
+    function testRevertMintSqrtPX96BelowLowerLimit() public {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
+        uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
+        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
+        burve.mint(address(alice), 100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+    }
+
+    function testRevertMintSqrtPX96AboveUpperLimit() public {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
+        uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
+        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
+        burve.mint(address(alice), 100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+    }
+
+    // Burn Tests
+
+    function testRevertBurnSqrtPX96BelowLowerLimit() public {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
+        uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
+        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
+        burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+    }
+
+    function testRevertBurnSqrtPX96AboveUpperLimit() public {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
+        uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
+        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
+        burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
     }
 
     // Helpers
