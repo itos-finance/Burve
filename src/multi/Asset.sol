@@ -30,7 +30,7 @@ library AssetLib {
         assets.totalShares[cid] += shares;
     }
 
-    /// Remove shares frmo a user's closure allocation.
+    /// Remove shares from a user's closure allocation.
     function remove(
         address owner,
         ClosureId cid,
