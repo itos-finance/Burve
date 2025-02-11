@@ -6,7 +6,6 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 import {Auto165} from "Commons/ERC/Auto165.sol";
-
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
@@ -18,6 +17,7 @@ import {BurveMultiLPToken} from "../../src/multi/LPToken.sol";
 import {VaultType} from "../../src/multi/VaultProxy.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ClosureId} from "../../src/multi/Closure.sol";
+import {TokenRegLib} from "../../src/multi/Token.sol";
 
 /// @title BurveCustomForkTest - fork test for custom token setup
 /// @notice Sets up Burve with HONEY, USDe and rUSD using Dolomite vaults
@@ -104,9 +104,7 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         _setupClosuresAndLPTokens();
     }
 
-    function deploySetup() internal pure override {
-        revert("Use fork testing for Burve integration tests");
-    }
+    function deploySetup() internal pure override {}
 
     function postSetup() internal override {
         // Label addresses for better trace output
@@ -166,11 +164,9 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
                 pair[0] = tokens[i];
                 pair[1] = tokens[j];
 
-                uint16 closureId = ClosureId.unwrap(
-                    viewFacet.getClosureId(pair)
-                );
-                lpTokens[closureId] = new BurveMultiLPToken(
-                    ClosureId.wrap(closureId),
+                uint16 pairId = ClosureId.unwrap(viewFacet.getClosureId(pair));
+                lpTokens[pairId] = new BurveMultiLPToken(
+                    ClosureId.wrap(pairId),
                     address(diamond)
                 );
             }
@@ -182,9 +178,9 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         triple[1] = tokens[1];
         triple[2] = tokens[2];
 
-        uint16 closureId = ClosureId.unwrap(viewFacet.getClosureId(triple));
-        lpTokens[closureId] = new BurveMultiLPToken(
-            ClosureId.wrap(closureId),
+        uint16 tripleId = ClosureId.unwrap(viewFacet.getClosureId(triple));
+        lpTokens[tripleId] = new BurveMultiLPToken(
+            ClosureId.wrap(tripleId),
             address(diamond)
         );
     }
@@ -206,8 +202,8 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         address[] memory tokens = new address[](2);
         tokens[0] = address(honey);
         tokens[1] = address(usde);
-        uint16 closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
-        BurveMultiLPToken lpToken = lpTokens[closureId];
+        uint16 pairId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
+        BurveMultiLPToken lpToken = lpTokens[pairId];
 
         // Print initial balances
         console.log("Initial HONEY balance:", honey.balanceOf(deployer));
@@ -215,21 +211,14 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         console.log("Initial LP token balance:", lpToken.balanceOf(deployer));
 
         // Prepare amounts for liquidity provision
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = uint128(INITIAL_DEPOSIT_AMOUNT); // HONEY amount
-        amounts[1] = uint128(INITIAL_DEPOSIT_AMOUNT); // USDe amount
-        amounts[2] = 0;
-
-        // Approve LP token to spend our tokens
-        honey.approve(address(lpToken), type(uint256).max);
-        usde.approve(address(lpToken), type(uint256).max);
+        uint8 numVertices = TokenRegLib.numVertices();
+        uint128[] memory depositAmounts = new uint128[](numVertices);
+        depositAmounts[0] = uint128(INITIAL_DEPOSIT_AMOUNT); // HONEY amount
+        depositAmounts[1] = uint128(INITIAL_DEPOSIT_AMOUNT); // USDe amount
+        depositAmounts[2] = 0; // rUSD amount
 
         // Add liquidity
-        uint256 shares = lpToken.mintWithMultipleTokens(
-            deployer,
-            deployer,
-            amounts
-        );
+        uint256 shares = liqFacet.addLiq(deployer, pairId, depositAmounts);
 
         // Print final balances
         console.log("Shares received:", shares);
@@ -265,11 +254,11 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
 
         // Perform HONEY -> USDe swap
         (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
-            trader, // recipient
-            address(honey), // inToken
-            address(usde), // outToken
-            int256(tradeAmount), // amountSpecified
-            MAX_SQRT_PRICE_X96 - 1
+            trader, // recipient - who receives the output tokens
+            address(honey), // inToken - token being swapped from
+            address(usde), // outToken - token being swapped to
+            int256(tradeAmount), // amountSpecified - positive for exact input, negative for exact output
+            MAX_SQRT_PRICE_X96 - 1 // sqrtPriceLimitX96 - maximum price limit for the swap
         );
 
         // Verify swap results
@@ -287,11 +276,11 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
 
         // Perform reverse swap USDe -> HONEY
         (uint256 reverseInAmount, uint256 reverseOutAmount) = swapFacet.swap(
-            trader, // recipient
-            address(usde), // inToken
-            address(honey), // outToken
-            int256(outAmount), // amountSpecified
-            MIN_SQRT_PRICE_X96 + 1
+            trader, // recipient - who receives the output tokens
+            address(usde), // inToken - token being swapped from
+            address(honey), // outToken - token being swapped to
+            int256(outAmount), // amountSpecified - positive for exact input, negative for exact output
+            MIN_SQRT_PRICE_X96 + 1 // sqrtPriceLimitX96 - minimum price limit for the swap
         );
 
         // Verify reverse swap results
@@ -318,8 +307,8 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         address[] memory tokens = new address[](2);
         tokens[0] = address(usde);
         tokens[1] = address(rUsd);
-        uint16 closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
-        BurveMultiLPToken lpToken = lpTokens[closureId];
+        uint16 pairId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
+        BurveMultiLPToken lpToken = lpTokens[pairId];
 
         // Print initial balances
         console.log("Initial USDe balance:", usde.balanceOf(deployer));
@@ -327,21 +316,14 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         console.log("Initial LP token balance:", lpToken.balanceOf(deployer));
 
         // Prepare amounts for liquidity provision
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 0;
-        amounts[1] = uint128(INITIAL_DEPOSIT_AMOUNT); // USDe amount
-        amounts[2] = uint128(INITIAL_DEPOSIT_AMOUNT); // rUSD amount
-
-        // Approve LP token to spend our tokens
-        usde.approve(address(lpToken), type(uint256).max);
-        rUsd.approve(address(lpToken), type(uint256).max);
+        uint8 numVertices = TokenRegLib.numVertices();
+        uint128[] memory depositAmounts = new uint128[](numVertices);
+        depositAmounts[0] = 0; // HONEY amount
+        depositAmounts[1] = uint128(INITIAL_DEPOSIT_AMOUNT); // USDe amount
+        depositAmounts[2] = uint128(INITIAL_DEPOSIT_AMOUNT); // rUSD amount
 
         // Add liquidity
-        uint256 shares = lpToken.mintWithMultipleTokens(
-            deployer,
-            deployer,
-            amounts
-        );
+        uint256 shares = liqFacet.addLiq(deployer, pairId, depositAmounts);
 
         // Print final balances
         console.log("Shares received:", shares);
@@ -377,11 +359,11 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
 
         // Perform USDe -> rUSD swap
         (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
-            trader, // recipient
-            address(usde), // inToken
-            address(rUsd), // outToken
-            int256(tradeAmount), // amountSpecified
-            MIN_SQRT_PRICE_X96 + 1
+            trader, // recipient - who receives the output tokens
+            address(usde), // inToken - token being swapped from
+            address(rUsd), // outToken - token being swapped to
+            int256(tradeAmount), // amountSpecified - positive for exact input, negative for exact output
+            MIN_SQRT_PRICE_X96 + 1 // sqrtPriceLimitX96 - minimum price limit for the swap
         );
 
         // Verify swap results
@@ -399,11 +381,11 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
 
         // Perform reverse swap rUSD -> USDe
         (uint256 reverseInAmount, uint256 reverseOutAmount) = swapFacet.swap(
-            trader, // recipient
-            address(rUsd), // inToken
-            address(usde), // outToken
-            int256(outAmount), // amountSpecified
-            MAX_SQRT_PRICE_X96 - 1
+            trader, // recipient - who receives the output tokens
+            address(rUsd), // inToken - token being swapped from
+            address(usde), // outToken - token being swapped to
+            int256(outAmount), // amountSpecified - positive for exact input, negative for exact output
+            MAX_SQRT_PRICE_X96 - 1 // sqrtPriceLimitX96 - maximum price limit for the swap
         );
 
         // Verify reverse swap results

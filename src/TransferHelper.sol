@@ -18,7 +18,6 @@ library TransferHelper {
         address to,
         uint256 value
     ) internal {
-        console.log("bfoe");
         (bool success, bytes memory data) = token.call(
             abi.encodeWithSelector(
                 IERC20.transferFrom.selector,
@@ -27,7 +26,6 @@ library TransferHelper {
                 value
             )
         );
-        console.log("bfo2e", success);
         require(
             success && (data.length == 0 || abi.decode(data, (bool))),
             "STF"

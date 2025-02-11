@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {ClosureId} from "./Closure.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 import {TransferHelper} from "../TransferHelper.sol";
 
 /// A token contract we use to wrap the BurveMulti swap contract so that we can issue

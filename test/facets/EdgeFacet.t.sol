@@ -134,6 +134,15 @@ contract EdgeFacetTest is Test {
     function testSetEdgeFee() public {
         vm.startPrank(owner);
 
+        // First create the edge
+        edgeFacet.setEdge(
+            address(token0),
+            address(token1),
+            100, // amplitude
+            -46063, // lowTick
+            46063 // highTick
+        );
+
         uint24 fee = 3000; // 0.3%
         uint8 feeProtocol = 50; // 50% of fee goes to protocol
 

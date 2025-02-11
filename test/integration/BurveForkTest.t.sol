@@ -68,9 +68,7 @@ contract BurveForkTest is ForkableTest, Auto165 {
         viewFacet = ViewFacet(address(diamond));
     }
 
-    function deploySetup() internal pure override {
-        revert("Use fork testing for Burve integration tests");
-    }
+    function deploySetup() internal pure override {}
 
     function postSetup() internal override {
         // Label addresses for better trace output
@@ -117,22 +115,18 @@ contract BurveForkTest is ForkableTest, Auto165 {
         console.log("Initial LP token balance:", lpToken.balanceOf(deployer));
 
         // Prepare amounts for liquidity provision
-        uint128[] memory amounts = new uint128[](4);
+        uint8 numVertices = simplexFacet.numVertices();
+        uint128[] memory amounts = new uint128[](numVertices);
         amounts[0] = uint128(INITIAL_DEPOSIT_AMOUNT); // HONEY amount
-        amounts[1] = 0;
         amounts[2] = uint128(INITIAL_DEPOSIT_AMOUNT); // MIM amount
-        amounts[3] = 0;
+        // Other positions are 0 by default
 
         // Approve LP token to spend our tokens
         mim.approve(address(lpToken), type(uint256).max);
         honey.approve(address(lpToken), type(uint256).max);
 
         // Add liquidity
-        uint256 shares = lpToken.mintWithMultipleTokens(
-            deployer,
-            deployer,
-            amounts
-        );
+        uint256 shares = liqFacet.addLiq(deployer, 5, amounts);
 
         // Print final balances
         console.log("Shares received:", shares);

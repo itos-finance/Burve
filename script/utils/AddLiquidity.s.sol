@@ -67,12 +67,7 @@ contract AddLiquidity is BaseScript {
         require(tokensProcessed > 0, "No valid tokens found for this closure");
 
         // Add liquidity
-        uint256 shares = liqFacet.addLiq(
-            recipient,
-            _getSender(),
-            closureId,
-            amounts
-        );
+        uint256 shares = liqFacet.addLiq(recipient, closureId, amounts);
 
         // Log results
         console2.log("\nLiquidity added successfully:");

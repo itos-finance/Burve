@@ -143,18 +143,15 @@ contract SwapFacetTest is Test {
 
     function _setupInitialLiquidity() internal {
         vm.startPrank(eve);
-        eveShares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            uint128(INITIAL_LIQUIDITY_AMOUNT)
-        );
-        eveShares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(INITIAL_LIQUIDITY_AMOUNT)
-        );
+        uint128[] memory amounts0 = new uint128[](2);
+        amounts0[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        amounts0[1] = 0;
+        eveShares0 = liqFacet.addLiq(alice, closureId, amounts0);
+
+        uint128[] memory amounts1 = new uint128[](2);
+        amounts1[0] = 0;
+        amounts1[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        eveShares1 = liqFacet.addLiq(alice, closureId, amounts1);
         vm.stopPrank();
     }
 
@@ -199,7 +196,7 @@ contract SwapFacetTest is Test {
             address(token0), // tokenIn
             address(token1), // tokenOut
             -int256(outputAmount), // negative for exact output
-            0 // no price limit
+            MIN_SQRT_RATIO_LIMIT // price limit
         );
         vm.stopPrank();
 
@@ -281,7 +278,7 @@ contract SwapFacetTest is Test {
             address(token0),
             address(token1),
             int256(swapAmount),
-            0
+            MIN_SQRT_RATIO_LIMIT
         );
         vm.stopPrank();
 
@@ -339,7 +336,7 @@ contract SwapFacetTest is Test {
             address(token0),
             address(token1),
             int256(largeSwapAmount),
-            0
+            MIN_SQRT_RATIO_LIMIT
         );
         vm.stopPrank();
 
@@ -397,7 +394,7 @@ contract SwapFacetTest is Test {
                 address(token0),
                 address(token1),
                 int256(swapAmount),
-                0
+                MIN_SQRT_RATIO_LIMIT
             );
             vm.stopPrank();
 
@@ -485,24 +482,21 @@ contract SwapFacetTest is Test {
             address(token0),
             address(token1),
             int256(swapAmount),
-            0
+            MIN_SQRT_RATIO_LIMIT
         );
         vm.stopPrank();
 
         // Then remove liquidity
         vm.startPrank(alice);
-        uint256 shares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            uint128(depositAmount)
-        );
-        uint256 shares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(depositAmount)
-        );
+        uint128[] memory amounts0 = new uint128[](2);
+        amounts0[0] = uint128(depositAmount);
+        amounts0[1] = 0;
+        uint256 shares0 = liqFacet.addLiq(alice, closureId, amounts0);
+
+        uint128[] memory amounts1 = new uint128[](2);
+        amounts1[0] = 0;
+        amounts1[1] = uint128(depositAmount);
+        uint256 shares1 = liqFacet.addLiq(alice, closureId, amounts1);
 
         uint256 token0Before = token0.balanceOf(alice);
         uint256 token1Before = token1.balanceOf(alice);
@@ -544,8 +538,15 @@ contract SwapFacetTest is Test {
 
         // Charlie adds liquidity
         vm.startPrank(charlie);
-        liqFacet.addLiq(charlie, closureId, address(token0), uint128(amount));
-        liqFacet.addLiq(charlie, closureId, address(token1), uint128(amount));
+        uint128[] memory amounts0 = new uint128[](2);
+        amounts0[0] = uint128(amount);
+        amounts0[1] = 0;
+        liqFacet.addLiq(charlie, closureId, amounts0);
+
+        uint128[] memory amounts1 = new uint128[](2);
+        amounts1[0] = 0;
+        amounts1[1] = uint128(amount);
+        liqFacet.addLiq(charlie, closureId, amounts1);
         vm.stopPrank();
 
         // Bob swaps
@@ -555,30 +556,35 @@ contract SwapFacetTest is Test {
             address(token0),
             address(token1),
             int256(amount),
-            0
+            MIN_SQRT_RATIO_LIMIT
         );
         vm.stopPrank();
 
         // Dave adds liquidity
         vm.startPrank(dave);
-        liqFacet.addLiq(dave, closureId, address(token0), uint128(amount));
-        liqFacet.addLiq(dave, closureId, address(token1), uint128(amount));
+        uint128[] memory amounts2 = new uint128[](2);
+        amounts2[0] = uint128(amount);
+        amounts2[1] = 0;
+        liqFacet.addLiq(dave, closureId, amounts2);
+
+        uint128[] memory amounts3 = new uint128[](2);
+        amounts3[0] = 0;
+        amounts3[1] = uint128(amount);
+        liqFacet.addLiq(dave, closureId, amounts3);
         vm.stopPrank();
 
         // Alice removes liquidity
         vm.startPrank(alice);
-        uint256 shares0 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token0),
-            uint128(amount)
-        );
-        uint256 shares1 = liqFacet.addLiq(
-            alice,
-            closureId,
-            address(token1),
-            uint128(amount)
-        );
+        uint128[] memory amounts4 = new uint128[](2);
+        amounts4[0] = uint128(amount);
+        amounts4[1] = 0;
+        uint256 shares0 = liqFacet.addLiq(alice, closureId, amounts4);
+
+        uint128[] memory amounts5 = new uint128[](2);
+        amounts5[0] = 0;
+        amounts5[1] = uint128(amount);
+        uint256 shares1 = liqFacet.addLiq(alice, closureId, amounts5);
+
         liqFacet.removeLiq(alice, closureId, shares0);
         liqFacet.removeLiq(alice, closureId, shares1);
         vm.stopPrank();
