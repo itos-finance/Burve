@@ -251,6 +251,40 @@ contract Burve is ERC20 {
         SafeERC20.forceApprove(island, address(stationProxy), 0);
     }
 
+    /// @notice Mints to the island.
+    /// @param recipient The recipient of the minted liquidity.
+    /// @param liq The amount of liquidity to mint.
+    function mintIsland(address recipient, uint128 liq) internal {
+        (
+            uint256 amount0,
+            uint256 amount1,
+            uint256 shares
+        ) = getMintAmountsFromIslandLiquidity(liq);
+
+        // transfer required tokens to this contract
+        TransferHelper.safeTransferFrom(
+            token0,
+            msg.sender,
+            address(this),
+            amount0
+        );
+        TransferHelper.safeTransferFrom(
+            token1,
+            msg.sender,
+            address(this),
+            amount1
+        );
+
+        // mint to the island
+        SafeERC20.forceApprove(IERC20(token0), address(island), amount0);
+        SafeERC20.forceApprove(IERC20(token1), address(island), amount1);
+
+        island.mint(shares, recipient);
+
+        SafeERC20.forceApprove(IERC20(token0), address(island), 0);
+        SafeERC20.forceApprove(IERC20(token1), address(island), 0);
+    }
+
     /// @notice burns liquidity for the msg.sender
     /// @param shares The amount of Burve LP token to burn.
     /// @param lowerSqrtPriceLimitX96 The lower price limit of the pool.
@@ -383,6 +417,11 @@ contract Burve is ERC20 {
             sqrtRatioBX96,
             liquidity,
             false
+        );
+
+        (mint0, mint1, mintShares) = island.getMintAmounts(
+            amount0Max,
+            amount1Max
         );
     }
 
