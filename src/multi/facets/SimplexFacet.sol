@@ -7,7 +7,7 @@ import {TransferHelper} from "../../TransferHelper.sol";
 import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegLib} from "../Token.sol";
+import {TokenRegLib, TokenRegistry} from "../Token.sol";
 
 struct SimplexStorage {
     string name;
@@ -20,6 +20,30 @@ contract SimplexFacet {
     /// sum with other vertex ids to create a closure Id.
     function getVertexId(address token) external view returns (uint16 vid) {
         return VertexId.unwrap(newVertexId(token));
+    }
+
+    /// Fetch the list of tokens registered in this simplex.
+    function getTokens() external view returns (address[] memory tokens) {
+        address[] storage _t = Store.tokenRegistry().tokens;
+        tokens = new address[](_t.length);
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            tokens[i] = _t[i];
+        }
+    }
+
+    /// Fetch the vertex index of the given token addresses.
+    /// Returns a negative value if the token is not present.
+    function getIndexes(
+        address[] calldata tokens
+    ) external view returns (int8[] memory idxs) {
+        TokenRegistry storage reg = Store.tokenRegistry();
+        idxs = new int8[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            idxs[i] = int8(reg.tokenIdx[tokens[i]]);
+            if (idxs[i] == 0 && reg.tokens[0] != tokens[i]) {
+                idxs[i] = -1;
+            }
+        }
     }
 
     /// Add a token into this simplex.
