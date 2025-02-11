@@ -8,12 +8,14 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {ForkableTest} from "@Commons/Test/ForkableTest.sol";
 
-import { BartioAddresses } from "./utils/BaritoAddresses.sol";
-import { Burve, TickRange } from "../src/Burve.sol";
-import { IKodiakIsland } from "../src/integrations/kodiak/IKodiakIsland.sol";
-import { IUniswapV3Pool } from "../src/integrations/kodiak/IUniswapV3Pool.sol";
-import { LiquidityAmounts } from "../src/integrations/uniswap/LiquidityAmounts.sol";
-import { TickMath } from "../src/integrations/uniswap/TickMath.sol";
+import { BartioAddresses } from "../utils/BaritoAddresses.sol";
+import { Burve } from "../../src/single/Burve.sol";
+import { TickRange, TickRangeImpl } from "../../src/single/TickRange.sol";
+import { IKodiakIsland } from "../../src/integrations/kodiak/IKodiakIsland.sol";
+import { IUniswapV3Pool } from "../../src/integrations/kodiak/IUniswapV3Pool.sol";
+import { LiquidityAmounts } from "../../src/integrations/uniswap/LiquidityAmounts.sol";
+import { NullStationProxy } from "./NullStationProxy.sol";
+import { TickMath } from "../../src/integrations/uniswap/TickMath.sol";
 
 contract BurveTest is ForkableTest {
     Burve public burveIsland; // island only
@@ -41,6 +43,9 @@ contract BurveTest is ForkableTest {
         int24 tickSpacing = pool.tickSpacing();
         int24 clampedCurrentTick = getClampedCurrentTick();
 
+        // Null station proxy
+        NullStationProxy stationProxy = new NullStationProxy();
+
         // Burve Island
         TickRange[] memory islandRanges = new TickRange[](1);
         islandRanges[0] = TickRange(0, 0);
@@ -51,6 +56,7 @@ contract BurveTest is ForkableTest {
         burveIsland = new Burve(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+            address(stationProxy),
             islandRanges,
             islandWeights
         );
@@ -69,6 +75,7 @@ contract BurveTest is ForkableTest {
         burveV3 = new Burve(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             address(0x0),
+            address(stationProxy),
             v3Ranges,
             v3Weights
         );
@@ -89,6 +96,7 @@ contract BurveTest is ForkableTest {
         burve = new Burve(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+            address(stationProxy),
             ranges,
             weights
         );
