@@ -104,6 +104,7 @@ contract Burve is ERC20 {
         if (sqrtRatioX96 < lowerSqrtPriceLimitX96 || sqrtRatioX96 > upperSqrtPriceLimitX96) {
             revert SqrtPriceX96OverLimit(sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
         }
+
         _;
     }
 
@@ -267,34 +268,38 @@ contract Burve is ERC20 {
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
     function mintIsland(address recipient, uint128 liq) internal {
-        (
-            uint256 amount0,
-            uint256 amount1,
-            uint256 shares
-        ) = getMintAmountsFromIslandLiquidity(liq);
+        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(liq, island.lowerTick(), island.upperTick());
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = island.getMintAmounts(amount0, amount1);
+
+        islandSharesPerOwner[recipient] += mintShares;
 
         // transfer required tokens to this contract
         TransferHelper.safeTransferFrom(
-            token0,
+            address(token0),
             msg.sender,
             address(this),
-            amount0
+            mint0
         );
         TransferHelper.safeTransferFrom(
-            token1,
+            address(token1),
             msg.sender,
             address(this),
-            amount1
+            mint1
         );
 
-        // mint to the island
-        SafeERC20.forceApprove(IERC20(token0), address(island), amount0);
-        SafeERC20.forceApprove(IERC20(token1), address(island), amount1);
+        // approve transfer to the island
+        SafeERC20.forceApprove(token0, address(island), amount0);
+        SafeERC20.forceApprove(token1, address(island), amount1);
 
-        island.mint(shares, recipient);
+        island.mint(mintShares, address(this));
 
-        SafeERC20.forceApprove(IERC20(token0), address(island), 0);
-        SafeERC20.forceApprove(IERC20(token1), address(island), 0);
+        SafeERC20.forceApprove(token0, address(island), 0);
+        SafeERC20.forceApprove(token1, address(island), 0);
+
+        // deposit minted shares to the station proxy
+        SafeERC20.forceApprove(island, address(stationProxy), mintShares);
+        stationProxy.depositLP(address(island), mintShares, recipient);
+        SafeERC20.forceApprove(island, address(stationProxy), 0);
     }
 
     /// @notice burns liquidity for the msg.sender
@@ -429,11 +434,6 @@ contract Burve is ERC20 {
             sqrtRatioBX96,
             liquidity,
             false
-        );
-
-        (mint0, mint1, mintShares) = island.getMintAmounts(
-            amount0Max,
-            amount1Max
         );
     }
 
