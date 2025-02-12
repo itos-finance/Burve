@@ -7,12 +7,14 @@ import {Vertex, VertexId} from "./Vertex.sol";
 import {TokenRegistry} from "./Token.sol";
 import {Edge} from "./Edge.sol";
 import {SimplexStorage} from "./facets/SimplexFacet.sol";
+import {Locker} from "./facets/LockFacet.sol";
 
 struct Storage {
     AssetStorage assets;
     TokenRegistry tokenReg;
     VaultStorage _vaults;
     SimplexStorage simplex;
+    Locker _locker;
     // Graph elements
     mapping(VertexId => Vertex) vertices;
     mapping(address => mapping(address => Edge)) edges; // Mapping from token,token to uniswap pool.
@@ -73,5 +75,9 @@ library Store {
 
     function simplex() internal view returns (SimplexStorage storage s) {
         return load().simplex;
+    }
+
+    function locker() internal view returns (Locker storage l) {
+        return load()._locker;
     }
 }

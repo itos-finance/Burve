@@ -29,6 +29,8 @@ contract SimplexFacet {
         uint8 feeProtocol
     );
 
+    /* Getters */
+
     /// Convert your token of interest to the vertex id which you can
     /// sum with other vertex ids to create a closure Id.
     function getVertexId(address token) external view returns (uint16 vid) {
@@ -59,31 +61,12 @@ contract SimplexFacet {
         }
     }
 
-    /// Add a token into this simplex.
-    function addVertex(address token, address vault, VaultType vType) external {
-        AdminLib.validateOwner();
-        Store.tokenRegistry().register(token);
-        Store.vertex(newVertexId(token)).init(token, vault, vType);
-        emit VertexAdded(token, vault, vType);
-    }
-
     /// Get the number of currently installed vertices
     function numVertices() external view returns (uint8) {
         return TokenRegLib.numVertices();
     }
 
-    /// Withdraw fees earned by the protocol.
-    function withdrawFees(address token, uint256 amount) external {
-        AdminLib.validateOwner();
-        // Normally tokens supporting the AMM ALWAYS resides in the vaults.
-        // The only exception is
-        // 1. When fees are earned by the protocol.
-        // 2. When someone accidentally sends tokens to this address
-        // 3. When someone donates.
-        // Therefore we can just withdraw from this contract to resolve all three.
-        TransferHelper.safeTransfer(token, msg.sender, amount);
-        emit FeesWithdrawn(token, amount);
-    }
+    /* Admin Function */
 
     /// These will be the paramters used by all edges on construction.
     function setDefaultEdge(
@@ -99,6 +82,29 @@ contract SimplexFacet {
         defaultE.setFee(fee, feeProtocol);
         emit DefaultEdgeSet(amplitude, lowTick, highTick, fee, feeProtocol);
     }
+
+    /// Add a token into this simplex.
+    function addVertex(address token, address vault, VaultType vType) external {
+        AdminLib.validateOwner();
+        Store.tokenRegistry().register(token);
+        Store.vertex(newVertexId(token)).init(token, vault, vType);
+        emit VertexAdded(token, vault, vType);
+    }
+
+    /// Withdraw fees earned by the protocol.
+    function withdrawFees(address token, uint256 amount) external {
+        AdminLib.validateOwner();
+        // Normally tokens supporting the AMM ALWAYS resides in the vaults.
+        // The only exception is
+        // 1. When fees are earned by the protocol.
+        // 2. When someone accidentally sends tokens to this address
+        // 3. When someone donates.
+        // Therefore we can just withdraw from this contract to resolve all three.
+        TransferHelper.safeTransfer(token, msg.sender, amount);
+        emit FeesWithdrawn(token, amount);
+    }
+
+    /* Naming */
 
     function setName(string calldata newName) external {
         AdminLib.validateOwner();
