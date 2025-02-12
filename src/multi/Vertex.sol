@@ -30,6 +30,7 @@ using VertexIdImpl for VertexId global;
  */
 struct Vertex {
     VertexId vid;
+    bool _isLocked;
     // Stores which closures contain the edge between this vertex and another vertex.
     mapping(VertexId => ClosureId[]) homs;
     // A quick lookup to know if a closure between this vertex and another is in use.
@@ -145,5 +146,19 @@ library VertexImpl {
         ClosureId[] storage homs = self.homs[other];
         amount = vProxy.totalBalance(homs, roundUp);
         // Nothing to commit.
+    }
+
+    /* Lock operations */
+
+    function lock(Vertex storage self) internal {
+        self._isLocked = true;
+    }
+
+    function unlock(Vertex storage self) internal {
+        self._isLocked = false;
+    }
+
+    function isLocked(Vertex storage self) internal view returns (bool) {
+        return self._isLocked;
     }
 }
