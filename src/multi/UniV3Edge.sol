@@ -8,6 +8,7 @@ import "v3-core/contracts/libraries/TransferHelper.sol";
 import "./uniV3Lib/SqrtPriceMath.sol";
 import "./uniV3Lib/SwapMath.sol";
 import "./uniV3Lib/TickMath.sol";
+import {console2} from "forge-std/console2.sol";
 
 import {Edge} from "./Edge.sol";
 
@@ -88,7 +89,6 @@ library UniV3Edge {
         )
     {
         require(amountSpecified != 0, "AS");
-
         require(
             zeroForOne
                 ? sqrtPriceLimitX96 < slot0Start.sqrtPriceX96 &&

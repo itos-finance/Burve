@@ -1,7 +1,5 @@
-@openzeppelin/=lib/openzeppelin-contracts/contracts/
-openzeppelin-contracts/=lib/openzeppelin-contracts/
+openzeppelin-contracts/=lib/openzeppelin-contracts/contracts
 Commons/=lib/Commons/src/
-@Commons/=lib/Commons/src/
 CommonsTestLib/=lib/Commons/test/lib/
 forge-std/=lib/forge-std/src/
 prb-test/=lib/Commons/lib/prb-test/src/
