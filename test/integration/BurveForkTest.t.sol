@@ -125,7 +125,7 @@ contract BurveForkTest is ForkableTest, Auto165 {
 
     function testAddLiquidityMimHoney() public forkOnly {
         // Start acting as the deployer
-        address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
+        address deployer = makeAddr("deployer");
         vm.startPrank(deployer);
 
         // Fund the deployer with tokens
@@ -175,7 +175,7 @@ contract BurveForkTest is ForkableTest, Auto165 {
 
     function testAddLiquidityHoneyDai() public forkOnly {
         // Start acting as the deployer
-        address deployer = vm.envAddress("DEPLOYER_PUBLIC_KEY");
+        address deployer = makeAddr("deployer");
         vm.startPrank(deployer);
 
         // Fund the deployer with tokens
