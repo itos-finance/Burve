@@ -14,18 +14,20 @@ import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
 import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
 import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
 
+import {BurveFacets} from "../InitLib.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
+import {ViewFacet} from "./facets/ViewFacet.sol";
 
 error FunctionNotFound(bytes4 _functionSelector);
 
 contract SimplexDiamond is IDiamond {
-    constructor(address swapFacet, address liqFacet, address simplexFacet) {
+    constructor(BurveFacets memory facets) {
         AdminLib.initOwner(msg.sender);
 
-        FacetCut[] memory cuts = new FacetCut[](7);
+        FacetCut[] memory cuts = new FacetCut[](8);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -69,11 +71,12 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory liqSelectors = new bytes4[](2);
+            bytes4[] memory liqSelectors = new bytes4[](3);
             liqSelectors[0] = LiqFacet.addLiq.selector;
             liqSelectors[1] = LiqFacet.removeLiq.selector;
+            liqSelectors[2] = LiqFacet.viewRemoveLiq.selector;
             cuts[3] = FacetCut({
-                facetAddress: liqFacet,
+                facetAddress: facets.liqFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: liqSelectors
             });
@@ -85,7 +88,7 @@ contract SimplexDiamond is IDiamond {
             swapSelectors[1] = SwapFacet.simSwap.selector;
             swapSelectors[2] = SwapFacet.getSqrtPrice.selector;
             cuts[4] = FacetCut({
-                facetAddress: swapFacet,
+                facetAddress: facets.swapFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: swapSelectors
             });
@@ -103,7 +106,7 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[7] = SimplexFacet.setName.selector;
             simplexSelectors[8] = SimplexFacet.getName.selector;
             cuts[5] = FacetCut({
-                facetAddress: simplexFacet,
+                facetAddress: facets.simplexFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: simplexSelectors
             });
@@ -118,6 +121,25 @@ contract SimplexDiamond is IDiamond {
                 facetAddress: address(new EdgeFacet()),
                 action: FacetCutAction.Add,
                 functionSelectors: edgeSelectors
+            });
+        }
+
+        {
+            // Add storage facet using LibDiamond directly since we're the owner
+            bytes4[] memory selectors = new bytes4[](8);
+            selectors[0] = ViewFacet.getEdge.selector;
+            selectors[1] = ViewFacet.getVertex.selector;
+            selectors[2] = ViewFacet.getAssetShares.selector;
+            selectors[3] = ViewFacet.getDefaultEdge.selector;
+            selectors[4] = ViewFacet.getClosureId.selector;
+            selectors[5] = ViewFacet.getPriceX128.selector;
+            selectors[6] = ViewFacet.getTokenIndex.selector;
+            selectors[7] = ViewFacet.isTokenInClosure.selector;
+
+            cuts[7] = IDiamond.FacetCut({
+                facetAddress: address(new ViewFacet()),
+                action: IDiamond.FacetCutAction.Add,
+                functionSelectors: selectors
             });
         }
 

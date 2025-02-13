@@ -41,9 +41,7 @@ contract BurveTest is ForkableTest {
         stationProxy = new NullStationProxy();
 
         // Pool info
-        pool = IUniswapV3Pool(
-            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3
-        );
+        pool = IUniswapV3Pool(BartioAddresses.KODIAK_HONEY_NECT_POOL_V3);
         token0 = IERC20(pool.token0());
         token1 = IERC20(pool.token1());
 
@@ -419,8 +417,16 @@ contract BurveTest is ForkableTest {
         deal(address(token0), address(alice), amount0Owed);
         deal(address(token1), address(alice), amount1Owed);
 
-        assertEq(token0.balanceOf(alice), amount0Owed, "alice starting token0 balance");
-        assertEq(token1.balanceOf(alice), amount1Owed, "alice starting token0 balance");
+        assertEq(
+            token0.balanceOf(alice),
+            amount0Owed,
+            "alice starting token0 balance"
+        );
+        assertEq(
+            token1.balanceOf(alice),
+            amount1Owed,
+            "alice starting token0 balance"
+        );
 
         // approve transfer
         vm.startPrank(alice);
@@ -430,7 +436,11 @@ contract BurveTest is ForkableTest {
 
         // call uniswapV3MintCallback
         vm.prank(address(pool));
-        burveV3.uniswapV3MintCallback(amount0Owed, amount1Owed, abi.encode(alice));
+        burveV3.uniswapV3MintCallback(
+            amount0Owed,
+            amount1Owed,
+            abi.encode(alice)
+        );
 
         assertEq(token0.balanceOf(alice), 0, "alice ending token0 balance");
         assertEq(token1.balanceOf(alice), 0, "alice ending token0 balance");
@@ -438,12 +448,25 @@ contract BurveTest is ForkableTest {
         uint256 postPoolBalance0 = token0.balanceOf(address(pool));
         uint256 postPoolBalance1 = token1.balanceOf(address(pool));
 
-        assertEq(postPoolBalance0 - priorPoolBalance0, amount0Owed, "pool received token0 balance");
-        assertEq(postPoolBalance1 - priorPoolBalance1, amount1Owed, "pool received token1 balance");
+        assertEq(
+            postPoolBalance0 - priorPoolBalance0,
+            amount0Owed,
+            "pool received token0 balance"
+        );
+        assertEq(
+            postPoolBalance1 - priorPoolBalance1,
+            amount1Owed,
+            "pool received token1 balance"
+        );
     }
 
     function testRevertUniswapV3MintCallbackSenderNotPool() public {
-        vm.expectRevert(abi.encodeWithSelector(Burve.UniswapV3MintCallbackSenderNotPool.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.UniswapV3MintCallbackSenderNotPool.selector,
+                address(this)
+            )
+        );
         burveV3.uniswapV3MintCallback(0, 0, abi.encode(address(this)));
     }
 

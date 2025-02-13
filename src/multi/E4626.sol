@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {console2} from "forge-std/console2.sol";
 import {ClosureId} from "./Closure.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {FullMath} from "./FullMath.sol";
 import {VaultTemp} from "./VaultProxy.sol";
-import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 /** A simple e4626 wrapper that tracks ownership by closureId
  * Note that there are plenty of E4626's that have lockups
@@ -157,6 +158,7 @@ library VaultE4626Impl {
             roundUp
         );
         uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
+
         uint256 fullAmount = roundUp
             ? FullMath.mulDivRoundingUp(
                 self.shares[cid],
@@ -164,6 +166,7 @@ library VaultE4626Impl {
                 self.totalShares
             )
             : FullMath.mulDiv(self.shares[cid], totalAssets, self.totalShares);
+
         // For the pegged assets we're interested in,
         // it would be insane to have more than 2^128 of any token so this is unlikely.
         // And if it is hit, users will withdraw until it goes below because their LP is forcibly trading
@@ -189,6 +192,7 @@ library VaultE4626Impl {
         for (uint256 i = 0; i < cids.length; ++i) {
             cidShares += self.shares[cids[i]];
         }
+
         uint256 fullAmount = roundUp
             ? FullMath.mulDivRoundingUp(
                 cidShares,

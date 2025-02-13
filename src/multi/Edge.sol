@@ -60,9 +60,9 @@ library EdgeImpl {
 
     event Swap(
         address sender,
-        address recipient,
-        address token0,
-        address token1,
+        address indexed recipient,
+        address indexed token0,
+        address indexed token1,
         int256 amount0,
         int256 amount1,
         uint160 sqrtPriceX96,
@@ -127,6 +127,7 @@ library EdgeImpl {
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
     ) internal returns (uint256 inAmount, uint256 outAmount) {
+        // Log the start of the swap function
         // Prep the swap.
         UniV3Edge.Slot0 memory slot0 = getSlot0(
             self,
@@ -166,6 +167,7 @@ library EdgeImpl {
             outToken = token0;
             outAmount = uint256(-amount0);
         }
+
         exchange(
             recipient,
             inToken,
@@ -181,6 +183,7 @@ library EdgeImpl {
             slot0.tick,
             slot0.liquidity
         );
+
         emit Swap(
             msg.sender,
             recipient,

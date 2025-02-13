@@ -12,8 +12,8 @@
 // import {IUniswapV3SwapCallback} from "./interfaces/IUniswapV3SwapCallback.sol";
 // import {KodiakIslandStorage} from "./abstract/KodiakIslandStorage.sol";
 // import {TickMath} from "./vendor/uniswap/TickMath.sol";
-// import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+// import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+// import {SafeCast} from "openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 // import {FullMath, LiquidityAmounts} from "./vendor/uniswap/LiquidityAmounts.sol";
 
 // abstract contract KodiakIsland is IUniswapV3MintCallback, IUniswapV3SwapCallback, KodiakIslandStorage {

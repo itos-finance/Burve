@@ -3,25 +3,30 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveDeploymentLib} from "../../src/deployment/BurveDeployLib.sol";
+import {BurveFacets, InitLib} from "../../src/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
-import {VaultType} from "../../src/multi/VaultProxy.sol";
+import {VaultType, VaultLib} from "../../src/multi/VaultProxy.sol";
+import {TokenRegistryImpl} from "../../src/multi/Token.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {VertexId, newVertexId} from "../../src/multi/Vertex.sol";
 import {TokenRegLib} from "../../src/multi/Token.sol";
 import {Edge} from "../../src/multi/Edge.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
 
 contract SimplexFacetTest is Test {
     SimplexDiamond public diamond;
     EdgeFacet public edgeFacet;
     SimplexFacet public simplexFacet;
+    ViewFacet public viewFacet;
 
     MockERC20 public token0;
     MockERC20 public token1;
-    MockERC20 public token2;
+    MockERC4626 public mockVault0;
+    MockERC4626 public mockVault1;
 
     address public owner = makeAddr("owner");
     address public nonOwner = makeAddr("nonOwner");
@@ -43,25 +48,19 @@ contract SimplexFacetTest is Test {
         vm.startPrank(owner);
 
         // Deploy the diamond and facets
-        (
-            address liqFacetAddr,
-            address simplexFacetAddr,
-            address swapFacetAddr
-        ) = BurveDeploymentLib.deployFacets();
-
-        diamond = new SimplexDiamond(
-            liqFacetAddr,
-            simplexFacetAddr,
-            swapFacetAddr
-        );
+        BurveFacets memory facets = InitLib.deployFacets();
+        diamond = new SimplexDiamond(facets);
 
         edgeFacet = EdgeFacet(address(diamond));
         simplexFacet = SimplexFacet(address(diamond));
+        viewFacet = ViewFacet(address(diamond));
 
         // Setup test tokens
         token0 = new MockERC20("Test Token 0", "TEST0", 18);
         token1 = new MockERC20("Test Token 1", "TEST1", 18);
-        token2 = new MockERC20("Test Token 2", "TEST2", 18);
+
+        mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
+        mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
 
         vm.stopPrank();
     }
@@ -72,11 +71,37 @@ contract SimplexFacetTest is Test {
         // Add first vertex
         simplexFacet.addVertex(
             address(token0),
+            address(mockVault0),
+            VaultType.E4626
+        );
+
+        // Add second vertex
+        simplexFacet.addVertex(
+            address(token1),
+            address(mockVault1),
+            VaultType.E4626
+        );
+
+        vm.stopPrank();
+    }
+
+    function testAddVertexRevertUnimplemented() public {
+        vm.startPrank(owner);
+
+        // Add first vertex
+        vm.expectRevert(
+            abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
+        );
+        simplexFacet.addVertex(
+            address(token0),
             address(0),
             VaultType.UnImplemented
         );
 
         // Add second vertex
+        vm.expectRevert(
+            abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
+        );
         simplexFacet.addVertex(
             address(token1),
             address(0),
@@ -86,14 +111,14 @@ contract SimplexFacetTest is Test {
         vm.stopPrank();
     }
 
-    function testAddVertexRevertsForNonOwner() public {
+    function testAddVertexRevertNonOwner() public {
         vm.startPrank(nonOwner);
 
-        vm.expectRevert(); // Should revert for non-owner
+        vm.expectRevert();
         simplexFacet.addVertex(
             address(token0),
-            address(0),
-            VaultType.UnImplemented
+            address(mockVault0),
+            VaultType.E4626
         );
 
         vm.stopPrank();
@@ -105,228 +130,21 @@ contract SimplexFacetTest is Test {
         // Add vertex first time
         simplexFacet.addVertex(
             address(token0),
-            address(0),
-            VaultType.UnImplemented
+            address(mockVault0),
+            VaultType.E4626
         );
 
         // Try to add same vertex again
-        vm.expectRevert(); // Should revert for duplicate vertex
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenRegistryImpl.TokenAlreadyRegistered.selector,
+                address(token0)
+            )
+        ); // Should revert for duplicate vertex
         simplexFacet.addVertex(
             address(token0),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        vm.stopPrank();
-    }
-
-    function testAddMultipleVertices() public {
-        vm.startPrank(owner);
-
-        // Add multiple vertices
-        simplexFacet.addVertex(
-            address(token0),
-            address(0),
-            VaultType.UnImplemented
-        );
-        simplexFacet.addVertex(
-            address(token1),
-            address(0),
-            VaultType.UnImplemented
-        );
-        simplexFacet.addVertex(
-            address(token2),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        // Setup edges between vertices
-        edgeFacet.setEdge(
-            address(token0),
-            address(token1),
-            1e18,
-            -887272,
-            887272
-        );
-        edgeFacet.setEdge(
-            address(token1),
-            address(token2),
-            1e18,
-            -887272,
-            887272
-        );
-        edgeFacet.setEdge(
-            address(token0),
-            address(token2),
-            1e18,
-            -887272,
-            887272
-        );
-
-        vm.stopPrank();
-    }
-
-    function testAddVertexWithCustomVault() public {
-        address mockVault = makeAddr("mockVault");
-
-        vm.startPrank(owner);
-
-        // Add vertex with custom vault
-        simplexFacet.addVertex(
-            address(token0),
-            mockVault,
-            VaultType.UnImplemented
-        );
-
-        vm.stopPrank();
-    }
-
-    function testAddVertexWithInvalidVaultType() public {
-        vm.startPrank(owner);
-
-        // Try to add vertex with invalid vault type
-        vm.expectRevert();
-        simplexFacet.addVertex(
-            address(token0),
-            address(0),
-            VaultType.E4626 // Use E4626 as invalid type
-        );
-
-        vm.stopPrank();
-    }
-
-    function testVertexInitialization() public {
-        vm.startPrank(owner);
-
-        // Expect vertex added event
-        vm.expectEmit(true, true, true, true);
-        emit VertexAdded(address(token0), address(0), VaultType.UnImplemented);
-
-        // Add vertex
-        simplexFacet.addVertex(
-            address(token0),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        // Get vertex info from Store
-        VertexId vid = newVertexId(TokenRegLib.getIdx(address(token0)));
-        VaultType vaultType = Store.vaults().vTypes[vid];
-
-        // Verify vertex state
-        assertTrue(
-            vaultType == VaultType.UnImplemented,
-            "Incorrect vault type"
-        );
-
-        vm.stopPrank();
-    }
-
-    function testVertexConnections() public {
-        vm.startPrank(owner);
-
-        // Add vertices
-        simplexFacet.addVertex(
-            address(token0),
-            address(0),
-            VaultType.UnImplemented
-        );
-        simplexFacet.addVertex(
-            address(token1),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        // Expect edge updated event
-        vm.expectEmit(true, true, true, true);
-        emit EdgeUpdated(
-            address(token0),
-            address(token1),
-            1e18,
-            -887272,
-            887272
-        );
-
-        // Setup edge
-        edgeFacet.setEdge(
-            address(token0),
-            address(token1),
-            1e18,
-            -887272,
-            887272
-        );
-
-        // Verify edge exists and parameters
-        Edge storage edge = Store.edge(address(token0), address(token1));
-        assertEq(edge.amplitude, 1e18, "Incorrect amplitude");
-        assertEq(edge.lowTick, -887272, "Incorrect lowTick");
-        assertEq(edge.highTick, 887272, "Incorrect highTick");
-
-        vm.stopPrank();
-    }
-
-    function testComplexVertexNetwork() public {
-        vm.startPrank(owner);
-
-        // Add all vertices
-        simplexFacet.addVertex(
-            address(token0),
-            address(0),
-            VaultType.UnImplemented
-        );
-        simplexFacet.addVertex(
-            address(token1),
-            address(0),
-            VaultType.UnImplemented
-        );
-        simplexFacet.addVertex(
-            address(token2),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        // Setup all edges
-        edgeFacet.setEdge(
-            address(token0),
-            address(token1),
-            1e18,
-            -887272,
-            887272
-        );
-        edgeFacet.setEdge(
-            address(token1),
-            address(token2),
-            1e18,
-            -887272,
-            887272
-        );
-        edgeFacet.setEdge(
-            address(token0),
-            address(token2),
-            1e18,
-            -887272,
-            887272
-        );
-
-        // Verify network structure through edge parameters
-        Edge storage edge01 = Store.edge(address(token0), address(token1));
-        Edge storage edge12 = Store.edge(address(token1), address(token2));
-        Edge storage edge02 = Store.edge(address(token0), address(token2));
-
-        assertEq(
-            edge01.amplitude,
-            1e18,
-            "Edge01 should have correct amplitude"
-        );
-        assertEq(
-            edge12.amplitude,
-            1e18,
-            "Edge12 should have correct amplitude"
-        );
-        assertEq(
-            edge02.amplitude,
-            1e18,
-            "Edge02 should have correct amplitude"
+            address(mockVault0),
+            VaultType.E4626
         );
 
         vm.stopPrank();

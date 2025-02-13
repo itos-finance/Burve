@@ -4,7 +4,6 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "./Closure.sol";
 import {Store} from "./Store.sol";
 import {FullMath} from "./FullMath.sol";
-
 struct AssetStorage {
     mapping(ClosureId => uint256) totalShares;
     mapping(address => mapping(ClosureId => uint256)) shares;
@@ -37,14 +36,21 @@ library AssetLib {
         uint256 shares
     ) internal returns (uint256 percentX256) {
         AssetStorage storage assets = Store.assets();
+        percentX256 = viewPercentX256(assets, cid, shares);
+        assets.shares[owner][cid] -= shares; // Will error on underflow.
+        assets.totalShares[cid] -= shares;
+    }
+
+    function viewPercentX256(
+        AssetStorage storage assets,
+        ClosureId cid,
+        uint256 shares
+    ) internal view returns (uint256 percentX256) {
         uint256 total = assets.totalShares[cid];
         if (shares == total) {
             percentX256 = type(uint256).max;
         } else {
             percentX256 = FullMath.mulDivX256(shares, total);
         }
-        // Will error on underflow.
-        assets.shares[owner][cid] -= shares;
-        assets.totalShares[cid] -= shares;
     }
 }

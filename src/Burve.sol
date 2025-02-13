@@ -18,7 +18,6 @@ import { TickMath } from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
 
-
 /// Defines the tick range of an AMM position.
 struct TickRange {
     /// Lower tick of the range.

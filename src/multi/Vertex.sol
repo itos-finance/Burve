@@ -5,6 +5,7 @@ import {TokenRegLib} from "./Token.sol";
 import {VaultLib, VaultType} from "./VaultProxy.sol";
 import {ClosureId, ClosureDist, ClosureDistImpl, newClosureDist} from "./Closure.sol";
 import {VaultPointer, VaultTemp} from "./VaultProxy.sol";
+import {console2} from "forge-std/console2.sol";
 
 type VertexId is uint16;
 function newVertexId(uint8 idx) pure returns (VertexId) {
@@ -66,6 +67,7 @@ library VertexImpl {
         uint256 n = TokenRegLib.numVertices();
         for (uint8 i = 0; i < n; ++i) {
             VertexId neighbor = newVertexId(i);
+
             if (neighbor.isEq(self.vid)) continue;
             if (closure.contains(neighbor)) {
                 if (self.homSet[neighbor][closure]) {
@@ -98,6 +100,7 @@ library VertexImpl {
         }
 
         uint256 withdrawable = vProxy.withdrawable();
+
         if (withdrawable < amount || dist.totalWeight < amount) {
             revert InsufficientWithdraw(
                 self.vid,

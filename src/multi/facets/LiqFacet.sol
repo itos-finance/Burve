@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {ClosureId} from "../Closure.sol";
-import {ReentrancyGuardTransient} from "@openzeppelin/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
 import {VaultLib, VaultPointer} from "../VaultProxy.sol";
@@ -10,7 +10,7 @@ import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../FullMath.sol";
-import {AssetLib} from "../Asset.sol";
+import {AssetStorage, AssetLib} from "../Asset.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -23,6 +23,30 @@ functions here.
 contract LiqFacet is ReentrancyGuardTransient {
     error DeMinimisDeposit();
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
+
+    /// @notice Emitted when liquidity is added to a closure
+    /// @param recipient The address that received the LP shares
+    /// @param closureId The ID of the closure
+    /// @param amounts The amounts of each token added
+    /// @param shares The number of LP shares minted
+    event AddLiquidity(
+        address indexed recipient,
+        uint16 indexed closureId,
+        uint128[] amounts,
+        uint256 shares
+    );
+
+    /// @notice Emitted when liquidity is removed from a closure
+    /// @param recipient The address that received the tokens
+    /// @param closureId The ID of the closure
+    /// @param amounts The amounts given back on burning of the LP tokens
+    /// @param shares The number of LP shares burned
+    event RemoveLiquidity(
+        address indexed recipient,
+        uint16 indexed closureId,
+        uint256[] amounts,
+        uint256 shares
+    );
 
     function addLiq(
         address recipient,
@@ -109,6 +133,8 @@ contract LiqFacet is ReentrancyGuardTransient {
         if (depositValue == 0) revert DeMinimisDeposit();
         shares = AssetLib.add(recipient, cid, depositValue, initialValue);
         if (shares == 0) revert DeMinimisDeposit();
+
+        emit AddLiquidity(recipient, _closureId, amounts, shares);
     }
 
     function removeLiq(
@@ -120,6 +146,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         uint256 percentX256 = AssetLib.remove(msg.sender, cid, shares);
         uint256 n = TokenRegLib.numVertices();
+        uint256[] memory amounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             VaultPointer memory vPtr = VaultLib.get(v);
@@ -127,10 +154,36 @@ contract LiqFacet is ReentrancyGuardTransient {
             if (bal == 0) continue;
             // If there are tokens, we withdraw.
             uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
+            amounts[i] = withdraw;
             vPtr.withdraw(cid, withdraw);
             vPtr.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
         }
+
+        emit RemoveLiquidity(recipient, _closureId, amounts, shares);
+    }
+
+    function viewRemoveLiq(
+        uint16 _closureId,
+        uint256 shares
+    ) external view returns (uint256[] memory) {
+        ClosureId cid = ClosureId.wrap(_closureId);
+        AssetStorage storage assets = Store.assets();
+        uint256 percentX256 = AssetLib.viewPercentX256(assets, cid, shares);
+        uint256 n = TokenRegLib.numVertices();
+
+        uint256[] memory withdrawnAmounts = new uint256[](n);
+        for (uint8 i = 0; i < n; ++i) {
+            VertexId v = newVertexId(i);
+            VaultPointer memory vPtr = VaultLib.get(v);
+            uint128 bal = vPtr.balance(cid, false);
+            if (bal == 0) continue;
+            // If there are tokens, we withdraw.
+            uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
+            withdrawnAmounts[i] = withdraw;
+        }
+
+        return withdrawnAmounts;
     }
 }
