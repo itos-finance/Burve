@@ -20,6 +20,7 @@ import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
 import {ViewFacet} from "./facets/ViewFacet.sol";
+import {LockFacet} from "./facets/LockFacet.sol";
 
 error FunctionNotFound(bytes4 _functionSelector);
 
@@ -27,7 +28,7 @@ contract SimplexDiamond is IDiamond {
     constructor(BurveFacets memory facets) {
         AdminLib.initOwner(msg.sender);
 
-        FacetCut[] memory cuts = new FacetCut[](8);
+        FacetCut[] memory cuts = new FacetCut[](9);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -138,6 +139,24 @@ contract SimplexDiamond is IDiamond {
 
             cuts[7] = IDiamond.FacetCut({
                 facetAddress: address(new ViewFacet()),
+                action: IDiamond.FacetCutAction.Add,
+                functionSelectors: selectors
+            });
+        }
+
+        {
+            // Add storage facet using LibDiamond directly since we're the owner
+            bytes4[] memory selectors = new bytes4[](7);
+            selectors[0] = LockFacet.lock.selector;
+            selectors[1] = LockFacet.unlock.selector;
+            selectors[2] = LockFacet.isLocked.selector;
+            selectors[3] = LockFacet.addLocker.selector;
+            selectors[4] = LockFacet.addUnlocker.selector;
+            selectors[5] = LockFacet.removeLocker.selector;
+            selectors[6] = LockFacet.removeUnlocker.selector;
+
+            cuts[8] = IDiamond.FacetCut({
+                facetAddress: address(new LockFacet()),
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
             });
