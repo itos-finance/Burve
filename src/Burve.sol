@@ -51,6 +51,7 @@ contract Burve is ERC20 {
     uint256[] public distX96;
 
     uint256 private constant X96MASK = (1 << 96) - 1;
+    uint256 private constant MAX_196_BITS = (1 << 196) - 1;
 
     /// Total nominal liquidity in Burve.
     uint128 public totalLiqNominal;
@@ -215,6 +216,9 @@ contract Burve is ERC20 {
             );
         }
 
+        // compound v3 ranges
+        compoundV3Ranges();
+
         // mint liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 liqInRange = uint128(
@@ -358,6 +362,9 @@ contract Burve is ERC20 {
             );
         }
 
+        // compound v3 ranges
+        compoundV3Ranges();
+
         uint128 burnLiqNominal = uint128(
             FullMath.mulDiv(shares, uint256(totalLiqNominal), totalShares)
         );
@@ -432,6 +439,108 @@ contract Burve is ERC20 {
             uint128(x),
             uint128(y)
         );
+    }
+
+    /// @notice Collect fees and compound them for each v3 range.
+    function compoundV3Ranges() internal {
+        uint128 unitLiqNominalX64 = 1 << 64; // 1 unit of nominal liq
+
+        uint256 amount0InUnitLiqX64;
+        uint256 amount1InUnitLiqX64;
+
+        // calculate the total amounts of each token in 1 unit of nominal liquidity
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
+
+            // skip islands
+            if (range.isIsland()) {
+                continue;
+            }
+
+            // calculate amount of tokens in unit of liquidity X64
+            (
+                uint256 range0InUnitLiqX64,
+                uint256 range1InUnitLiqX64
+            ) = getAmountsForLiquidity(
+                    unitLiqNominalX64,
+                    range.lower,
+                    range.upper
+                );
+            amount0InUnitLiqX64 += range0InUnitLiqX64;
+            amount1InUnitLiqX64 += range1InUnitLiqX64;
+
+            // collect fees
+            pool.collect(
+                address(this),
+                range.lower,
+                range.upper,
+                type(uint128).max,
+                type(uint128).max
+            );
+        }
+
+        // any leftover amounts will be included
+        uint256 collected0 = token0.balanceOf(address(this));
+        uint256 collected1 = token1.balanceOf(address(this));
+
+        // If we collect more than 2^196 in fees, the problem is with the token.
+        // If it was worth any meaningful value the world economy would be in the contract.
+        // In this case we compound the maximum allowed such that the contract can still operate.
+        if (collected0 > MAX_196_BITS) {
+            collected0 = MAX_196_BITS;
+        }
+        if (collected1 > MAX_196_BITS) {
+            collected1 = MAX_196_BITS;
+        }
+
+        uint256 liqNominal0 = amount0InUnitLiqX64 > 0
+            ? (collected0 << 64) / amount0InUnitLiqX64
+            : 0;
+        uint256 liqNominal1 = amount1InUnitLiqX64 > 0
+            ? (collected1 << 64) / amount1InUnitLiqX64
+            : 0;
+
+        uint256 unsafeCompoundedLiqNominal = liqNominal0 < liqNominal1
+            ? liqNominal0
+            : liqNominal1;
+
+        // If compounded liquidity is greater than the max allowed, compound the max such that the contract can still operate.
+        uint128 compoundedLiqNominal;
+        if (unsafeCompoundedLiqNominal > type(uint128).max) {
+            compoundedLiqNominal = type(uint128).max;
+        } else {
+            compoundedLiqNominal = uint128(unsafeCompoundedLiqNominal);
+        }
+
+        // minted liquidity needs to be rounded up
+        // we subtract the number of ranges to ensure we don't try minting more liquidity than we have
+        if (compoundedLiqNominal <= distX96.length) {
+            return;
+        }
+        compoundedLiqNominal -= uint128(distX96.length);
+
+        totalLiqNominal += compoundedLiqNominal;
+
+        // mint liquidity for v3 each range
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
+            if (range.isIsland()) {
+                continue;
+            }
+
+            uint128 liqInRange = uint128(
+                shift96(compoundedLiqNominal * distX96[i], true)
+            );
+
+            // mint the V3 ranges
+            pool.mint(
+                address(this),
+                range.lower,
+                range.upper,
+                liqInRange,
+                abi.encode(address(this))
+            );
+        }
     }
 
     /* Callbacks */
