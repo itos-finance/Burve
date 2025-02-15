@@ -11,6 +11,7 @@ import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 
 import {BartioAddresses} from "../utils/BaritoAddresses.sol";
 import {Burve} from "../../src/single/Burve.sol";
+import {BurveExposedInternal} from "./BurveExposedInternal.sol";
 import {FullMath} from "../../src/FullMath.sol";
 import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
 import {IStationProxy} from "../../src/single/IStationProxy.sol";
@@ -21,9 +22,9 @@ import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
 import {TickRange} from "../../src/single/TickRange.sol";
 
 contract BurveTest is ForkableTest {
-    Burve public burveIsland; // island only
-    Burve public burveV3; // v3 only
-    Burve public burve; // island + v3
+    BurveExposedInternal public burveIsland; // island only
+    BurveExposedInternal public burveV3; // v3 only
+    BurveExposedInternal public burve; // island + v3
 
     IUniswapV3Pool pool;
     IERC20 token0;
@@ -57,7 +58,7 @@ contract BurveTest is ForkableTest {
         uint128[] memory islandWeights = new uint128[](1);
         islandWeights[0] = 1;
 
-        burveIsland = new Burve(
+        burveIsland = new BurveExposedInternal(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
             address(stationProxy),
@@ -76,7 +77,7 @@ contract BurveTest is ForkableTest {
         uint128[] memory v3Weights = new uint128[](1);
         v3Weights[0] = 1;
 
-        burveV3 = new Burve(
+        burveV3 = new BurveExposedInternal(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             address(0x0),
             address(stationProxy),
@@ -97,7 +98,7 @@ contract BurveTest is ForkableTest {
         weights[0] = 3;
         weights[1] = 1;
 
-        burve = new Burve(
+        burve = new BurveExposedInternal(
             BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
             BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
             address(stationProxy),
@@ -1254,6 +1255,26 @@ contract BurveTest is ForkableTest {
             )
         );
         burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+    }
+
+    // Compound Tests
+
+    function testCollectV3Fees() public forkOnly {
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+        vm.expectCall(
+            address(pool),
+            abi.encodeCall(
+                pool.collect,
+                (
+                    address(burveV3),
+                    lower,
+                    upper,
+                    type(uint128).max,
+                    type(uint128).max
+                )
+            )
+        );
+        burveV3.collectV3FeesExposed();
     }
 
     // Helpers
