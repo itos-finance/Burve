@@ -237,7 +237,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalLiqNominal(), liq, "total liq nominal");
+        assertEq(burveIsland.totalNominalLiq(), liq, "total liq nominal");
 
         // check shares
         assertEq(burveIsland.totalShares(), liq, "total shares");
@@ -297,7 +297,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalLiqNominal(), liq, "total liq nominal");
+        assertEq(burveIsland.totalNominalLiq(), liq, "total liq nominal");
 
         // check shares
         assertEq(burveIsland.totalShares(), liq, "total shares");
@@ -355,7 +355,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalLiqNominal(), liq, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), liq, "total liq nominal");
 
         // check shares
         assertEq(burveV3.totalShares(), liq, "total shares");
@@ -400,7 +400,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalLiqNominal(), liq, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), liq, "total liq nominal");
 
         // check shares
         assertEq(burveV3.totalShares(), liq, "total shares");
@@ -465,7 +465,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalLiqNominal(), liq, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), liq, "total liq nominal");
 
         // check shares
         assertEq(burve.totalShares(), liq, "total shares");
@@ -543,7 +543,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalLiqNominal(), liq, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), liq, "total liq nominal");
 
         // check shares
         assertEq(burve.totalShares(), liq, "total shares");
@@ -588,7 +588,7 @@ contract BurveTest is ForkableTest {
         burve.mint(address(alice), 1000, 0, type(uint128).max);
 
         // check 1st mint
-        assertEq(burve.totalLiqNominal(), 1000, "total liq nominal 1st mint");
+        assertEq(burve.totalNominalLiq(), 1000, "total liq nominal 1st mint");
         assertEq(burve.totalShares(), 1000, "total shares 1st mint");
         assertEq(
             burve.balanceOf(alice),
@@ -604,7 +604,7 @@ contract BurveTest is ForkableTest {
         burve.mint(address(alice), 500, 0, type(uint128).max);
 
         // check 2nd mint
-        assertEq(burve.totalLiqNominal(), 1500, "total liq nominal 2nd mint");
+        assertEq(burve.totalNominalLiq(), 1500, "total liq nominal 2nd mint");
         assertEq(burve.totalShares(), 1500, "total shares 2nd mint");
         assertEq(
             burve.balanceOf(alice),
@@ -620,7 +620,7 @@ contract BurveTest is ForkableTest {
         burve.mint(address(alice), 3000, 0, type(uint128).max);
 
         // check 3rd mint
-        assertEq(burve.totalLiqNominal(), 4500, "total liq nominal 3rd mint");
+        assertEq(burve.totalNominalLiq(), 4500, "total liq nominal 3rd mint");
         assertEq(burve.totalShares(), 4500, "total shares 3rd mint");
         assertEq(
             burve.balanceOf(alice),
@@ -779,7 +779,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalLiqNominal(), 0, "total liq nominal");
+        assertEq(burveIsland.totalNominalLiq(), 0, "total liq nominal");
 
         // check shares
         assertEq(burveIsland.totalShares(), 0, "total shares");
@@ -864,7 +864,7 @@ contract BurveTest is ForkableTest {
 
         // check liq
         assertEq(
-            burveIsland.totalLiqNominal(),
+            burveIsland.totalNominalLiq(),
             mintLiq - burnLiq,
             "total liq nominal"
         );
@@ -943,7 +943,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalLiqNominal(), 0, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), 0, "total liq nominal");
 
         // check shares
         assertEq(burveV3.totalShares(), 0, "total shares");
@@ -1004,7 +1004,7 @@ contract BurveTest is ForkableTest {
 
         // check liq
         assertEq(
-            burveV3.totalLiqNominal(),
+            burveV3.totalNominalLiq(),
             mintLiq - burnLiq,
             "total liq nominal"
         );
@@ -1087,7 +1087,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalLiqNominal(), 0, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
 
         // check shares
         assertEq(burve.totalShares(), 0, "total shares");
@@ -1185,7 +1185,7 @@ contract BurveTest is ForkableTest {
 
         // check liq
         assertEq(
-            burve.totalLiqNominal(),
+            burve.totalNominalLiq(),
             mintLiq - burnLiq,
             "total liq nominal"
         );
