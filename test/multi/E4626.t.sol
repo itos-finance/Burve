@@ -7,7 +7,7 @@ import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
 import {VaultTemp} from "../../src/multi/VaultProxy.sol";
 import {VaultE4626, VaultE4626Impl} from "../../src/multi/E4626.sol";
