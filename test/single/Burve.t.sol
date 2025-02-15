@@ -10,7 +10,7 @@ import {AdminLib} from "Commons/Util/Admin.sol";
 import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 
 import {BartioAddresses} from "../utils/BaritoAddresses.sol";
-import {Burve, TickRange} from "../../src/single/Burve.sol";
+import {Burve} from "../../src/single/Burve.sol";
 import {FullMath} from "../../src/FullMath.sol";
 import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
 import {IStationProxy} from "../../src/single/IStationProxy.sol";
@@ -18,6 +18,7 @@ import {IUniswapV3Pool} from "../../src/single/integrations/kodiak/IUniswapV3Poo
 import {LiquidityAmounts} from "../../src/single/integrations/uniswap/LiquidityAmounts.sol";
 import {NullStationProxy} from "./NullStationProxy.sol";
 import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
+import {TickRange} from "../../src/single/TickRange.sol";
 
 contract BurveTest is ForkableTest {
     Burve public burveIsland; // island only
