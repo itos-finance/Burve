@@ -68,6 +68,8 @@ contract Burve is ERC20 {
         IStationProxy indexed to
     );
 
+    /// Thrown if the given tick range does not match the pools tick spacing.
+    error InvalidRange(int24 lower, int24 upper);
     /// Thrown when island specific logic is invoked but the contract was not initialized with an island.
     error NoIsland();
     /// Thrown when the provided island points to a pool that does not match the provided pool.
@@ -160,12 +162,23 @@ contract Burve is ERC20 {
             );
         }
 
+        int24 tickSpacing = pool.tickSpacing();
+
         // copy ranges to storage
         for (uint256 i = 0; i < _ranges.length; ++i) {
-            ranges.push(_ranges[i]);
+            TickRange memory range = _ranges[i];
 
-            if (_ranges[i].isIsland() && address(island) == address(0x0)) {
+            ranges.push(range);
+
+            if (range.isIsland() && address(island) == address(0x0)) {
                 revert NoIsland();
+            }
+
+            if (
+                (range.lower % tickSpacing != 0) ||
+                (range.upper % tickSpacing != 0)
+            ) {
+                revert InvalidRange(range.lower, range.upper);
             }
         }
 
