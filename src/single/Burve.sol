@@ -7,7 +7,7 @@ import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol"
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 
-import {FullMath} from "../multi/FullMath.sol";
+import {FullMath} from "../FullMath.sol";
 import {IStationProxy} from "./IStationProxy.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
 import {TransferHelper} from "../TransferHelper.sol";

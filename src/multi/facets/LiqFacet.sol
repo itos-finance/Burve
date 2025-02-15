@@ -9,7 +9,7 @@ import {VaultLib, VaultPointer} from "../VaultProxy.sol";
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {FullMath} from "../FullMath.sol";
+import {FullMath} from "../../FullMath.sol";
 import {AssetStorage, AssetLib} from "../Asset.sol";
 
 /*

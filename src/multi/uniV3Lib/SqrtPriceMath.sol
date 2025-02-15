@@ -5,7 +5,7 @@ import "v3-core/contracts/libraries/LowGasSafeMath.sol";
 import "v3-core/contracts/libraries/SafeCast.sol";
 import "v3-core/contracts/libraries/UnsafeMath.sol";
 import "v3-core/contracts/libraries/FixedPoint96.sol";
-import "../FullMath.sol";
+import "../../FullMath.sol";
 
 /// @title Functions based on Q64.96 sqrt price and liquidity
 /// @notice Contains the math that uses square root of price as a Q64.96 and liquidity to compute deltas

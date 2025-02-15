@@ -11,7 +11,7 @@ import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 
 import {BartioAddresses} from "../utils/BaritoAddresses.sol";
 import {Burve, TickRange} from "../../src/single/Burve.sol";
-import {FullMath} from "../../src/multi/FullMath.sol";
+import {FullMath} from "../../src/FullMath.sol";
 import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
 import {IStationProxy} from "../../src/single/IStationProxy.sol";
 import {IUniswapV3Pool} from "../../src/single/integrations/kodiak/IUniswapV3Pool.sol";

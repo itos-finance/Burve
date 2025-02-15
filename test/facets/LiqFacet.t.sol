@@ -12,7 +12,7 @@ import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {ClosureId, newClosureId} from "../../src/multi/Closure.sol";
 import {VaultType} from "../../src/multi/VaultProxy.sol";
-import {FullMath} from "../../src/multi/FullMath.sol";
+import {FullMath} from "../../src/FullMath.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {Edge} from "../../src/multi/Edge.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
