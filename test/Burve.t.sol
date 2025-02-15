@@ -112,6 +112,60 @@ contract BurveTest is ForkableTest {
         vm.label(BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "HONEY_NECT_ISLAND");
     }
 
+    // Create Tests
+
+    function testCreateRevertInvalidRangeLower() public forkOnly {
+        int24 tickSpacing = pool.tickSpacing();
+
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(tickSpacing - 1, tickSpacing * 2);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 3;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.InvalidRange.selector,
+                ranges[0].lower,
+                ranges[0].upper
+            )
+        );
+
+        new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+            address(stationProxy),
+            ranges,
+            weights
+        );
+    }
+
+    function testCreateRevertInvalidRangeUpper() public forkOnly {
+        int24 tickSpacing = pool.tickSpacing();
+
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(tickSpacing, tickSpacing * 2 + 1);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 3;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.InvalidRange.selector,
+                ranges[0].lower,
+                ranges[0].upper
+            )
+        );
+
+        new Burve(
+            BartioAddresses.KODIAK_HONEY_NECT_POOL_V3,
+            BartioAddresses.KODIAK_HONEY_NECT_ISLAND,
+            address(stationProxy),
+            ranges,
+            weights
+        );
+    }
+
     // Mint Tests
 
     function testIslandMintSenderIsRecipient() public {
