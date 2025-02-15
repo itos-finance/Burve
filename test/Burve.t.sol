@@ -6,6 +6,7 @@ import {StdUtils} from "forge-std/StdUtils.sol";
 
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
+import {AdminLib} from "Commons/Util/Admin.sol";
 import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 
 import {BartioAddresses} from "./utils/BaritoAddresses.sol";
@@ -166,6 +167,39 @@ contract BurveTest is ForkableTest {
         );
     }
 
+    // Migrate Station Proxy Tests
+
+    function testMigrateStationProxy() public {
+        IStationProxy newStationProxy = new NullStationProxy();
+
+        vm.expectCall(
+            address(burve.stationProxy()),
+            abi.encodeCall(IStationProxy.migrate, (newStationProxy))
+        );
+
+        vm.expectEmit(true, true, false, true);
+        emit Burve.MigrateStationProxy(stationProxy, newStationProxy);
+
+        burve.migrateStationProxy(newStationProxy);
+        assertEq(
+            address(burve.stationProxy()),
+            address(newStationProxy),
+            "new station proxy"
+        );
+    }
+
+    function testRevertMigrateStationProxySenderNotOwner() public {
+        IStationProxy newStationProxy = new NullStationProxy();
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        vm.prank(alice);
+        burve.migrateStationProxy(newStationProxy);
+    }
+
+    function testRevertMigrateStationProxyToSameStationProxy() public {
+        vm.expectRevert(Burve.MigrateToSameStationProxy.selector);
+        burve.migrateStationProxy(stationProxy);
+    }
+
     // Mint Tests
 
     function testIslandMintSenderIsRecipient() public {
@@ -192,6 +226,11 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveIsland), mint0);
         token1.approve(address(burveIsland), mint1);
 
+        // check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(alice, alice, liq);
+
+        // mint
         burveIsland.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -247,6 +286,11 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveIsland), mint0);
         token1.approve(address(burveIsland), mint1);
 
+        // check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(sender, alice, liq);
+
+        // mint
         burveIsland.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -300,6 +344,11 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveV3), mint0);
         token1.approve(address(burveV3), mint1);
 
+        // check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(alice, alice, liq);
+
+        // mint
         burveV3.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -340,6 +389,11 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burveV3), mint0);
         token1.approve(address(burveV3), mint1);
 
+        // check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(sender, alice, liq);
+
+        // mint
         burveV3.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -400,6 +454,11 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burve), mint0);
         token1.approve(address(burve), mint1);
 
+        // check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(alice, alice, liq);
+
+        // mint
         burve.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -473,6 +532,11 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burve), mint0);
         token1.approve(address(burve), mint1);
 
+        // check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(sender, alice, liq);
+
+        // mint
         burve.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -515,6 +579,10 @@ contract BurveTest is ForkableTest {
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
 
+        // 1st check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(sender, alice, 1000);
+
         // 1st mint
         burve.mint(address(alice), 1000, 0, type(uint128).max);
 
@@ -527,6 +595,10 @@ contract BurveTest is ForkableTest {
             "alice burve LP balance 1st mint"
         );
 
+        // 2nd check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(sender, alice, 500);
+
         // 2nd mint (lower amount)
         burve.mint(address(alice), 500, 0, type(uint128).max);
 
@@ -538,6 +610,10 @@ contract BurveTest is ForkableTest {
             1500,
             "alice burve LP balance 2nd mint"
         );
+
+        // 3rd check mint event
+        vm.expectEmit(true, true, false, true);
+        emit Burve.Mint(sender, alice, 3000);
 
         // 3rd mint (higher amount)
         burve.mint(address(alice), 3000, 0, type(uint128).max);
@@ -692,6 +768,11 @@ contract BurveTest is ForkableTest {
         // approve transfer
         burveIsland.approve(address(burveIsland), mintLiq);
 
+        // check burn event
+        vm.expectEmit(true, false, false, true);
+        emit Burve.Burn(alice, mintLiq);
+
+        // burn
         burveIsland.burn(mintLiq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -771,6 +852,11 @@ contract BurveTest is ForkableTest {
         // approve transfer
         burveIsland.approve(address(burveIsland), burnLiq);
 
+        // check burn event
+        vm.expectEmit(true, false, false, true);
+        emit Burve.Burn(alice, burnLiq);
+
+        // burn
         burveIsland.burn(burnLiq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -846,6 +932,11 @@ contract BurveTest is ForkableTest {
         // approve transfer
         burveV3.approve(address(burveV3), mintLiq);
 
+        // check burn event
+        vm.expectEmit(true, false, false, true);
+        emit Burve.Burn(alice, mintLiq);
+
+        // burn
         burveV3.burn(mintLiq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -901,6 +992,11 @@ contract BurveTest is ForkableTest {
         // approve transfer
         burveV3.approve(address(burveV3), burnLiq);
 
+        // check burn event
+        vm.expectEmit(true, false, false, true);
+        emit Burve.Burn(alice, burnLiq);
+
+        // burn
         burveV3.burn(burnLiq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -980,6 +1076,11 @@ contract BurveTest is ForkableTest {
         // approve transfer
         burve.approve(address(burve), mintLiq);
 
+        // check burn event
+        vm.expectEmit(true, false, false, true);
+        emit Burve.Burn(alice, mintLiq);
+
+        // burn
         burve.burn(mintLiq, 0, type(uint128).max);
 
         vm.stopPrank();
@@ -1072,6 +1173,11 @@ contract BurveTest is ForkableTest {
         // approve transfer
         burve.approve(address(burve), burnLiq);
 
+        // check burn event
+        vm.expectEmit(true, false, false, true);
+        emit Burve.Burn(alice, burnLiq);
+
+        // burn
         burve.burn(burnLiq, 0, type(uint128).max);
 
         vm.stopPrank();
