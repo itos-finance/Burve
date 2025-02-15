@@ -8,32 +8,13 @@ import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol"
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 import {FullMath} from "../FullMath.sol";
+import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
 import {IStationProxy} from "./IStationProxy.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
-import {TransferHelper} from "../TransferHelper.sol";
-import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
 import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
+import {TransferHelper} from "../TransferHelper.sol";
 import {TickMath} from "./integrations/uniswap/TickMath.sol";
-
-using TickRangeImpl for TickRange global;
-
-/// Defines the tick range of an AMM position.
-struct TickRange {
-    /// Lower tick of the range.
-    int24 lower;
-    /// Upper tick of the range.
-    int24 upper;
-}
-
-/// Implementation library for TickRange.
-library TickRangeImpl {
-    /// @notice Checks whether the given range is encoded to represent the island.
-    /// @param range The range to check.
-    /// @return isIsland True if the range is for an island.
-    function isIsland(TickRange memory range) internal pure returns (bool) {
-        return range.lower == 0 && range.upper == 0;
-    }
-}
+import {TickRange} from "./TickRange.sol";
 
 contract Burve is ERC20 {
     IUniswapV3Pool public pool;
