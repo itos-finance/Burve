@@ -17,6 +17,10 @@ import {TickMath} from "./integrations/uniswap/TickMath.sol";
 import {TickRange} from "./TickRange.sol";
 
 contract Burve is ERC20 {
+    uint256 constant X96_MASK = (1 << 96) - 1;
+    uint256 constant MAX_196_BITS = (1 << 196) - 1;
+    uint256 constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
+
     IUniswapV3Pool public pool;
     IERC20 public token0;
     IERC20 public token1;
@@ -31,11 +35,8 @@ contract Burve is ERC20 {
     /// If there is an island that distribution lies at index 0.
     uint256[] public distX96;
 
-    uint256 private constant X96MASK = (1 << 96) - 1;
-    uint256 private constant MAX_196_BITS = (1 << 196) - 1;
-
     /// Total nominal liquidity in Burve.
-    uint128 public totalLiqNominal;
+    uint128 public totalNominalLiq;
 
     /// Total shares of nominal liquidity in Burve.
     uint256 public totalShares;
@@ -202,12 +203,12 @@ contract Burve is ERC20 {
 
     /// @notice mints liquidity for the recipient
     /// @param recipient The recipient of the minted liquidity.
-    /// @param mintLiqNominal The amount of nominal liquidity to mint.
+    /// @param mintNominalLiq The amount of nominal liquidity to mint.
     /// @param lowerSqrtPriceLimitX96 The lower price limit of the pool.
     /// @param upperSqrtPriceLimitX96 The upper price limit of the pool.
     function mint(
         address recipient,
-        uint128 mintLiqNominal,
+        uint128 mintNominalLiq,
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
     ) external {
@@ -230,8 +231,13 @@ contract Burve is ERC20 {
         // mint liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 liqInRange = uint128(
-                shift96(mintLiqNominal * distX96[i], true)
+                shift96(uint256(mintNominalLiq) * distX96[i], true)
             );
+
+            if (liqInRange == 0) {
+                continue;
+            }
+
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
                 mintIsland(recipient, liqInRange);
@@ -250,17 +256,17 @@ contract Burve is ERC20 {
         // calculate shares to mint
         uint256 shares;
         if (totalShares == 0) {
-            shares = mintLiqNominal;
+            shares = mintNominalLiq;
         } else {
             shares = FullMath.mulDiv(
-                mintLiqNominal,
+                mintNominalLiq,
                 totalShares,
-                totalLiqNominal
+                totalNominalLiq
             );
         }
 
         // adjust total nominal liquidity
-        totalLiqNominal += mintLiqNominal;
+        totalNominalLiq += mintNominalLiq;
 
         // mint shares
         totalShares += shares;
@@ -273,7 +279,10 @@ contract Burve is ERC20 {
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
     function mintIsland(address recipient, uint128 liq) internal {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+
         (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+            sqrtRatioX96,
             liq,
             island.lowerTick(),
             island.upperTick()
@@ -376,11 +385,11 @@ contract Burve is ERC20 {
         compoundV3Ranges();
 
         uint128 burnLiqNominal = uint128(
-            FullMath.mulDiv(shares, uint256(totalLiqNominal), totalShares)
+            FullMath.mulDiv(shares, uint256(totalNominalLiq), totalShares)
         );
 
         // adjust total nominal liquidity
-        totalLiqNominal -= burnLiqNominal;
+        totalNominalLiq -= burnLiqNominal;
 
         uint256 priorBalance0 = token0.balanceOf(address(this));
         uint256 priorBalance1 = token1.balanceOf(address(this));
@@ -392,9 +401,11 @@ contract Burve is ERC20 {
                 burnIsland(shares);
             } else {
                 uint128 liqInRange = uint128(
-                    shift96(burnLiqNominal * distX96[i], false)
+                    shift96(uint256(burnLiqNominal) * distX96[i], false)
                 );
-                burnV3(range, liqInRange);
+                if (liqInRange > 0) {
+                    burnV3(range, liqInRange);
+                }
             }
         }
 
@@ -428,6 +439,11 @@ contract Burve is ERC20 {
             shares,
             balanceOf(msg.sender)
         );
+
+        if (islandBurnShares == 0) {
+            return;
+        }
+
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
 
         // withdraw burn shares from the station proxy
@@ -453,43 +469,48 @@ contract Burve is ERC20 {
         );
     }
 
+    /// @notice Calculates nominal mint liq for the given token amounts.
+    /// @dev If calculated liquidity is greater than the max allowed, the max is returned.
+    /// @param skipIsland Whether the island will be included when minting.
+    function getMintNominalLiqForAmounts(
+        uint256 amount0,
+        uint256 amount1,
+        bool skipIsland
+    ) public view returns (uint128 mintNominalLiq) {
+        (
+            uint256 amount0InUnitLiqX64,
+            uint256 amount1InUnitLiqX64
+        ) = getMintAmountsPerUnitNominalLiqX64(skipIsland);
+
+        // should we explicitly revert here if the amount is over the max 196 bits?
+        // or allow the overflow error to revert for us?
+
+        uint256 nominalLiq0 = amount0InUnitLiqX64 > 0
+            ? (amount0 << 64) / amount0InUnitLiqX64
+            : 0;
+        uint256 nominalLiq1 = amount1InUnitLiqX64 > 0
+            ? (amount1 << 64) / amount1InUnitLiqX64
+            : 0;
+        uint256 unsafeNominalLiq = nominalLiq0 < nominalLiq1
+            ? nominalLiq0
+            : nominalLiq1;
+
+        // min calculated liquidity with the max allowed
+        mintNominalLiq = unsafeNominalLiq > type(uint128).max
+            ? type(uint128).max
+            : uint128(unsafeNominalLiq);
+
+        // during mint the liq at each range is rounded up
+        // we subtract by the number of ranges to ensure we have enough liq
+        mintNominalLiq = mintNominalLiq <= distX96.length
+            ? 0
+            : mintNominalLiq - uint128(distX96.length);
+    }
+
     /// @notice Collect fees and compound them for each v3 range.
     function compoundV3Ranges() internal {
-        uint128 unitLiqNominalX64 = 1 << 64; // 1 unit of nominal liq
-
-        uint256 amount0InUnitLiqX64;
-        uint256 amount1InUnitLiqX64;
-
-        // calculate the total amounts of each token in 1 unit of nominal liquidity
-        for (uint256 i = 0; i < distX96.length; ++i) {
-            TickRange memory range = ranges[i];
-
-            // skip islands
-            if (range.isIsland()) {
-                continue;
-            }
-
-            // calculate amount of tokens in unit of liquidity X64
-            (
-                uint256 range0InUnitLiqX64,
-                uint256 range1InUnitLiqX64
-            ) = getAmountsForLiquidity(
-                    unitLiqNominalX64,
-                    range.lower,
-                    range.upper
-                );
-            amount0InUnitLiqX64 += range0InUnitLiqX64;
-            amount1InUnitLiqX64 += range1InUnitLiqX64;
-
-            // collect fees
-            pool.collect(
-                address(this),
-                range.lower,
-                range.upper,
-                type(uint128).max,
-                type(uint128).max
-            );
-        }
+        // collect fees
+        collectV3Fees();
 
         // any leftover amounts will be included
         uint256 collected0 = token0.balanceOf(address(this));
@@ -505,33 +526,15 @@ contract Burve is ERC20 {
             collected1 = MAX_196_BITS;
         }
 
-        uint256 liqNominal0 = amount0InUnitLiqX64 > 0
-            ? (collected0 << 64) / amount0InUnitLiqX64
-            : 0;
-        uint256 liqNominal1 = amount1InUnitLiqX64 > 0
-            ? (collected1 << 64) / amount1InUnitLiqX64
-            : 0;
+        // compute compounded nominal liq
+        uint128 compoundedNominalLiq = getMintNominalLiqForAmounts(
+            collected0,
+            collected1,
+            true
+        );
 
-        uint256 unsafeCompoundedLiqNominal = liqNominal0 < liqNominal1
-            ? liqNominal0
-            : liqNominal1;
-
-        // If compounded liquidity is greater than the max allowed, compound the max such that the contract can still operate.
-        uint128 compoundedLiqNominal;
-        if (unsafeCompoundedLiqNominal > type(uint128).max) {
-            compoundedLiqNominal = type(uint128).max;
-        } else {
-            compoundedLiqNominal = uint128(unsafeCompoundedLiqNominal);
-        }
-
-        // minted liquidity needs to be rounded up
-        // we subtract the number of ranges to ensure we don't try minting more liquidity than we have
-        if (compoundedLiqNominal <= distX96.length) {
-            return;
-        }
-        compoundedLiqNominal -= uint128(distX96.length);
-
-        totalLiqNominal += compoundedLiqNominal;
+        // adjust total nominal liquidity
+        totalNominalLiq += compoundedNominalLiq;
 
         // mint liquidity for v3 each range
         for (uint256 i = 0; i < distX96.length; ++i) {
@@ -541,8 +544,12 @@ contract Burve is ERC20 {
             }
 
             uint128 liqInRange = uint128(
-                shift96(compoundedLiqNominal * distX96[i], true)
+                shift96(uint256(compoundedNominalLiq) * distX96[i], true)
             );
+
+            if (liqInRange == 0) {
+                continue;
+            }
 
             // mint the V3 ranges
             pool.mint(
@@ -583,17 +590,80 @@ contract Burve is ERC20 {
 
     /* internal helpers */
 
+    /// @notice Calculates token amounts needed for minting one X64 unit of nominal liquidity.
+    /// @dev The liquidity distribution at each range is rounded up.
+    /// @param skipIsland Whether to skip island range.
+    function getMintAmountsPerUnitNominalLiqX64(
+        bool skipIsland
+    )
+        internal
+        view
+        returns (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64)
+    {
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
+
+            // check for island
+            if (range.isIsland()) {
+                if (skipIsland) {
+                    continue;
+                }
+                range.lower = island.lowerTick();
+                range.upper = island.upperTick();
+            }
+
+            // calculate amount of tokens in unit of liquidity X64
+            uint128 liqInRangeX64 = uint128(
+                shift96(uint256(UNIT_NOMINAL_LIQ_X64) * distX96[i], true)
+            );
+            (
+                uint256 range0InUnitLiqX64,
+                uint256 range1InUnitLiqX64
+            ) = getAmountsForLiquidity(
+                    sqrtRatioX96,
+                    liqInRangeX64,
+                    range.lower,
+                    range.upper
+                );
+            amount0InUnitLiqX64 += range0InUnitLiqX64;
+            amount1InUnitLiqX64 += range1InUnitLiqX64;
+        }
+    }
+
+    /// @notice Collects all earned fees for each v3 range.
+    function collectV3Fees() internal {
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
+
+            // skip islands
+            if (range.isIsland()) {
+                continue;
+            }
+
+            // collect fees
+            pool.collect(
+                address(this),
+                range.lower,
+                range.upper,
+                type(uint128).max,
+                type(uint128).max
+            );
+        }
+    }
+
     /// @notice Calculate token amounts in liquidity for the given range.
+    /// @param sqrtRatioX96 The current sqrt ratio of the pool.
     /// @param liquidity The amount of liquidity.
     /// @param lower The lower tick of the range.
     /// @param upper The upper tick of the range.
     function getAmountsForLiquidity(
+        uint160 sqrtRatioX96,
         uint128 liquidity,
         int24 lower,
         int24 upper
-    ) internal view returns (uint256 amount0, uint256 amount1) {
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-
+    ) internal pure returns (uint256 amount0, uint256 amount1) {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
 
@@ -611,7 +681,7 @@ contract Burve is ERC20 {
         bool roundUp
     ) internal pure returns (uint256 b) {
         b = a >> 96;
-        if (roundUp && (a & X96MASK) > 0) b += 1;
+        if (roundUp && (a & X96_MASK) > 0) b += 1;
     }
 
     /// @notice Computes the name for the ERC20 token given the pool address.
