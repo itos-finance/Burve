@@ -62,6 +62,14 @@ contract Burve is ERC20 {
     /// Mapping of owner to island shares they own.
     mapping(address owner => uint256 islandShares) public islandSharesPerOwner;
 
+    /// Emitted when shares are minted.
+    event Mint(
+        address indexed sender,
+        address indexed recipient,
+        uint256 shares
+    );
+    /// Emitted when shares are burned.
+    event Burn(address indexed owner, uint256 shares);
     /// Emitted when the station proxy is migrated.
     event MigrateStationProxy(
         IStationProxy indexed from,
@@ -93,6 +101,8 @@ contract Burve is ERC20 {
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
     );
+    /// Thrown if trying to migrate to the same station proxy.
+    error MigrateToSameStationProxy();
 
     /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
     modifier withinSqrtPX96Limits(
@@ -186,6 +196,10 @@ contract Burve is ERC20 {
     function migrateStationProxy(IStationProxy newStationProxy) external {
         AdminLib.validateOwner();
 
+        if (address(stationProxy) == address(newStationProxy)) {
+            revert MigrateToSameStationProxy();
+        }
+
         emit MigrateStationProxy(stationProxy, newStationProxy);
 
         stationProxy.migrate(newStationProxy);
@@ -257,6 +271,8 @@ contract Burve is ERC20 {
         // mint shares
         totalShares += shares;
         _mint(recipient, shares);
+
+        emit Mint(msg.sender, recipient, shares);
     }
 
     /// @notice Mints to the island.
@@ -367,6 +383,8 @@ contract Burve is ERC20 {
             msg.sender,
             postBalance1 - priorBalance1
         );
+
+        emit Burn(msg.sender, shares);
     }
 
     /// @notice Burns share of the island on behalf of msg.sender.
