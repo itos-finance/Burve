@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
-import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {AdminLib} from "Commons/Util/Admin.sol";
 
-import { AdminLib } from "@Commons/Util/Admin.sol";
-
-import { FullMath } from "./multi/FullMath.sol";
-import { IStationProxy } from "./IStationProxy.sol";
-import { IUniswapV3Pool } from "./integrations/kodiak/IUniswapV3Pool.sol";
-import { TransferHelper } from "./TransferHelper.sol";
-import { IKodiakIsland } from "./integrations/kodiak/IKodiakIsland.sol";
-import { LiquidityAmounts } from "./integrations/uniswap/LiquidityAmounts.sol";
-import { TickMath } from "./integrations/uniswap/TickMath.sol";
+import {FullMath} from "./multi/FullMath.sol";
+import {IStationProxy} from "./IStationProxy.sol";
+import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
+import {TransferHelper} from "./TransferHelper.sol";
+import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
+import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
+import {TickMath} from "./integrations/uniswap/TickMath.sol";
 
 using TickRangeImpl for TickRange global;
 
@@ -63,7 +62,10 @@ contract Burve is ERC20 {
     mapping(address owner => uint256 islandShares) public islandSharesPerOwner;
 
     /// Emitted when the station proxy is migrated.
-    event MigrateStationProxy(IStationProxy indexed from, IStationProxy indexed to);
+    event MigrateStationProxy(
+        IStationProxy indexed from,
+        IStationProxy indexed to
+    );
 
     /// Thrown when island specific logic is invoked but the contract was not initialized with an island.
     error NoIsland();
@@ -79,17 +81,31 @@ contract Burve is ERC20 {
     /// If you burn too much liq at once, we can't collect that amount in one call.
     /// Please split up into multiple calls.
     error TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX);
-    /// Thrown during the uniswapV3MintCallback if the msg.sender is not the pool. 
+    /// Thrown during the uniswapV3MintCallback if the msg.sender is not the pool.
     /// Only the uniswap pool has permission to call this.
     error UniswapV3MintCallbackSenderNotPool(address sender);
     /// Thrown if the price of the pool has moved outside the accepted range during mint / burn.
-    error SqrtPriceX96OverLimit(uint160 sqrtPriceX96, uint160 lowerSqrtPriceLimitX96, uint160 upperSqrtPriceLimitX96);
+    error SqrtPriceX96OverLimit(
+        uint160 sqrtPriceX96,
+        uint160 lowerSqrtPriceLimitX96,
+        uint160 upperSqrtPriceLimitX96
+    );
 
     /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
-    modifier withinSqrtPX96Limits(uint160 lowerSqrtPriceLimitX96, uint160 upperSqrtPriceLimitX96) {
+    modifier withinSqrtPX96Limits(
+        uint160 lowerSqrtPriceLimitX96,
+        uint160 upperSqrtPriceLimitX96
+    ) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (sqrtRatioX96 < lowerSqrtPriceLimitX96 || sqrtRatioX96 > upperSqrtPriceLimitX96) {
-            revert SqrtPriceX96OverLimit(sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        if (
+            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
+            sqrtRatioX96 > upperSqrtPriceLimitX96
+        ) {
+            revert SqrtPriceX96OverLimit(
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            );
         }
 
         _;
@@ -188,13 +204,22 @@ contract Burve is ERC20 {
     ) external {
         // check sqrtP limits
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (sqrtRatioX96 < lowerSqrtPriceLimitX96 || sqrtRatioX96 > upperSqrtPriceLimitX96) {
-            revert SqrtPriceX96OverLimit(sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        if (
+            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
+            sqrtRatioX96 > upperSqrtPriceLimitX96
+        ) {
+            revert SqrtPriceX96OverLimit(
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            );
         }
 
         // mint liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
-            uint128 liqInRange = uint128(shift96(mintLiqNominal * distX96[i], true));
+            uint128 liqInRange = uint128(
+                shift96(mintLiqNominal * distX96[i], true)
+            );
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
                 mintIsland(recipient, liqInRange);
@@ -215,7 +240,11 @@ contract Burve is ERC20 {
         if (totalShares == 0) {
             shares = mintLiqNominal;
         } else {
-            shares = FullMath.mulDiv(mintLiqNominal, totalShares, totalLiqNominal);
+            shares = FullMath.mulDiv(
+                mintLiqNominal,
+                totalShares,
+                totalLiqNominal
+            );
         }
 
         // adjust total nominal liquidity
@@ -230,8 +259,13 @@ contract Burve is ERC20 {
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
     function mintIsland(address recipient, uint128 liq) internal {
-        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(liq, island.lowerTick(), island.upperTick());
-        (uint256 mint0, uint256 mint1, uint256 mintShares) = island.getMintAmounts(amount0, amount1);
+        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+            liq,
+            island.lowerTick(),
+            island.upperTick()
+        );
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = island
+            .getMintAmounts(amount0, amount1);
 
         islandSharesPerOwner[recipient] += mintShares;
 
@@ -307,17 +341,26 @@ contract Burve is ERC20 {
     /// @param lowerSqrtPriceLimitX96 The lower price limit of the pool.
     /// @param upperSqrtPriceLimitX96 The upper price limit of the pool.
     function burn(
-        uint256 shares,         
-        uint160 lowerSqrtPriceLimitX96, 
+        uint256 shares,
+        uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
     ) external {
         // check sqrtP limits
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (sqrtRatioX96 < lowerSqrtPriceLimitX96 || sqrtRatioX96 > upperSqrtPriceLimitX96) {
-            revert SqrtPriceX96OverLimit(sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        if (
+            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
+            sqrtRatioX96 > upperSqrtPriceLimitX96
+        ) {
+            revert SqrtPriceX96OverLimit(
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            );
         }
 
-        uint128 burnLiqNominal = uint128(FullMath.mulDiv(shares, uint256(totalLiqNominal), totalShares));
+        uint128 burnLiqNominal = uint128(
+            FullMath.mulDiv(shares, uint256(totalLiqNominal), totalShares)
+        );
 
         // adjust total nominal liquidity
         totalLiqNominal -= burnLiqNominal;
@@ -331,7 +374,9 @@ contract Burve is ERC20 {
             if (range.isIsland()) {
                 burnIsland(shares);
             } else {
-                uint128 liqInRange = uint128(shift96(burnLiqNominal * distX96[i], false));
+                uint128 liqInRange = uint128(
+                    shift96(burnLiqNominal * distX96[i], false)
+                );
                 burnV3(range, liqInRange);
             }
         }
@@ -343,8 +388,16 @@ contract Burve is ERC20 {
         // transfer collected tokens to msg.sender
         uint256 postBalance0 = token0.balanceOf(address(this));
         uint256 postBalance1 = token1.balanceOf(address(this));
-        TransferHelper.safeTransfer(address(token0), msg.sender, postBalance0 - priorBalance0);
-        TransferHelper.safeTransfer(address(token1), msg.sender, postBalance1 - priorBalance1);
+        TransferHelper.safeTransfer(
+            address(token0),
+            msg.sender,
+            postBalance0 - priorBalance0
+        );
+        TransferHelper.safeTransfer(
+            address(token1),
+            msg.sender,
+            postBalance1 - priorBalance1
+        );
     }
 
     /// @notice Burns share of the island on behalf of msg.sender.
@@ -352,8 +405,8 @@ contract Burve is ERC20 {
     function burnIsland(uint256 shares) internal {
         // calculate island shares to burn
         uint256 islandBurnShares = FullMath.mulDiv(
-            islandSharesPerOwner[msg.sender], 
-            shares, 
+            islandSharesPerOwner[msg.sender],
+            shares,
             balanceOf(msg.sender)
         );
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
@@ -367,15 +420,10 @@ contract Burve is ERC20 {
     /// @param range The range to burn.
     /// @param liq The amount of liquidity to burn.
     function burnV3(TickRange memory range, uint128 liq) internal {
-        (uint256 x, uint256 y) = pool.burn(
-            range.lower,
-            range.upper,
-            liq 
-        );
+        (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
 
         if (x > type(uint128).max) revert TooMuchBurnedAtOnce(liq, x, true);
-        if (y > type(uint128).max)
-            revert TooMuchBurnedAtOnce(liq, y, false);
+        if (y > type(uint128).max) revert TooMuchBurnedAtOnce(liq, y, false);
 
         pool.collect(
             address(this),
