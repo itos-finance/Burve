@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {IStationProxy} from "../src/IStationProxy.sol";
-import {TransferHelper} from "../src/TransferHelper.sol";
+import {IStationProxy} from "../../src/single/IStationProxy.sol";
+import {TransferHelper} from "../../src/TransferHelper.sol";
 
 contract NullStationProxy is IStationProxy {
     mapping(address sender => mapping(address lp => mapping(address owner => uint256 balance))) allowances;
@@ -36,7 +36,7 @@ contract NullStationProxy is IStationProxy {
         TransferHelper.safeTransfer(lpToken, msg.sender, amount);
     }
 
-     /// @inheritdoc IStationProxy
+    /// @inheritdoc IStationProxy
     function migrate(IStationProxy newStationProxy) external {
         // Do nothing.
     }
