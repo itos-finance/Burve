@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {TickMath} from "./uniV3Lib/TickMath.sol";
 import {UniV3Edge} from "./UniV3Edge.sol";
-import {FullMath} from "./FullMath.sol";
+import {FullMath} from "../FullMath.sol";
 import {Store} from "./Store.sol";
 import {SimplexStorage} from "./facets/SimplexFacet.sol";
 import {TransferHelper} from "../TransferHelper.sol";

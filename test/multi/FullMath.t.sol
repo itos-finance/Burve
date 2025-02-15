@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
-import {FullMath} from "../../src/multi/FullMath.sol";
+import {FullMath} from "../../src/FullMath.sol";
 
 // TODO once we have a mock Erc4626
 contract FullMathTest is Test {

@@ -6,7 +6,7 @@ import {Store} from "../../src/multi/Store.sol";
 import {UniV3Edge} from "../../src/multi/UniV3Edge.sol";
 import {Edge} from "../../src/multi/Edge.sol";
 import {TickMath} from "../../src/multi/uniV3Lib/TickMath.sol";
-import {FullMath} from "../../src/multi/FullMath.sol";
+import {FullMath} from "../../src/FullMath.sol";
 
 contract UniV3EdgeTest is Test {
     uint160 constant SELL_SQRT_LIMIT = TickMath.MIN_SQRT_RATIO + 1;
