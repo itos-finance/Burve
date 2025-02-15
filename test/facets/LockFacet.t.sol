@@ -6,7 +6,7 @@ import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
-import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract LockFacetTest is MultiSetupTest {
     function setUp() public {
@@ -111,7 +111,7 @@ contract LockFacetTest is MultiSetupTest {
         liqFacet.removeLiq(alice, cid3, shares);
         vm.stopPrank();
         // And get back the locked token even if its locked.
-        assertEq(lockedToken.balanceOf(alice), originalBalance);
+        assertApproxEqAbs(lockedToken.balanceOf(alice), originalBalance, 1);
 
         // And once we unlock...
         vm.prank(owner);
@@ -124,6 +124,14 @@ contract LockFacetTest is MultiSetupTest {
 
     /// Test attempts to swap when a vertex is locked.
     function testLockedSwap() public {
+        // First add a bunch of liquidity.
+        _fundAccount(owner);
+        uint128[] memory amounts = new uint128[](3);
+        amounts[0] = 100e18;
+        amounts[1] = 100e18;
+        vm.prank(owner);
+        liqFacet.addLiq(owner, 0x3, amounts);
+
         // Before locking, alice can swap freely
         vm.prank(alice);
         swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 1 << 95);

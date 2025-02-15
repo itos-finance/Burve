@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {InitLib} from "../../src/InitLib.sol";
+import {InitLib, BurveFacets} from "../../src/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
@@ -44,15 +44,8 @@ contract MultiSetupTest is Test {
 
     /// Deploy the diamond and facets
     function _newDiamond() internal {
-        (
-            address liqFacetAddr,
-            address simplexFacetAddr,
-            address swapFacetAddr
-        ) = InitLib.deployFacets();
-
-        diamond = address(
-            new SimplexDiamond(liqFacetAddr, simplexFacetAddr, swapFacetAddr)
-        );
+        BurveFacets memory bFacets = InitLib.deployFacets();
+        diamond = address(new SimplexDiamond(bFacets));
 
         edgeFacet = EdgeFacet(diamond);
         liqFacet = LiqFacet(diamond);
@@ -69,8 +62,8 @@ contract MultiSetupTest is Test {
             tokens.push(
                 address(
                     new MockERC20(
-                        "Test Token ".concat(idx),
-                        "TEST".concat(idx),
+                        string.concat("Test Token ", idx),
+                        string.concat("TEST", idx),
                         18
                     )
                 )
@@ -93,8 +86,8 @@ contract MultiSetupTest is Test {
                     address(
                         new MockERC4626(
                             ERC20(tokens[i]),
-                            "Vault ".concat(idx),
-                            "V".concat(idx)
+                            string.concat("Vault ", idx),
+                            string.concat("V", idx)
                         )
                     )
                 )
@@ -112,13 +105,13 @@ contract MultiSetupTest is Test {
 
     function _fundAccount(address account) internal {
         for (uint256 i = 0; i < tokens.length; ++i) {
-            tokens[i].mint(account, INITIAL_MINT_AMOUNT);
+            MockERC20(tokens[i]).mint(account, INITIAL_MINT_AMOUNT);
         }
 
         // Approve diamond for all test accounts
         vm.startPrank(account);
         for (uint256 i = 0; i < tokens.length; ++i) {
-            tokens[i].approve(address(diamond), type(uint256).max);
+            MockERC20(tokens[i]).approve(address(diamond), type(uint256).max);
         }
         vm.stopPrank();
     }
