@@ -17,9 +17,9 @@ import {TickMath} from "./integrations/uniswap/TickMath.sol";
 import {TickRange} from "./TickRange.sol";
 
 contract Burve is ERC20 {
-    uint256 constant X96_MASK = (1 << 96) - 1;
-    uint256 constant MAX_196_BITS = (1 << 196) - 1;
-    uint256 constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
+    uint256 private constant X96_MASK = (1 << 96) - 1;
+    uint256 private constant MAX_196_BITS = (1 << 196) - 1;
+    uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
 
     IUniswapV3Pool public pool;
     IERC20 public token0;

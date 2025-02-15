@@ -22,9 +22,13 @@ import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
 import {TickRange} from "../../src/single/TickRange.sol";
 
 contract BurveTest is ForkableTest {
+    uint256 private constant X96_MASK = (1 << 96) - 1;
+    uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
+
     BurveExposedInternal public burveIsland; // island only
     BurveExposedInternal public burveV3; // v3 only
     BurveExposedInternal public burve; // island + v3
+    BurveExposedInternal public burveCompound; // island + v3 (mocked uni pool)
 
     IUniswapV3Pool pool;
     IERC20 token0;
@@ -34,8 +38,6 @@ contract BurveTest is ForkableTest {
 
     address alice;
     address sender;
-
-    uint256 private constant X96MASK = (1 << 96) - 1;
 
     function forkSetup() internal virtual override {
         alice = makeAddr("Alice");
@@ -1259,6 +1261,163 @@ contract BurveTest is ForkableTest {
 
     // Compound Tests
 
+    function testGetMintAmountsPerUnitNominalLiqX64CurrentSqrtP() public {
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
+        int24 islandLower = burve.island().lowerTick();
+        int24 islandUpper = burve.island().upperTick();
+
+        uint128 islandLiq = uint128(
+            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(0), true)
+        );
+        uint128 v3Liq = uint128(
+            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
+        );
+
+        (uint256 islandMint0, uint256 islandMint1) = getAmountsForLiquidity(
+            islandLiq,
+            islandLower,
+            islandUpper,
+            false
+        );
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(
+            v3Liq,
+            v3Lower,
+            v3Upper,
+            false
+        );
+
+        (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(true);
+        (uint256 mint0IncludeIsland, uint256 mint1IncludeIsland) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(false);
+
+        assertEq(mint0SkipIsland, v3Mint0, "current price, skip island, mint0");
+        assertEq(mint1SkipIsland, v3Mint1, "current price, skip island, mint1");
+        assertEq(
+            mint0IncludeIsland,
+            islandMint0 + v3Mint0,
+            "current price, include island, mint0"
+        );
+        assertEq(
+            mint1IncludeIsland,
+            islandMint1 + v3Mint1,
+            "current price, include island, mint1"
+        );
+        assertGt(
+            mint0IncludeIsland,
+            mint0SkipIsland,
+            "current price, include > skip, mint0"
+        );
+        assertGt(
+            mint1IncludeIsland,
+            mint1SkipIsland,
+            "current price, include > skip, mint1"
+        );
+    }
+
+    function testGetMintAmountsPerUnitNominalLiqX64MinSqrtP() public {
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(pool.slot0.selector),
+            abi.encode(TickMath.MIN_SQRT_RATIO, 0, 0, 0, 0, 0, true)
+        );
+
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
+        int24 islandLower = burve.island().lowerTick();
+        int24 islandUpper = burve.island().upperTick();
+
+        uint128 islandLiq = uint128(
+            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(0), true)
+        );
+        uint128 v3Liq = uint128(
+            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
+        );
+
+        // check current price
+        (uint256 islandMint0, ) = getAmountsForLiquidity(
+            islandLiq,
+            islandLower,
+            islandUpper,
+            false
+        );
+        (uint256 v3Mint0, ) = getAmountsForLiquidity(
+            v3Liq,
+            v3Lower,
+            v3Upper,
+            false
+        );
+
+        (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(true);
+        (uint256 mint0IncludeIsland, uint256 mint1IncludeIsland) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(false);
+
+        assertEq(mint0SkipIsland, v3Mint0, "current price, skip island, mint0");
+        assertEq(mint1SkipIsland, 0, "current price, skip island, mint1");
+        assertEq(
+            mint0IncludeIsland,
+            islandMint0 + v3Mint0,
+            "current price, include island, mint0"
+        );
+        assertEq(mint1IncludeIsland, 0, "current price, include island, mint1");
+        assertGt(
+            mint0IncludeIsland,
+            mint0SkipIsland,
+            "current price, include > skip, mint0"
+        );
+    }
+
+    function testGetMintAmountsPerUnitNominalLiqX64MaxSqrtP() public {
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(pool.slot0.selector),
+            abi.encode(TickMath.MAX_SQRT_RATIO, 0, 0, 0, 0, 0, true)
+        );
+
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
+        int24 islandLower = burve.island().lowerTick();
+        int24 islandUpper = burve.island().upperTick();
+
+        uint128 islandLiq = uint128(
+            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(0), true)
+        );
+        uint128 v3Liq = uint128(
+            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
+        );
+
+        (, uint256 islandMint1) = getAmountsForLiquidity(
+            islandLiq,
+            islandLower,
+            islandUpper,
+            false
+        );
+        (, uint256 v3Mint1) = getAmountsForLiquidity(
+            v3Liq,
+            v3Lower,
+            v3Upper,
+            false
+        );
+
+        (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(true);
+        (uint256 mint0IncludeIsland, uint256 mint1IncludeIsland) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(false);
+
+        assertEq(mint0SkipIsland, 0, "current price, skip island, mint0");
+        assertEq(mint1SkipIsland, v3Mint1, "current price, skip island, mint1");
+        assertEq(mint0IncludeIsland, 0, "current price, include island, mint0");
+        assertEq(
+            mint1IncludeIsland,
+            islandMint1 + v3Mint1,
+            "current price, include island, mint1"
+        );
+        assertGt(
+            mint1IncludeIsland,
+            mint1SkipIsland,
+            "current price, include > skip, mint1"
+        );
+    }
+
     function testCollectV3Fees() public forkOnly {
         (int24 lower, int24 upper) = burveV3.ranges(0);
         vm.expectCall(
@@ -1331,6 +1490,6 @@ contract BurveTest is ForkableTest {
         bool roundUp
     ) internal pure returns (uint256 b) {
         b = a >> 96;
-        if (roundUp && (a & X96MASK) > 0) b += 1;
+        if (roundUp && (a & X96_MASK) > 0) b += 1;
     }
 }
