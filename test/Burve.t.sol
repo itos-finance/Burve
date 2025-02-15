@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import { Test, console } from "forge-std/Test.sol";
-import { StdUtils } from "forge-std/StdUtils.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {StdUtils} from "forge-std/StdUtils.sol";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { ForkableTest } from "@Commons/Test/ForkableTest.sol";
+import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 
-import { BartioAddresses } from "./utils/BaritoAddresses.sol";
-import { Burve, TickRange } from "../src/Burve.sol";
-import { FullMath } from "../src/multi/FullMath.sol";
-import { IKodiakIsland } from "../src/integrations/kodiak/IKodiakIsland.sol";
-import { IStationProxy } from "../src/IStationProxy.sol";
-import { IUniswapV3Pool } from "../src/integrations/kodiak/IUniswapV3Pool.sol";
-import { LiquidityAmounts } from "../src/integrations/uniswap/LiquidityAmounts.sol";
-import { NullStationProxy } from "./NullStationProxy.sol";
-import { TickMath } from "../src/integrations/uniswap/TickMath.sol";
+import {BartioAddresses} from "./utils/BaritoAddresses.sol";
+import {Burve, TickRange} from "../src/Burve.sol";
+import {FullMath} from "../src/multi/FullMath.sol";
+import {IKodiakIsland} from "../src/integrations/kodiak/IKodiakIsland.sol";
+import {IStationProxy} from "../src/IStationProxy.sol";
+import {IUniswapV3Pool} from "../src/integrations/kodiak/IUniswapV3Pool.sol";
+import {LiquidityAmounts} from "../src/integrations/uniswap/LiquidityAmounts.sol";
+import {NullStationProxy} from "./NullStationProxy.sol";
+import {TickMath} from "../src/integrations/uniswap/TickMath.sol";
 
 contract BurveTest is ForkableTest {
     Burve public burveIsland; // island only
@@ -35,8 +35,8 @@ contract BurveTest is ForkableTest {
     uint256 private constant X96MASK = (1 << 96) - 1;
 
     function forkSetup() internal virtual override {
-        alice = makeAddr('Alice');
-        sender = makeAddr('Sender');
+        alice = makeAddr("Alice");
+        sender = makeAddr("Sender");
 
         stationProxy = new NullStationProxy();
 
@@ -112,21 +112,27 @@ contract BurveTest is ForkableTest {
         vm.label(BartioAddresses.KODIAK_HONEY_NECT_ISLAND, "HONEY_NECT_ISLAND");
     }
 
-    // Mint Tests 
+    // Mint Tests
 
     function testIslandMintSenderIsRecipient() public {
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
         // calc island mint
-        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(liq, island.lowerTick(), island.upperTick(), false);
-        (uint256 mint0, uint256 mint1, uint256 mintShares) = island.getMintAmounts(amount0, amount1);
+        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+            liq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = island
+            .getMintAmounts(amount0, amount1);
 
         // deal required tokens
         deal(address(token0), address(alice), mint0);
         deal(address(token1), address(alice), mint1);
 
-        vm.startPrank(alice); 
+        vm.startPrank(alice);
 
         // approve transfer
         token0.approve(address(burveIsland), mint0);
@@ -147,9 +153,17 @@ contract BurveTest is ForkableTest {
         assertEq(token1.balanceOf(address(alice)), 0, "alice token1 balance");
 
         // check island LP token
-        assertEq(burveIsland.islandSharesPerOwner(alice), mintShares, "alice islandSharesPerOwner balance");
+        assertEq(
+            burveIsland.islandSharesPerOwner(alice),
+            mintShares,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), mintShares, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            mintShares,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
         assertEq(burveIsland.balanceOf(alice), liq, "alice burve LP balance");
@@ -160,14 +174,20 @@ contract BurveTest is ForkableTest {
         IKodiakIsland island = burveIsland.island();
 
         // calc island mint
-        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(liq, island.lowerTick(), island.upperTick(), false);
-        (uint256 mint0, uint256 mint1, uint256 mintShares) = island.getMintAmounts(amount0, amount1);
+        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+            liq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
+        (uint256 mint0, uint256 mint1, uint256 mintShares) = island
+            .getMintAmounts(amount0, amount1);
 
         // deal required tokens
         deal(address(token0), sender, mint0);
         deal(address(token1), sender, mint1);
 
-        vm.startPrank(sender); 
+        vm.startPrank(sender);
 
         // approve transfer
         token0.approve(address(burveIsland), mint0);
@@ -188,9 +208,17 @@ contract BurveTest is ForkableTest {
         assertEq(token1.balanceOf(address(sender)), 0, "sender token1 balance");
 
         // check island LP token
-        assertEq(burveIsland.islandSharesPerOwner(alice), mintShares, "alice islandSharesPerOwner balance");
+        assertEq(
+            burveIsland.islandSharesPerOwner(alice),
+            mintShares,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), mintShares, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            mintShares,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
         assertEq(burveIsland.balanceOf(alice), liq, "alice burve LP balance");
@@ -201,7 +229,12 @@ contract BurveTest is ForkableTest {
 
         // calc v3 mint
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 mint0, uint256 mint1) = getAmountsForLiquidity(liq, lower, upper, true);
+        (uint256 mint0, uint256 mint1) = getAmountsForLiquidity(
+            liq,
+            lower,
+            upper,
+            true
+        );
 
         // deal required tokens
         deal(address(token0), address(alice), mint0);
@@ -236,7 +269,12 @@ contract BurveTest is ForkableTest {
 
         // calc v3 mint
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 mint0, uint256 mint1) = getAmountsForLiquidity(liq, lower, upper, true);
+        (uint256 mint0, uint256 mint1) = getAmountsForLiquidity(
+            liq,
+            lower,
+            upper,
+            true
+        );
 
         // deal required tokens
         deal(address(token0), address(sender), mint0);
@@ -272,13 +310,27 @@ contract BurveTest is ForkableTest {
 
         // calc island mint
         uint128 islandLiq = uint128(shift96(liq * burve.distX96(0), true));
-        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(islandLiq, island.lowerTick(), island.upperTick(), false);
-        (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = island.getMintAmounts(amount0, amount1);
+        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+            islandLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
+        (
+            uint256 islandMint0,
+            uint256 islandMint1,
+            uint256 islandMintShares
+        ) = island.getMintAmounts(amount0, amount1);
 
         // calc v3 mint
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(v3Liq, lower, upper, true);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(
+            v3Liq,
+            lower,
+            upper,
+            true
+        );
 
         // mint amounts
         uint256 mint0 = islandMint0 + v3Mint0;
@@ -309,9 +361,17 @@ contract BurveTest is ForkableTest {
         assertEq(token1.balanceOf(address(alice)), 0, "alice token1 balance");
 
         // check island LP token
-        assertEq(burve.islandSharesPerOwner(alice), islandMintShares, "alice islandSharesPerOwner balance");
+        assertEq(
+            burve.islandSharesPerOwner(alice),
+            islandMintShares,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), islandMintShares, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            islandMintShares,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
         assertEq(burve.balanceOf(alice), liq, "alice burve LP balance");
@@ -323,13 +383,27 @@ contract BurveTest is ForkableTest {
 
         // calc island mint
         uint128 islandLiq = uint128(shift96(liq * burve.distX96(0), true));
-        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(islandLiq, island.lowerTick(), island.upperTick(), false);
-        (uint256 islandMint0, uint256 islandMint1, uint256 islandMintShares) = island.getMintAmounts(amount0, amount1);
+        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+            islandLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
+        (
+            uint256 islandMint0,
+            uint256 islandMint1,
+            uint256 islandMintShares
+        ) = island.getMintAmounts(amount0, amount1);
 
         // calc v3 mint
         uint128 v3Liq = uint128(shift96(liq * burve.distX96(1), true));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(v3Liq, lower, upper, true);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(
+            v3Liq,
+            lower,
+            upper,
+            true
+        );
 
         // mint amounts
         uint256 mint0 = islandMint0 + v3Mint0;
@@ -360,9 +434,17 @@ contract BurveTest is ForkableTest {
         assertEq(token1.balanceOf(address(sender)), 0, "sender token1 balance");
 
         // check island LP token
-        assertEq(burve.islandSharesPerOwner(alice), islandMintShares, "alice islandSharesPerOwner balance");
+        assertEq(
+            burve.islandSharesPerOwner(alice),
+            islandMintShares,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), islandMintShares, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            islandMintShares,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
         assertEq(burve.balanceOf(alice), liq, "alice burve LP balance");
@@ -385,7 +467,11 @@ contract BurveTest is ForkableTest {
         // check 1st mint
         assertEq(burve.totalLiqNominal(), 1000, "total liq nominal 1st mint");
         assertEq(burve.totalShares(), 1000, "total shares 1st mint");
-        assertEq(burve.balanceOf(alice), 1000, "alice burve LP balance 1st mint");
+        assertEq(
+            burve.balanceOf(alice),
+            1000,
+            "alice burve LP balance 1st mint"
+        );
 
         // 2nd mint (lower amount)
         burve.mint(address(alice), 500, 0, type(uint128).max);
@@ -393,7 +479,11 @@ contract BurveTest is ForkableTest {
         // check 2nd mint
         assertEq(burve.totalLiqNominal(), 1500, "total liq nominal 2nd mint");
         assertEq(burve.totalShares(), 1500, "total shares 2nd mint");
-        assertEq(burve.balanceOf(alice), 1500, "alice burve LP balance 2nd mint");
+        assertEq(
+            burve.balanceOf(alice),
+            1500,
+            "alice burve LP balance 2nd mint"
+        );
 
         // 3rd mint (higher amount)
         burve.mint(address(alice), 3000, 0, type(uint128).max);
@@ -401,7 +491,11 @@ contract BurveTest is ForkableTest {
         // check 3rd mint
         assertEq(burve.totalLiqNominal(), 4500, "total liq nominal 3rd mint");
         assertEq(burve.totalShares(), 4500, "total shares 3rd mint");
-        assertEq(burve.balanceOf(alice), 4500, "alice burve LP balance 3rd mint");
+        assertEq(
+            burve.balanceOf(alice),
+            4500,
+            "alice burve LP balance 3rd mint"
+        );
 
         vm.stopPrank();
     }
@@ -474,16 +568,40 @@ contract BurveTest is ForkableTest {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
-        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
-        burve.mint(address(alice), 100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.SqrtPriceX96OverLimit.selector,
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            )
+        );
+        burve.mint(
+            address(alice),
+            100,
+            lowerSqrtPriceLimitX96,
+            upperSqrtPriceLimitX96
+        );
     }
 
     function testRevertMintSqrtPX96AboveUpperLimit() public {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
-        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
-        burve.mint(address(alice), 100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.SqrtPriceX96OverLimit.selector,
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            )
+        );
+        burve.mint(
+            address(alice),
+            100,
+            lowerSqrtPriceLimitX96,
+            upperSqrtPriceLimitX96
+        );
     }
 
     // Burn Tests
@@ -504,8 +622,16 @@ contract BurveTest is ForkableTest {
         IKodiakIsland island = burveIsland.island();
 
         // calc island burn
-        uint128 islandBurnLiq = islandSharesToLiquidity(island, burveIsland.islandSharesPerOwner(alice));
-        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(islandBurnLiq, island.lowerTick(), island.upperTick(), false);
+        uint128 islandBurnLiq = islandSharesToLiquidity(
+            island,
+            burveIsland.islandSharesPerOwner(alice)
+        );
+        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(
+            islandBurnLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
 
         vm.startPrank(alice);
 
@@ -523,13 +649,29 @@ contract BurveTest is ForkableTest {
         assertEq(burveIsland.totalShares(), 0, "total shares");
 
         // check pool token balances
-        assertGe(token0.balanceOf(address(alice)), burn0, "alice token0 balance");
-        assertGe(token1.balanceOf(address(alice)), burn1, "alice token1 balance");
+        assertGe(
+            token0.balanceOf(address(alice)),
+            burn0,
+            "alice token0 balance"
+        );
+        assertGe(
+            token1.balanceOf(address(alice)),
+            burn1,
+            "alice token1 balance"
+        );
 
         // check island LP token
-        assertEq(burveIsland.islandSharesPerOwner(alice), 0, "alice islandSharesPerOwner balance");
+        assertEq(
+            burveIsland.islandSharesPerOwner(alice),
+            0,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), 0, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            0,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
         assertEq(burveIsland.balanceOf(alice), 0, "alice burve LP balance");
@@ -553,10 +695,22 @@ contract BurveTest is ForkableTest {
 
         // calc island burn
         uint256 islandShares = burveIsland.islandSharesPerOwner(alice);
-        uint256 burnIslandShares = FullMath.mulDiv(islandShares, burnLiq, mintLiq);
+        uint256 burnIslandShares = FullMath.mulDiv(
+            islandShares,
+            burnLiq,
+            mintLiq
+        );
 
-        uint128 islandBurnLiq = islandSharesToLiquidity(island, burnIslandShares);
-        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(islandBurnLiq, island.lowerTick(), island.upperTick(), false);
+        uint128 islandBurnLiq = islandSharesToLiquidity(
+            island,
+            burnIslandShares
+        );
+        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(
+            islandBurnLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
 
         vm.startPrank(alice);
 
@@ -568,22 +722,46 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalLiqNominal(), mintLiq - burnLiq, "total liq nominal");
+        assertEq(
+            burveIsland.totalLiqNominal(),
+            mintLiq - burnLiq,
+            "total liq nominal"
+        );
 
         // check shares
         assertEq(burveIsland.totalShares(), mintLiq - burnLiq, "total shares");
 
         // check pool token balances
-        assertGe(token0.balanceOf(address(alice)), burn0, "alice token0 balance");
-        assertGe(token1.balanceOf(address(alice)), burn1, "alice token1 balance");
+        assertGe(
+            token0.balanceOf(address(alice)),
+            burn0,
+            "alice token0 balance"
+        );
+        assertGe(
+            token1.balanceOf(address(alice)),
+            burn1,
+            "alice token1 balance"
+        );
 
         // check island LP token
-        assertEq(burveIsland.islandSharesPerOwner(alice), islandShares - burnIslandShares, "alice islandSharesPerOwner balance");
+        assertEq(
+            burveIsland.islandSharesPerOwner(alice),
+            islandShares - burnIslandShares,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), islandShares - burnIslandShares, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            islandShares - burnIslandShares,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
-        assertEq(burveIsland.balanceOf(alice), mintLiq - burnLiq, "alice burve LP balance");
+        assertEq(
+            burveIsland.balanceOf(alice),
+            mintLiq - burnLiq,
+            "alice burve LP balance"
+        );
     }
 
     function testBurnV3Full() public {
@@ -602,7 +780,12 @@ contract BurveTest is ForkableTest {
 
         // calc v3 burn
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(mintLiq, lower, upper, false);
+        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(
+            mintLiq,
+            lower,
+            upper,
+            false
+        );
 
         vm.startPrank(alice);
 
@@ -620,8 +803,16 @@ contract BurveTest is ForkableTest {
         assertEq(burveV3.totalShares(), 0, "total shares");
 
         // check pool token balances
-        assertGe(token0.balanceOf(address(alice)), burn0, "alice token0 balance");
-        assertGe(token1.balanceOf(address(alice)), burn1, "alice token1 balance");
+        assertGe(
+            token0.balanceOf(address(alice)),
+            burn0,
+            "alice token0 balance"
+        );
+        assertGe(
+            token1.balanceOf(address(alice)),
+            burn1,
+            "alice token1 balance"
+        );
 
         // check burve LP token
         assertEq(burveIsland.balanceOf(alice), 0, "alice burve LP balance");
@@ -644,7 +835,12 @@ contract BurveTest is ForkableTest {
 
         // calc v3 burn
         (int24 lower, int24 upper) = burveV3.ranges(0);
-        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(burnLiq, lower, upper, false);
+        (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(
+            burnLiq,
+            lower,
+            upper,
+            false
+        );
 
         vm.startPrank(alice);
 
@@ -656,17 +852,33 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalLiqNominal(), mintLiq - burnLiq, "total liq nominal");
+        assertEq(
+            burveV3.totalLiqNominal(),
+            mintLiq - burnLiq,
+            "total liq nominal"
+        );
 
         // check shares
         assertEq(burveV3.totalShares(), mintLiq - burnLiq, "total shares");
 
         // check pool token balances
-        assertGe(token0.balanceOf(address(alice)), burn0, "alice token0 balance");
-        assertGe(token1.balanceOf(address(alice)), burn1, "alice token1 balance");
+        assertGe(
+            token0.balanceOf(address(alice)),
+            burn0,
+            "alice token0 balance"
+        );
+        assertGe(
+            token1.balanceOf(address(alice)),
+            burn1,
+            "alice token1 balance"
+        );
 
         // check burve LP token
-        assertEq(burveV3.balanceOf(alice), mintLiq - burnLiq, "alice burve LP balance");
+        assertEq(
+            burveV3.balanceOf(alice),
+            mintLiq - burnLiq,
+            "alice burve LP balance"
+        );
     }
 
     function testBurnFull() public {
@@ -685,13 +897,26 @@ contract BurveTest is ForkableTest {
         IKodiakIsland island = burve.island();
 
         // calc island burn
-        uint128 islandBurnLiq = islandSharesToLiquidity(island, burve.islandSharesPerOwner(alice));
-        (uint256 islandBurn0, uint256 islandBurn1) = getAmountsForLiquidity(islandBurnLiq, island.lowerTick(), island.upperTick(), false);
+        uint128 islandBurnLiq = islandSharesToLiquidity(
+            island,
+            burve.islandSharesPerOwner(alice)
+        );
+        (uint256 islandBurn0, uint256 islandBurn1) = getAmountsForLiquidity(
+            islandBurnLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
 
         // calc v3 burn
         uint128 v3BurnLiq = uint128(shift96(mintLiq * burve.distX96(1), false));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsForLiquidity(v3BurnLiq, lower, upper, false);
+        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsForLiquidity(
+            v3BurnLiq,
+            lower,
+            upper,
+            false
+        );
 
         uint256 burn0 = islandBurn0 + v3Burn0;
         uint256 burn1 = islandBurn1 + v3Burn1;
@@ -712,13 +937,29 @@ contract BurveTest is ForkableTest {
         assertEq(burve.totalShares(), 0, "total shares");
 
         // check pool token balances
-        assertGe(token0.balanceOf(address(alice)), burn0, "alice token0 balance");
-        assertGe(token1.balanceOf(address(alice)), burn1, "alice token1 balance");
+        assertGe(
+            token0.balanceOf(address(alice)),
+            burn0,
+            "alice token0 balance"
+        );
+        assertGe(
+            token1.balanceOf(address(alice)),
+            burn1,
+            "alice token1 balance"
+        );
 
         // check island LP token
-        assertEq(burve.islandSharesPerOwner(alice), 0, "alice islandSharesPerOwner balance");
+        assertEq(
+            burve.islandSharesPerOwner(alice),
+            0,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), 0, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            0,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
         assertEq(burve.balanceOf(alice), 0, "alice burve LP balance");
@@ -742,15 +983,32 @@ contract BurveTest is ForkableTest {
 
         // calc island burn
         uint256 islandShares = burve.islandSharesPerOwner(alice);
-        uint256 burnIslandShares = FullMath.mulDiv(islandShares, burnLiq, mintLiq);
+        uint256 burnIslandShares = FullMath.mulDiv(
+            islandShares,
+            burnLiq,
+            mintLiq
+        );
 
-        uint128 islandBurnLiq = islandSharesToLiquidity(island, burnIslandShares);
-        (uint256 islandBurn0, uint256 islandBurn1) = getAmountsForLiquidity(islandBurnLiq, island.lowerTick(), island.upperTick(), false);
+        uint128 islandBurnLiq = islandSharesToLiquidity(
+            island,
+            burnIslandShares
+        );
+        (uint256 islandBurn0, uint256 islandBurn1) = getAmountsForLiquidity(
+            islandBurnLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            false
+        );
 
         // calc v3 burn
         uint128 v3BurnLiq = uint128(shift96(burnLiq * burve.distX96(1), false));
         (int24 lower, int24 upper) = burve.ranges(1);
-        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsForLiquidity(v3BurnLiq, lower, upper, false);
+        (uint256 v3Burn0, uint256 v3Burn1) = getAmountsForLiquidity(
+            v3BurnLiq,
+            lower,
+            upper,
+            false
+        );
 
         uint256 burn0 = islandBurn0 + v3Burn0;
         uint256 burn1 = islandBurn1 + v3Burn1;
@@ -765,29 +1023,60 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalLiqNominal(), mintLiq - burnLiq, "total liq nominal");
+        assertEq(
+            burve.totalLiqNominal(),
+            mintLiq - burnLiq,
+            "total liq nominal"
+        );
 
         // check shares
         assertEq(burve.totalShares(), mintLiq - burnLiq, "total shares");
 
         // check pool token balances
-        assertGe(token0.balanceOf(address(alice)), burn0, "alice token0 balance");
-        assertGe(token1.balanceOf(address(alice)), burn1, "alice token1 balance");
+        assertGe(
+            token0.balanceOf(address(alice)),
+            burn0,
+            "alice token0 balance"
+        );
+        assertGe(
+            token1.balanceOf(address(alice)),
+            burn1,
+            "alice token1 balance"
+        );
 
         // check island LP token
-        assertEq(burve.islandSharesPerOwner(alice), islandShares - burnIslandShares, "alice islandSharesPerOwner balance");
+        assertEq(
+            burve.islandSharesPerOwner(alice),
+            islandShares - burnIslandShares,
+            "alice islandSharesPerOwner balance"
+        );
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
-        assertEq(island.balanceOf(address(stationProxy)), islandShares - burnIslandShares, "station proxy island LP balance");
+        assertEq(
+            island.balanceOf(address(stationProxy)),
+            islandShares - burnIslandShares,
+            "station proxy island LP balance"
+        );
 
         // check burve LP token
-        assertEq(burve.balanceOf(alice), mintLiq - burnLiq, "alice burve LP balance");
+        assertEq(
+            burve.balanceOf(alice),
+            mintLiq - burnLiq,
+            "alice burve LP balance"
+        );
     }
 
     function testRevertBurnSqrtPX96BelowLowerLimit() public {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
-        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.SqrtPriceX96OverLimit.selector,
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            )
+        );
         burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
     }
 
@@ -795,7 +1084,14 @@ contract BurveTest is ForkableTest {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
-        vm.expectRevert(abi.encodeWithSelector(Burve.SqrtPriceX96OverLimit.selector, sqrtRatioX96, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Burve.SqrtPriceX96OverLimit.selector,
+                sqrtRatioX96,
+                lowerSqrtPriceLimitX96,
+                upperSqrtPriceLimitX96
+            )
+        );
         burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
     }
 
@@ -836,11 +1132,16 @@ contract BurveTest is ForkableTest {
     /// @param island The island
     /// @param shares The shares
     /// @return liquidity The liquidity
-    function islandSharesToLiquidity(IKodiakIsland island, uint256 shares) internal view returns (uint128 liquidity) {
+    function islandSharesToLiquidity(
+        IKodiakIsland island,
+        uint256 shares
+    ) internal view returns (uint128 liquidity) {
         bytes32 positionId = island.getPositionID();
-        (uint128 poolLiquidity,,,,) = pool.positions(positionId);
+        (uint128 poolLiquidity, , , , ) = pool.positions(positionId);
         uint256 totalSupply = island.totalSupply();
-        liquidity = uint128(FullMath.mulDiv(shares, poolLiquidity, totalSupply));
+        liquidity = uint128(
+            FullMath.mulDiv(shares, poolLiquidity, totalSupply)
+        );
     }
 
     function shift96(
