@@ -7,10 +7,10 @@ import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol"
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 
-import {FullMath} from "./multi/FullMath.sol";
+import {FullMath} from "../multi/FullMath.sol";
 import {IStationProxy} from "./IStationProxy.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
-import {TransferHelper} from "./TransferHelper.sol";
+import {TransferHelper} from "../TransferHelper.sol";
 import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
 import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
 import {TickMath} from "./integrations/uniswap/TickMath.sol";

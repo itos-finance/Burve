@@ -9,15 +9,15 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 
-import {BartioAddresses} from "./utils/BaritoAddresses.sol";
-import {Burve, TickRange} from "../src/Burve.sol";
-import {FullMath} from "../src/multi/FullMath.sol";
-import {IKodiakIsland} from "../src/integrations/kodiak/IKodiakIsland.sol";
-import {IStationProxy} from "../src/IStationProxy.sol";
-import {IUniswapV3Pool} from "../src/integrations/kodiak/IUniswapV3Pool.sol";
-import {LiquidityAmounts} from "../src/integrations/uniswap/LiquidityAmounts.sol";
+import {BartioAddresses} from "../utils/BaritoAddresses.sol";
+import {Burve, TickRange} from "../../src/single/Burve.sol";
+import {FullMath} from "../../src/multi/FullMath.sol";
+import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
+import {IStationProxy} from "../../src/single/IStationProxy.sol";
+import {IUniswapV3Pool} from "../../src/single/integrations/kodiak/IUniswapV3Pool.sol";
+import {LiquidityAmounts} from "../../src/single/integrations/uniswap/LiquidityAmounts.sol";
 import {NullStationProxy} from "./NullStationProxy.sol";
-import {TickMath} from "../src/integrations/uniswap/TickMath.sol";
+import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
 
 contract BurveTest is ForkableTest {
     Burve public burveIsland; // island only
