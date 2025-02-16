@@ -215,7 +215,7 @@ contract BurveTest is ForkableTest {
             liq,
             island.lowerTick(),
             island.upperTick(),
-            false
+            true
         );
         (uint256 mint0, uint256 mint1, uint256 mintShares) = island
             .getMintAmounts(amount0, amount1);
@@ -275,7 +275,7 @@ contract BurveTest is ForkableTest {
             liq,
             island.lowerTick(),
             island.upperTick(),
-            false
+            true
         );
         (uint256 mint0, uint256 mint1, uint256 mintShares) = island
             .getMintAmounts(amount0, amount1);
@@ -426,7 +426,7 @@ contract BurveTest is ForkableTest {
             islandLiq,
             island.lowerTick(),
             island.upperTick(),
-            false
+            true
         );
         (
             uint256 islandMint0,
@@ -504,7 +504,7 @@ contract BurveTest is ForkableTest {
             islandLiq,
             island.lowerTick(),
             island.upperTick(),
-            false
+            true
         );
         (
             uint256 islandMint0,
@@ -1359,6 +1359,7 @@ contract BurveTest is ForkableTest {
     //     burve.compoundV3RangesExposed();
     // }
 
+    // TODO: test is not written correctly, but will have same LO error as above
     // function testCompoundV3RangesCompoundedNominalLiqAtMax() public {
     //     vm.mockCall(
     //         address(burve),
@@ -1546,13 +1547,13 @@ contract BurveTest is ForkableTest {
             islandLiq,
             islandLower,
             islandUpper,
-            false
+            true
         );
         (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(
             v3Liq,
             v3Lower,
             v3Upper,
-            false
+            true
         );
 
         (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
@@ -1607,13 +1608,13 @@ contract BurveTest is ForkableTest {
             islandLiq,
             islandLower,
             islandUpper,
-            false
+            true
         );
         (uint256 v3Mint0, ) = getAmountsForLiquidity(
             v3Liq,
             v3Lower,
             v3Upper,
-            false
+            true
         );
 
         (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
@@ -1658,13 +1659,13 @@ contract BurveTest is ForkableTest {
             islandLiq,
             islandLower,
             islandUpper,
-            false
+            true
         );
         (, uint256 v3Mint1) = getAmountsForLiquidity(
             v3Liq,
             v3Lower,
             v3Upper,
-            false
+            true
         );
 
         (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
