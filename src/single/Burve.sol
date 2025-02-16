@@ -538,6 +538,9 @@ contract Burve is ERC20 {
         // adjust total nominal liquidity
         totalNominalLiq += compoundedNominalLiq;
 
+        // TODO: should this be inside the loop?
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+
         // mint liquidity for v3 each range
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
@@ -553,6 +556,20 @@ contract Burve is ERC20 {
                 continue;
             }
 
+            // calculate amounts in liquidity
+            (uint256 mint0, uint256 mint1) = getAmountsForLiquidity(
+                sqrtRatioX96,
+                liqInRange,
+                range.lower,
+                range.upper
+            );
+
+            // TODO: double check this approval setup
+
+            // approve safeTransferFrom
+            SafeERC20.forceApprove(token0, address(this), mint0);
+            SafeERC20.forceApprove(token1, address(this), mint1);
+
             // mint the V3 ranges
             pool.mint(
                 address(this),
@@ -561,6 +578,10 @@ contract Burve is ERC20 {
                 liqInRange,
                 abi.encode(address(this))
             );
+
+            // reset approvals
+            SafeERC20.forceApprove(token0, address(this), 0);
+            SafeERC20.forceApprove(token1, address(this), 0);
         }
     }
 
@@ -628,7 +649,7 @@ contract Burve is ERC20 {
                     liqInRangeX64,
                     range.lower,
                     range.upper
-                );
+                ); // TODO: I think this needs to round up?
             amount0InUnitLiqX64 += range0InUnitLiqX64;
             amount1InUnitLiqX64 += range1InUnitLiqX64;
         }
@@ -656,6 +677,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Calculate token amounts in liquidity for the given range.
+    /// @dev The amounts are rounded up.
     /// @param sqrtRatioX96 The current sqrt ratio of the pool.
     /// @param liquidity The amount of liquidity.
     /// @param lower The lower tick of the range.
@@ -674,7 +696,7 @@ contract Burve is ERC20 {
             sqrtRatioAX96,
             sqrtRatioBX96,
             liquidity,
-            false
+            true
         );
     }
 

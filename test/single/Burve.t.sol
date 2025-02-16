@@ -1261,12 +1261,118 @@ contract BurveTest is ForkableTest {
 
     // Compound Tests
 
-    // getMintNominalLiqForAmounts
-    // - amount0 is 0
-    // - amount1 is 0
-    // - amount0InUnitLiqX64 is 0
-    // - amount1InUnitLiqX64 is 0
-    // - unsafe limited to max
+    function testCompoundV3Ranges() public {
+        uint256 collected0 = 10e18;
+        uint256 collected1 = 10e18;
+
+        // deal tokens to mimic fee collection
+        deal(address(token0), address(burve), collected0);
+        deal(address(token1), address(burve), collected1);
+
+        // compute compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getMintNominalLiqForAmounts(
+            collected0,
+            collected1,
+            true
+        );
+
+        // v3 compounded liq
+        uint128 v3CompoundedLiq = uint128(
+            shift96(compoundedNominalLiq * burve.distX96(1), true)
+        );
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
+        (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(
+            v3CompoundedLiq,
+            v3Lower,
+            v3Upper,
+            true
+        );
+
+        // check mint to v3 range
+        vm.expectCall(
+            address(pool),
+            abi.encodeCall(
+                pool.mint,
+                (
+                    address(burve),
+                    v3Lower,
+                    v3Upper,
+                    v3CompoundedLiq,
+                    abi.encode(address(burve))
+                )
+            )
+        );
+
+        burve.compoundV3RangesExposed();
+
+        // check total nominal liq updated
+        assertEq(
+            burve.totalNominalLiq(),
+            compoundedNominalLiq,
+            "total nominal liq"
+        );
+
+        // check token transfer
+        assertEq(
+            token0.balanceOf(address(burve)),
+            collected0 - v3Mint0,
+            "burve token0 balance"
+        );
+        assertEq(
+            token1.balanceOf(address(burve)),
+            collected1 - v3Mint1,
+            "burve token1 balance"
+        );
+
+        // check approvals
+        assertEq(
+            token0.allowance(address(burve), address(burve)),
+            0,
+            "token0 allowance"
+        );
+        assertEq(
+            token1.allowance(address(burve), address(burve)),
+            0,
+            "token1 allowance"
+        );
+    }
+
+    function testCompoundV3RangesCompoundedNominalLiqIsZero() public {
+        burve.compoundV3RangesExposed();
+        assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
+    }
+
+    // TODO: Are these two tests necessary?
+    // // revert: LO
+    // function testCompoundV3RangesAmountsLimitedTo192Bits() public {
+    //     deal(address(token0), address(burve), type(uint256).max);
+    //     deal(address(token1), address(burve), type(uint256).max);
+
+    //     vm.expectCall(
+    //         address(burve),
+    //         abi.encodeCall(
+    //             burve.getMintNominalLiqForAmounts,
+    //             (uint256(type(uint192).max), uint256(type(uint192).max), true)
+    //         )
+    //     );
+
+    //     burve.compoundV3RangesExposed();
+    // }
+
+    // function testCompoundV3RangesCompoundedNominalLiqAtMax() public {
+    //     vm.mockCall(
+    //         address(burve),
+    //         abi.encodeWithSelector(burve.getMintNominalLiqForAmounts.selector),
+    //         abi.encode(type(uint128).max)
+    //     );
+
+    //     burve.compoundV3RangesExposed();
+    //     assertEq(
+    //         burve.totalNominalLiq(),
+    //         type(uint128).max,
+    //         "total nominal liq"
+    //     );
+    // }
 
     function testGetMintNominalLiqForAmountsAmount0IsZero() public {
         bool skipIsland = false;
