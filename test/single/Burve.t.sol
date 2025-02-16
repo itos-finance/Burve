@@ -1261,6 +1261,169 @@ contract BurveTest is ForkableTest {
 
     // Compound Tests
 
+    // getMintNominalLiqForAmounts
+    // - amount0 is 0
+    // - amount1 is 0
+    // - amount0InUnitLiqX64 is 0
+    // - amount1InUnitLiqX64 is 0
+    // - unsafe limited to max
+
+    function testGetMintNominalLiqForAmountsAmount0IsZero() public {
+        bool skipIsland = false;
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
+
+        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
+            0,
+            10e18,
+            skipIsland
+        );
+        assertEq(mintNominalLiq, 0);
+    }
+
+    function testGetMintNominalLiqForAmountsAmount1IsZero() public {
+        bool skipIsland = false;
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
+
+        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
+            10e18,
+            0,
+            skipIsland
+        );
+        assertEq(mintNominalLiq, 0);
+    }
+
+    function testGetMintNominalLiqForAmountsAmount0InUnitLiqX64IsZero() public {
+        bool skipIsland = false;
+
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(pool.slot0.selector),
+            abi.encode(TickMath.MAX_SQRT_RATIO, 0, 0, 0, 0, 0, true)
+        );
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertEq(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 == 0");
+        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
+
+        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
+            10e18,
+            10e18,
+            skipIsland
+        );
+        assertEq(mintNominalLiq, 0);
+    }
+
+    function testGetMintNominalLiqForAmountsAmount1InUnitLiqX64IsZero() public {
+        bool skipIsland = false;
+
+        vm.mockCall(
+            address(pool),
+            abi.encodeWithSelector(pool.slot0.selector),
+            abi.encode(TickMath.MIN_SQRT_RATIO, 0, 0, 0, 0, 0, true)
+        );
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        assertEq(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 == 0");
+
+        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
+            10e18,
+            10e18,
+            skipIsland
+        );
+        assertEq(mintNominalLiq, 0);
+    }
+
+    // this is the max amount passed to the method during compounding
+    function testGetMinNominalLiqForAmountsAmountsAtMax192BitsDoesNotRevert()
+        public
+    {
+        bool skipIsland = false;
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
+
+        burve.getMintNominalLiqForAmounts(
+            uint256(type(uint192).max),
+            uint256(type(uint192).max),
+            skipIsland
+        );
+    }
+
+    function testGetMinNominalLiqForAmountsCalculatedLiqIsLimitedToMax128Bits()
+        public
+    {
+        bool skipIsland = false;
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertLt(amount0InUnitLiqX64, 1 << 64, "amount0InUnitLiqX64 < 64 bits");
+        assertLt(amount1InUnitLiqX64, 1 << 64, "amount1InUnitLiqX64 < 64 bits");
+
+        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
+            uint256(type(uint192).max),
+            uint256(type(uint192).max),
+            skipIsland
+        );
+        assertEq(mintNominalLiq, type(uint128).max - 2);
+    }
+
+    function testRevertGetMinNominalLiqForAmountsAmount0OverMax192BitsOverflows()
+        public
+    {
+        bool skipIsland = false;
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
+
+        vm.expectRevert(Burve.BitshiftOverflow.selector);
+        burve.getMintNominalLiqForAmounts(
+            uint256(type(uint192).max) + 1,
+            0,
+            skipIsland
+        );
+    }
+
+    function testRevertGetMinNominalLiqForAmountsAmount1OverMax192BitsOverflows()
+        public
+    {
+        bool skipIsland = false;
+
+        // check amount per liq is not zero
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
+
+        vm.expectRevert(Burve.BitshiftOverflow.selector);
+        burve.getMintNominalLiqForAmounts(
+            0,
+            uint256(type(uint192).max) + 1,
+            skipIsland
+        );
+    }
+
     function testGetMintAmountsPerUnitNominalLiqX64CurrentSqrtP() public {
         (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
         int24 islandLower = burve.island().lowerTick();

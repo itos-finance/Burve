@@ -18,7 +18,6 @@ import {TickRange} from "./TickRange.sol";
 
 contract Burve is ERC20 {
     uint256 private constant X96_MASK = (1 << 96) - 1;
-    uint256 private constant MAX_196_BITS = (1 << 196) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
 
     IUniswapV3Pool public pool;
@@ -85,6 +84,8 @@ contract Burve is ERC20 {
     );
     /// Thrown if trying to migrate to the same station proxy.
     error MigrateToSameStationProxy();
+    /// Throw in getMintNominalLiqForAmounts if a supplied token amount would result in an overflow.
+    error BitshiftOverflow();
 
     /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
     modifier withinSqrtPX96Limits(
@@ -470,6 +471,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Calculates nominal mint liq for the given token amounts.
+    /// @dev Amounts greater than type(uint192).max will revert.
     /// @dev If calculated liquidity is greater than the max allowed, the max is returned.
     /// @param skipIsland Whether the island will be included when minting.
     function getMintNominalLiqForAmounts(
@@ -482,8 +484,8 @@ contract Burve is ERC20 {
             uint256 amount1InUnitLiqX64
         ) = getMintAmountsPerUnitNominalLiqX64(skipIsland);
 
-        // should we explicitly revert here if the amount is over the max 196 bits?
-        // or allow the overflow error to revert for us?
+        if (amount0 > type(uint192).max) revert BitshiftOverflow();
+        if (amount1 > type(uint192).max) revert BitshiftOverflow();
 
         uint256 nominalLiq0 = amount0InUnitLiqX64 > 0
             ? (amount0 << 64) / amount0InUnitLiqX64
@@ -519,11 +521,11 @@ contract Burve is ERC20 {
         // If we collect more than 2^196 in fees, the problem is with the token.
         // If it was worth any meaningful value the world economy would be in the contract.
         // In this case we compound the maximum allowed such that the contract can still operate.
-        if (collected0 > MAX_196_BITS) {
-            collected0 = MAX_196_BITS;
+        if (collected0 > type(uint192).max) {
+            collected0 = uint256(type(uint192).max);
         }
-        if (collected1 > MAX_196_BITS) {
-            collected1 = MAX_196_BITS;
+        if (collected1 > type(uint192).max) {
+            collected1 = uint256(type(uint192).max);
         }
 
         // compute compounded nominal liq
