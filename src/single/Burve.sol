@@ -598,7 +598,7 @@ contract Burve is ERC20 {
                     liqInRangeX64,
                     range.lower,
                     range.upper
-                ); // TODO: I think this needs to round up?
+                );
             amount0InUnitLiqX64 += range0InUnitLiqX64;
             amount1InUnitLiqX64 += range1InUnitLiqX64;
         }
