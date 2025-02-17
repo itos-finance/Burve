@@ -10,6 +10,7 @@ import {SimplexStorage} from "./facets/SimplexFacet.sol";
 import {Locker} from "./facets/LockFacet.sol";
 
 struct Storage {
+    IAdjustor adjustor;
     AssetStorage assets;
     TokenRegistry tokenReg;
     VaultStorage _vaults;

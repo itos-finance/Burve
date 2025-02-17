@@ -14,6 +14,7 @@ import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
 import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
 import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
 
+import {Store} from "./Store.sol";
 import {BurveFacets} from "../InitLib.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
 import {LiqFacet} from "./facets/LiqFacet.sol";
@@ -27,6 +28,7 @@ error FunctionNotFound(bytes4 _functionSelector);
 contract SimplexDiamond is IDiamond {
     constructor(BurveFacets memory facets) {
         AdminLib.initOwner(msg.sender);
+        Store.adjustor() = facets.adjustor;
 
         FacetCut[] memory cuts = new FacetCut[](9);
 
