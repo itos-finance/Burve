@@ -273,7 +273,8 @@ contract Burve is ERC20 {
             sqrtRatioX96,
             liq,
             island.lowerTick(),
-            island.upperTick()
+            island.upperTick(),
+            true
         );
         (uint256 mint0, uint256 mint1, uint256 mintShares) = island
             .getMintAmounts(amount0, amount1);
@@ -419,6 +420,53 @@ contract Burve is ERC20 {
         );
     }
 
+    /// @notice Returns the current token amounts in a users position.
+    /// @param owner The owner of the position.
+    function queryValue(
+        address owner
+    ) external view returns (uint256 amount0, uint256 amount1) {
+        uint256 shares = balanceOf(owner);
+
+        (, int24 tick, , , , , ) = pool.slot0();
+
+        // island
+
+        // v3 ranges
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
+            if (range.isIsland()) {
+                continue;
+            }
+
+            bytes32 positionId = keccak256(
+                abi.encodePacked(address(this), range.lower, range.upper)
+            );
+            (
+                uint128 liquidity,
+                uint256 feeGrowthInside0LastX128,
+                uint256 feeGrowthInside1LastX128,
+                uint256 tokensOwed0,
+                uint256 tokensOwed1
+            ) = pool.positions(positionId);
+            amount0 += tokensOwed0;
+            amount1 += tokensOwed1;
+
+            (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
+                pool,
+                range.lower,
+                range.upper,
+                tick,
+                liquidity,
+                feeGrowthInside0LastX128,
+                feeGrowthInside1LastX128
+            );
+            amount0 += fees0;
+            amount1 += fees1;
+        }
+
+        // calculate owner share
+    }
+
     /// @notice Returns info about the contract.
     /// @return info The info struct.
     function getInfo() external view returns (Info memory info) {
@@ -474,7 +522,8 @@ contract Burve is ERC20 {
                 sqrtRatioX96,
                 compoundLiq,
                 range.lower,
-                range.upper
+                range.upper,
+                true
             );
             totalMint0 += mint0;
             totalMint1 += mint1;
@@ -618,7 +667,8 @@ contract Burve is ERC20 {
                     sqrtRatioX96,
                     liqInRangeX64,
                     range.lower,
-                    range.upper
+                    range.upper,
+                    true
                 );
             amount0InUnitLiqX64 += range0InUnitLiqX64;
             amount1InUnitLiqX64 += range1InUnitLiqX64;
@@ -647,7 +697,6 @@ contract Burve is ERC20 {
     }
 
     /// @notice Calculate token amounts in liquidity for the given range.
-    /// @dev The amounts are rounded up.
     /// @param sqrtRatioX96 The current sqrt ratio of the pool.
     /// @param liquidity The amount of liquidity.
     /// @param lower The lower tick of the range.
@@ -656,7 +705,8 @@ contract Burve is ERC20 {
         uint160 sqrtRatioX96,
         uint128 liquidity,
         int24 lower,
-        int24 upper
+        int24 upper,
+        bool roundUp
     ) internal pure returns (uint256 amount0, uint256 amount1) {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
@@ -666,7 +716,7 @@ contract Burve is ERC20 {
             sqrtRatioAX96,
             sqrtRatioBX96,
             liquidity,
-            true
+            roundUp
         );
     }
 
