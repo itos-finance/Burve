@@ -119,7 +119,7 @@ contract BurveTest is ForkableTest {
 
     // Create Tests
 
-    function testCreateRevertInvalidRangeLower() public forkOnly {
+    function testRevert_Create_InvalidRange_Lower() public forkOnly {
         int24 tickSpacing = pool.tickSpacing();
 
         TickRange[] memory ranges = new TickRange[](1);
@@ -145,7 +145,7 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testCreateRevertInvalidRangeUpper() public forkOnly {
+    function testRevert_Create_InvalidRange_Upper() public forkOnly {
         int24 tickSpacing = pool.tickSpacing();
 
         TickRange[] memory ranges = new TickRange[](1);
@@ -173,7 +173,7 @@ contract BurveTest is ForkableTest {
 
     // Migrate Station Proxy Tests
 
-    function testMigrateStationProxy() public {
+    function test_MigrateStationProxy() public {
         IStationProxy newStationProxy = new NullStationProxy();
 
         vm.expectCall(
@@ -192,21 +192,21 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testRevertMigrateStationProxySenderNotOwner() public {
+    function testRevert_MigrateStationProxy_SenderNotOwner() public {
         IStationProxy newStationProxy = new NullStationProxy();
         vm.expectRevert(AdminLib.NotOwner.selector);
         vm.prank(alice);
         burve.migrateStationProxy(newStationProxy);
     }
 
-    function testRevertMigrateStationProxyToSameStationProxy() public {
+    function testRevert_MigrateStationProxy_ToSameStationProxy() public {
         vm.expectRevert(Burve.MigrateToSameStationProxy.selector);
         burve.migrateStationProxy(stationProxy);
     }
 
     // Mint Tests
 
-    function testIslandMintSenderIsRecipient() public {
+    function test_Mint_Island_SenderIsRecipient() public {
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -266,7 +266,7 @@ contract BurveTest is ForkableTest {
         assertEq(burveIsland.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function testIslandMintSenderNotRecipient() public {
+    function test_Mint_Island_SenderNotRecipient() public {
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -326,7 +326,7 @@ contract BurveTest is ForkableTest {
         assertEq(burveIsland.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function testV3MintSenderIsRecipient() public {
+    function test_Mint_V3_SenderIsRecipient() public {
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -371,7 +371,7 @@ contract BurveTest is ForkableTest {
         assertEq(burveV3.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function testV3MintSenderNotRecipient() public {
+    function test_Mint_V3_SenderNotRecipient() public {
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -416,7 +416,7 @@ contract BurveTest is ForkableTest {
         assertEq(burveV3.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function testMintSenderIsRecipient() public {
+    function test_Mint_SenderIsRecipient() public {
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -494,7 +494,7 @@ contract BurveTest is ForkableTest {
         assertEq(burve.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function testMintSenderNotRecipient() public {
+    function test_Mint_SenderNotRecipient() public {
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -572,7 +572,7 @@ contract BurveTest is ForkableTest {
         assertEq(burve.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function testSubsequentMintBurveShareCalc() public {
+    function test_Mint_SubsequentShareCalc() public {
         // deal max tokens
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -634,7 +634,7 @@ contract BurveTest is ForkableTest {
         vm.stopPrank();
     }
 
-    function testUniswapV3MintCallback() public {
+    function test_UniswapV3MintCallback() public {
         uint256 priorPoolBalance0 = token0.balanceOf(address(pool));
         uint256 priorPoolBalance1 = token1.balanceOf(address(pool));
 
@@ -688,7 +688,7 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testRevertUniswapV3MintCallbackSenderNotPool() public {
+    function testRevert_UniswapV3MintCallbackSenderNotPool() public {
         vm.expectRevert(
             abi.encodeWithSelector(
                 Burve.UniswapV3MintCallbackSenderNotPool.selector,
@@ -698,7 +698,7 @@ contract BurveTest is ForkableTest {
         burveV3.uniswapV3MintCallback(0, 0, abi.encode(address(this)));
     }
 
-    function testRevertMintSqrtPX96BelowLowerLimit() public {
+    function testRevert_Mint_SqrtPX96BelowLowerLimit() public {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
@@ -718,7 +718,7 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testRevertMintSqrtPX96AboveUpperLimit() public {
+    function testRevert_Mint_SqrtPX96AboveUpperLimit() public {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
@@ -740,7 +740,7 @@ contract BurveTest is ForkableTest {
 
     // Burn Tests
 
-    function testBurnIslandFull() public {
+    function test_Burn_IslandFull() public {
         uint128 mintLiq = 10_000;
 
         // Mint
@@ -816,7 +816,7 @@ contract BurveTest is ForkableTest {
         assertEq(burveIsland.balanceOf(alice), 0, "alice burve LP balance");
     }
 
-    function testBurnIslandPartial() public {
+    function test_Burn_IslandPartial() public {
         uint128 mintLiq = 10_000;
         uint128 burnLiq = 1_000;
 
@@ -908,7 +908,7 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testBurnV3Full() public {
+    function test_Burn_V3Full() public {
         uint128 mintLiq = 10_000;
 
         // Mint
@@ -967,7 +967,7 @@ contract BurveTest is ForkableTest {
         assertEq(burveIsland.balanceOf(alice), 0, "alice burve LP balance");
     }
 
-    function testBurnV3Partial() public {
+    function test_Burn_V3Partial() public {
         uint128 mintLiq = 10_000;
         uint128 burnLiq = 1_000;
 
@@ -1035,7 +1035,7 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testBurnFull() public {
+    function test_Burn_Full() public {
         uint128 mintLiq = 10_000;
 
         // Mint
@@ -1124,7 +1124,7 @@ contract BurveTest is ForkableTest {
         assertEq(burve.balanceOf(alice), 0, "alice burve LP balance");
     }
 
-    function testBurnPartial() public {
+    function test_Burn_Partial() public {
         uint128 mintLiq = 10_000;
         uint128 burnLiq = 1_000;
 
@@ -1229,7 +1229,7 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testRevertBurnSqrtPX96BelowLowerLimit() public {
+    function testRevert_Burn_SqrtPX96BelowLowerLimit() public {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
@@ -1244,7 +1244,7 @@ contract BurveTest is ForkableTest {
         burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
     }
 
-    function testRevertBurnSqrtPX96AboveUpperLimit() public {
+    function testRevert_Burn_SqrtPX96AboveUpperLimit() public {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
@@ -1340,7 +1340,7 @@ contract BurveTest is ForkableTest {
         assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
     }
 
-    function test_getCompoundNominalLiqForCollectedAmounts_Collected0IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Collected0IsZero() public {
         // simulate collected amounts
         deal(address(token1), address(burve), 10e18);
 
@@ -1353,7 +1353,7 @@ contract BurveTest is ForkableTest {
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_getCompoundNominalLiqForCollectedAmounts_Collected1IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Collected1IsZero() public {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
 
@@ -1366,7 +1366,7 @@ contract BurveTest is ForkableTest {
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_getCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero() public {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
         deal(address(token1), address(burve), 10e18);
@@ -1387,7 +1387,7 @@ contract BurveTest is ForkableTest {
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_getCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero() public {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
         deal(address(token1), address(burve), 10e18);
@@ -1408,7 +1408,7 @@ contract BurveTest is ForkableTest {
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_getCompoundNominalLiqForCollectedAmounts_NormalAmounts() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_NormalAmounts() public {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
         deal(address(token1), address(burve), 10e18);
@@ -1423,7 +1423,7 @@ contract BurveTest is ForkableTest {
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function test_getCompoundNominalLiqForCollectedAmounts_Extremes() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Extremes() public {
         // verify assumptions about other parameters in equations
         (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
