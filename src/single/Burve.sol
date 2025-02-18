@@ -84,8 +84,6 @@ contract Burve is ERC20 {
     );
     /// Thrown if trying to migrate to the same station proxy.
     error MigrateToSameStationProxy();
-    /// Throw in getMintNominalLiqForAmounts if a supplied token amount would result in an overflow.
-    error BitshiftOverflow();
 
     /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
     modifier withinSqrtPX96Limits(
@@ -419,76 +417,15 @@ contract Burve is ERC20 {
         );
     }
 
-    /// @notice Calculates nominal mint liq for the given token amounts.
-    /// @dev Amounts greater than type(uint192).max will revert.
-    /// @dev If calculated liquidity is greater than the max allowed, the max is returned.
-    /// @param skipIsland Whether the island will be included when minting.
-    function getMintNominalLiqForAmounts(
-        uint256 amount0,
-        uint256 amount1,
-        bool skipIsland
-    ) public view returns (uint128 mintNominalLiq) {
-        (
-            uint256 amount0InUnitLiqX64,
-            uint256 amount1InUnitLiqX64
-        ) = getMintAmountsPerUnitNominalLiqX64(skipIsland);
-
-        if (amount0 > type(uint192).max) revert BitshiftOverflow();
-        if (amount1 > type(uint192).max) revert BitshiftOverflow();
-
-        uint256 nominalLiq0 = amount0InUnitLiqX64 > 0
-            ? (amount0 << 64) / amount0InUnitLiqX64
-            : 0;
-        uint256 nominalLiq1 = amount1InUnitLiqX64 > 0
-            ? (amount1 << 64) / amount1InUnitLiqX64
-            : 0;
-        uint256 unsafeNominalLiq = nominalLiq0 < nominalLiq1
-            ? nominalLiq0
-            : nominalLiq1;
-
-        // min calculated liquidity with the max allowed
-        mintNominalLiq = unsafeNominalLiq > type(uint128).max
-            ? type(uint128).max
-            : uint128(unsafeNominalLiq);
-
-        // during mint the liq at each range is rounded up
-        // we subtract by the number of ranges to ensure we have enough liq
-        mintNominalLiq = mintNominalLiq <= distX96.length
-            ? 0
-            : mintNominalLiq - uint128(distX96.length);
-    }
-
     /// @notice Collect fees and compound them for each v3 range.
     function compoundV3Ranges() internal {
         // collect fees
         collectV3Fees();
 
-        // any leftover amounts will be included
-        uint256 collected0 = token0.balanceOf(address(this));
-        uint256 collected1 = token1.balanceOf(address(this));
-
-        // If we collect more than 2^196 in fees, the problem is with the token.
-        // If it was worth any meaningful value the world economy would be in the contract.
-        // In this case we compound the maximum allowed such that the contract can still operate.
-        if (collected0 > type(uint192).max) {
-            collected0 = uint256(type(uint192).max);
-        }
-        if (collected1 > type(uint192).max) {
-            collected1 = uint256(type(uint192).max);
-        }
-
-        // compute compounded nominal liq
-        uint128 compoundedNominalLiq = getMintNominalLiqForAmounts(
-            collected0,
-            collected1,
-            true
-        );
-
-        // adjust total nominal liquidity
-        totalNominalLiq += compoundedNominalLiq;
-
-        // TODO: should this be inside the loop?
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+
+        uint128 compoundedNominalLiq = getCompoundNominalLiqForCollectedAmounts();
+        totalNominalLiq += compoundedNominalLiq;
 
         // mint liquidity for v3 each range
         for (uint256 i = 0; i < distX96.length; ++i) {
@@ -562,12 +499,56 @@ contract Burve is ERC20 {
 
     /* internal helpers */
 
-    /// @notice Calculates token amounts needed for minting one X64 unit of nominal liquidity.
+    /// @notice Calculates nominal compound liq for the collected token amounts.
+    /// @dev Collected amounts are limited to a max of type(uint192).max and 
+    ///      computed liquidity is limited to a max of type(uint128).max.
+    function getCompoundNominalLiqForCollectedAmounts() internal view returns (uint128 mintNominalLiq) {
+        // collected amounts on the contract from: fees, compounded leftovers, or tokens sent to the contract.
+        uint256 collected0 = token0.balanceOf(address(this));
+        uint256 collected1 = token1.balanceOf(address(this));
+
+        // If we collect more than 2^196 in fees, the problem is with the token.
+        // If it was worth any meaningful value the world economy would be in the contract.
+        // In this case we compound the maximum allowed such that the contract can still operate.
+        if (collected0 > type(uint192).max) {
+            collected0 = uint256(type(uint192).max);
+        }
+        if (collected1 > type(uint192).max) {
+            collected1 = uint256(type(uint192).max);
+        }
+
+        // compute liq in collected amounts
+        (
+            uint256 amount0InUnitLiqX64,
+            uint256 amount1InUnitLiqX64
+        ) = getCompoundAmountsPerUnitNominalLiqX64();
+        
+        uint256 nominalLiq0 = amount0InUnitLiqX64 > 0
+            ? (collected0 << 64) / amount0InUnitLiqX64
+            : 0;
+        uint256 nominalLiq1 = amount1InUnitLiqX64 > 0
+            ? (collected1 << 64) / amount1InUnitLiqX64
+            : 0;
+
+        uint256 unsafeNominalLiq = nominalLiq0 < nominalLiq1
+            ? nominalLiq0
+            : nominalLiq1;
+
+        // min calculated liquidity with the max allowed
+        mintNominalLiq = unsafeNominalLiq > type(uint128).max
+            ? type(uint128).max
+            : uint128(unsafeNominalLiq);
+
+        // during mint the liq at each range is rounded up
+        // we subtract by the number of ranges to ensure we have enough liq
+        mintNominalLiq = mintNominalLiq <= distX96.length
+            ? 0
+            : mintNominalLiq - uint128(distX96.length);
+    }
+
+    /// @notice Calculates token amounts needed for compounding one X64 unit of nominal liquidity in the v3 ranges.
     /// @dev The liquidity distribution at each range is rounded up.
-    /// @param skipIsland Whether to skip island range.
-    function getMintAmountsPerUnitNominalLiqX64(
-        bool skipIsland
-    )
+    function getCompoundAmountsPerUnitNominalLiqX64()
         internal
         view
         returns (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64)
@@ -577,13 +558,9 @@ contract Burve is ERC20 {
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
 
-            // check for island
+            // skip the island
             if (range.isIsland()) {
-                if (skipIsland) {
-                    continue;
-                }
-                range.lower = island.lowerTick();
-                range.upper = island.upperTick();
+                continue;
             }
 
             // calculate amount of tokens in unit of liquidity X64

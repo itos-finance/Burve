@@ -1261,20 +1261,17 @@ contract BurveTest is ForkableTest {
 
     // Compound Tests
 
-    function testCompoundV3Ranges() public {
+    function test_CompoundV3Ranges_Single() public {
         uint256 collected0 = 10e18;
         uint256 collected1 = 10e18;
 
-        // deal tokens to mimic fee collection
+        // simulate collected amounts
         deal(address(token0), address(burve), collected0);
         deal(address(token1), address(burve), collected1);
 
-        // compute compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getMintNominalLiqForAmounts(
-            collected0,
-            collected1,
-            true
-        );
+        // compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
 
         // v3 compounded liq
         uint128 v3CompoundedLiq = uint128(
@@ -1287,6 +1284,7 @@ contract BurveTest is ForkableTest {
             v3Upper,
             true
         );
+        assertGt(v3CompoundedLiq, 0, "v3CompoundedLiq > 0");
 
         // check mint to v3 range
         vm.expectCall(
@@ -1337,80 +1335,41 @@ contract BurveTest is ForkableTest {
         );
     }
 
-    function testCompoundV3RangesCompoundedNominalLiqIsZero() public {
+    function test_CompoundV3Ranges_CompoundedNominalLiqIsZero() public {
         burve.compoundV3RangesExposed();
         assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
     }
 
-    // TODO: Are these two tests necessary?
-    // // revert: LO
-    // function testCompoundV3RangesAmountsLimitedTo192Bits() public {
-    //     deal(address(token0), address(burve), type(uint256).max);
-    //     deal(address(token1), address(burve), type(uint256).max);
+    function test_getCompoundNominalLiqForCollectedAmounts_Collected0IsZero() public {
+        // simulate collected amounts
+        deal(address(token1), address(burve), 10e18);
 
-    //     vm.expectCall(
-    //         address(burve),
-    //         abi.encodeCall(
-    //             burve.getMintNominalLiqForAmounts,
-    //             (uint256(type(uint192).max), uint256(type(uint192).max), true)
-    //         )
-    //     );
-
-    //     burve.compoundV3RangesExposed();
-    // }
-
-    // TODO: test is not written correctly, but will have same LO error as above
-    // function testCompoundV3RangesCompoundedNominalLiqAtMax() public {
-    //     vm.mockCall(
-    //         address(burve),
-    //         abi.encodeWithSelector(burve.getMintNominalLiqForAmounts.selector),
-    //         abi.encode(type(uint128).max)
-    //     );
-
-    //     burve.compoundV3RangesExposed();
-    //     assertEq(
-    //         burve.totalNominalLiq(),
-    //         type(uint128).max,
-    //         "total nominal liq"
-    //     );
-    // }
-
-    function testGetMintNominalLiqForAmountsAmount0IsZero() public {
-        bool skipIsland = false;
-
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        // verify assumptions about other parameters in equations
+        (uint256 amount0InUnitLiqX64,) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
-        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
-        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
-            0,
-            10e18,
-            skipIsland
-        );
-        assertEq(mintNominalLiq, 0);
+        // check compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function testGetMintNominalLiqForAmountsAmount1IsZero() public {
-        bool skipIsland = false;
+    function test_getCompoundNominalLiqForCollectedAmounts_Collected1IsZero() public {
+        // simulate collected amounts
+        deal(address(token0), address(burve), 10e18);
 
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
-        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
+        // verify assumptions about other parameters in equations
+        (, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
-        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
-            10e18,
-            0,
-            skipIsland
-        );
-        assertEq(mintNominalLiq, 0);
+        // check compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function testGetMintNominalLiqForAmountsAmount0InUnitLiqX64IsZero() public {
-        bool skipIsland = false;
+    function test_getCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero() public {
+        // simulate collected amounts
+        deal(address(token0), address(burve), 10e18);
+        deal(address(token1), address(burve), 10e18);
 
         vm.mockCall(
             address(pool),
@@ -1418,22 +1377,20 @@ contract BurveTest is ForkableTest {
             abi.encode(TickMath.MAX_SQRT_RATIO, 0, 0, 0, 0, 0, true)
         );
 
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        // verify assumptions about other parameters in equations
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertEq(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 == 0");
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
-        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
-            10e18,
-            10e18,
-            skipIsland
-        );
-        assertEq(mintNominalLiq, 0);
+        // check compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function testGetMintNominalLiqForAmountsAmount1InUnitLiqX64IsZero() public {
-        bool skipIsland = false;
+    function test_getCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero() public {
+        // simulate collected amounts
+        deal(address(token0), address(burve), 10e18);
+        deal(address(token1), address(burve), 10e18);
 
         vm.mockCall(
             address(pool),
@@ -1441,114 +1398,60 @@ contract BurveTest is ForkableTest {
             abi.encode(TickMath.MIN_SQRT_RATIO, 0, 0, 0, 0, 0, true)
         );
 
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        // verify assumptions about other parameters in equations
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
         assertEq(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 == 0");
 
-        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
-            10e18,
-            10e18,
-            skipIsland
-        );
-        assertEq(mintNominalLiq, 0);
+        // check compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    // this is the max amount passed to the method during compounding
-    function testGetMinNominalLiqForAmountsAmountsAtMax192BitsDoesNotRevert()
-        public
-    {
-        bool skipIsland = false;
+    function test_getCompoundNominalLiqForCollectedAmounts_NormalAmounts() public {
+        // simulate collected amounts
+        deal(address(token0), address(burve), 10e18);
+        deal(address(token1), address(burve), 10e18);
 
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+        // verify assumptions about other parameters in equations
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
-        burve.getMintNominalLiqForAmounts(
-            uint256(type(uint192).max),
-            uint256(type(uint192).max),
-            skipIsland
-        );
+        // check compounded nominal liq
+        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function testGetMinNominalLiqForAmountsCalculatedLiqIsLimitedToMax128Bits()
-        public
-    {
-        bool skipIsland = false;
-
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
-        assertLt(amount0InUnitLiqX64, 1 << 64, "amount0InUnitLiqX64 < 64 bits");
-        assertLt(amount1InUnitLiqX64, 1 << 64, "amount1InUnitLiqX64 < 64 bits");
-
-        uint128 mintNominalLiq = burve.getMintNominalLiqForAmounts(
-            uint256(type(uint192).max),
-            uint256(type(uint192).max),
-            skipIsland
-        );
-        assertEq(mintNominalLiq, type(uint128).max - 2);
-    }
-
-    function testRevertGetMinNominalLiqForAmountsAmount0OverMax192BitsOverflows()
-        public
-    {
-        bool skipIsland = false;
-
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
+    function test_getCompoundNominalLiqForCollectedAmounts_Extremes() public {
+        // verify assumptions about other parameters in equations
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
-        vm.expectRevert(Burve.BitshiftOverflow.selector);
-        burve.getMintNominalLiqForAmounts(
-            uint256(type(uint192).max) + 1,
-            0,
-            skipIsland
-        );
+        // amounts at capped max type(uint192).max
+        deal(address(token0), address(burve), type(uint192).max);
+        deal(address(token1), address(burve), type(uint192).max);
+
+        uint128 compoundedNominalLiqAtMax192 = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+
+        // amounts at max type(uint256).max
+        deal(address(token0), address(burve), type(uint256).max);
+        deal(address(token1), address(burve), type(uint256).max);
+
+        uint128 compoundedNominalLiqAtMax256 = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+
+        // check compounded nominal liq
+        assertEq(compoundedNominalLiqAtMax192, compoundedNominalLiqAtMax256, "equal compounded nominal liq");
+        assertEq(compoundedNominalLiqAtMax192, type(uint128).max - 2, "equal max nominal liq");
     }
 
-    function testRevertGetMinNominalLiqForAmountsAmount1OverMax192BitsOverflows()
-        public
-    {
-        bool skipIsland = false;
-
-        // check amount per liq is not zero
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(skipIsland);
-        assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
-        assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
-
-        vm.expectRevert(Burve.BitshiftOverflow.selector);
-        burve.getMintNominalLiqForAmounts(
-            0,
-            uint256(type(uint192).max) + 1,
-            skipIsland
-        );
-    }
-
-    function testGetMintAmountsPerUnitNominalLiqX64CurrentSqrtP() public {
-        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
-        int24 islandLower = burve.island().lowerTick();
-        int24 islandUpper = burve.island().upperTick();
-
-        uint128 islandLiq = uint128(
-            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(0), true)
-        );
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_CurrentSqrtP() public {
+        // calc v3
         uint128 v3Liq = uint128(
             shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
         );
-
-        (uint256 islandMint0, uint256 islandMint1) = getAmountsForLiquidity(
-            islandLiq,
-            islandLower,
-            islandUpper,
-            true
-        );
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
         (uint256 v3Mint0, uint256 v3Mint1) = getAmountsForLiquidity(
             v3Liq,
             v3Lower,
@@ -1556,60 +1459,27 @@ contract BurveTest is ForkableTest {
             true
         );
 
-        (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(true);
-        (uint256 mint0IncludeIsland, uint256 mint1IncludeIsland) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(false);
+        // compound amounts
+        (uint256 compound0, uint256 compound1) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
 
-        assertEq(mint0SkipIsland, v3Mint0, "current price, skip island, mint0");
-        assertEq(mint1SkipIsland, v3Mint1, "current price, skip island, mint1");
-        assertEq(
-            mint0IncludeIsland,
-            islandMint0 + v3Mint0,
-            "current price, include island, mint0"
-        );
-        assertEq(
-            mint1IncludeIsland,
-            islandMint1 + v3Mint1,
-            "current price, include island, mint1"
-        );
-        assertGt(
-            mint0IncludeIsland,
-            mint0SkipIsland,
-            "current price, include > skip, mint0"
-        );
-        assertGt(
-            mint1IncludeIsland,
-            mint1SkipIsland,
-            "current price, include > skip, mint1"
-        );
+        assertEq(compound0, v3Mint0, "compount0 == v3Mint0");
+        assertGt(compound0, 0, "compound0 > 0");
+        assertEq(compound1, v3Mint1, "compound1 == v3Mint1");
+        assertGt(compound1, 0, "compound0 > 0");
     }
 
-    function testGetMintAmountsPerUnitNominalLiqX64MinSqrtP() public {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_MinSqrtP() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(pool.slot0.selector),
             abi.encode(TickMath.MIN_SQRT_RATIO, 0, 0, 0, 0, 0, true)
         );
 
-        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
-        int24 islandLower = burve.island().lowerTick();
-        int24 islandUpper = burve.island().upperTick();
-
-        uint128 islandLiq = uint128(
-            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(0), true)
-        );
+        // calc v3
         uint128 v3Liq = uint128(
             shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
         );
-
-        // check current price
-        (uint256 islandMint0, ) = getAmountsForLiquidity(
-            islandLiq,
-            islandLower,
-            islandUpper,
-            true
-        );
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
         (uint256 v3Mint0, ) = getAmountsForLiquidity(
             v3Liq,
             v3Lower,
@@ -1617,50 +1487,26 @@ contract BurveTest is ForkableTest {
             true
         );
 
-        (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(true);
-        (uint256 mint0IncludeIsland, uint256 mint1IncludeIsland) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(false);
+        // compound amounts
+        (uint256 compound0, uint256 compound1) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
 
-        assertEq(mint0SkipIsland, v3Mint0, "current price, skip island, mint0");
-        assertEq(mint1SkipIsland, 0, "current price, skip island, mint1");
-        assertEq(
-            mint0IncludeIsland,
-            islandMint0 + v3Mint0,
-            "current price, include island, mint0"
-        );
-        assertEq(mint1IncludeIsland, 0, "current price, include island, mint1");
-        assertGt(
-            mint0IncludeIsland,
-            mint0SkipIsland,
-            "current price, include > skip, mint0"
-        );
+        assertEq(compound0, v3Mint0, "compount0 == v3Mint0");
+        assertGt(compound0, 0, "compound0 > 0");
+        assertEq(compound1, 0, "compound1 == 0");
     }
 
-    function testGetMintAmountsPerUnitNominalLiqX64MaxSqrtP() public {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_MaxSqrtP() public {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(pool.slot0.selector),
             abi.encode(TickMath.MAX_SQRT_RATIO, 0, 0, 0, 0, 0, true)
         );
 
-        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
-        int24 islandLower = burve.island().lowerTick();
-        int24 islandUpper = burve.island().upperTick();
-
-        uint128 islandLiq = uint128(
-            shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(0), true)
-        );
+        // calc v3
         uint128 v3Liq = uint128(
             shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
         );
-
-        (, uint256 islandMint1) = getAmountsForLiquidity(
-            islandLiq,
-            islandLower,
-            islandUpper,
-            true
-        );
+        (int24 v3Lower, int24 v3Upper) = burve.ranges(1);
         (, uint256 v3Mint1) = getAmountsForLiquidity(
             v3Liq,
             v3Lower,
@@ -1668,27 +1514,15 @@ contract BurveTest is ForkableTest {
             true
         );
 
-        (uint256 mint0SkipIsland, uint256 mint1SkipIsland) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(true);
-        (uint256 mint0IncludeIsland, uint256 mint1IncludeIsland) = burve
-            .getMintAmountsPerUnitNominalLiqX64Exposed(false);
+        // compound amounts
+        (uint256 compound0, uint256 compound1) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
 
-        assertEq(mint0SkipIsland, 0, "current price, skip island, mint0");
-        assertEq(mint1SkipIsland, v3Mint1, "current price, skip island, mint1");
-        assertEq(mint0IncludeIsland, 0, "current price, include island, mint0");
-        assertEq(
-            mint1IncludeIsland,
-            islandMint1 + v3Mint1,
-            "current price, include island, mint1"
-        );
-        assertGt(
-            mint1IncludeIsland,
-            mint1SkipIsland,
-            "current price, include > skip, mint1"
-        );
+        assertEq(compound0, 0, "compount0 == 0");
+        assertEq(compound1, v3Mint1, "compound1 == v3Mint1");
+        assertGt(compound1, 0, "compound1 > 0");
     }
 
-    function testCollectV3Fees() public forkOnly {
+    function test_CollectV3Fees() public forkOnly {
         (int24 lower, int24 upper) = burveV3.ranges(0);
         vm.expectCall(
             address(pool),
