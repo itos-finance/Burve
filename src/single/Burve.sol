@@ -427,48 +427,68 @@ contract Burve is ERC20 {
         uint128 compoundedNominalLiq = getCompoundNominalLiqForCollectedAmounts();
         totalNominalLiq += compoundedNominalLiq;
 
-        // mint liquidity for v3 each range
+        // calculate liq and mint amounts
+        uint256 totalMint0 = 0;
+        uint256 totalMint1 = 0;
+
+        TickRange[] memory memRanges = ranges;
+        uint128[] memory compoundLiqs = new uint128[](distX96.length);
+
         for (uint256 i = 0; i < distX96.length; ++i) {
-            TickRange memory range = ranges[i];
+            TickRange memory range = memRanges[i];
+
             if (range.isIsland()) {
                 continue;
             }
 
-            uint128 liqInRange = uint128(
+            uint128 compoundLiq = uint128(
                 shift96(uint256(compoundedNominalLiq) * distX96[i], true)
             );
+            compoundLiqs[i] = compoundLiq;
 
-            if (liqInRange == 0) {
+            if (compoundLiq == 0) {
                 continue;
             }
 
-            // calculate amounts in liquidity
             (uint256 mint0, uint256 mint1) = getAmountsForLiquidity(
                 sqrtRatioX96,
-                liqInRange,
+                compoundLiq,
                 range.lower,
                 range.upper
             );
+            totalMint0 += mint0;
+            totalMint1 += mint1;
+        }
 
-            // TODO: double check this approval setup
+        // approve mints
+        SafeERC20.forceApprove(token0, address(this), totalMint0);
+        SafeERC20.forceApprove(token1, address(this), totalMint1);
 
-            // approve safeTransferFrom
-            SafeERC20.forceApprove(token0, address(this), mint0);
-            SafeERC20.forceApprove(token1, address(this), mint1);
+        // mint to each range
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = memRanges[i];
 
-            // mint the V3 ranges
+            if (range.isIsland()) {
+                continue;
+            }
+
+            uint128 compoundLiq = compoundLiqs[i];
+            if (compoundLiq == 0) {
+                continue;
+            }
+
             pool.mint(
                 address(this),
                 range.lower,
                 range.upper,
-                liqInRange,
+                compoundLiq,
                 abi.encode(address(this))
             );
-
-            // reset approvals
-            SafeERC20.forceApprove(token0, address(this), 0);
-            SafeERC20.forceApprove(token1, address(this), 0);
         }
+
+        // reset approvals
+        SafeERC20.forceApprove(token0, address(this), 0);
+        SafeERC20.forceApprove(token1, address(this), 0);
     }
 
     /* Callbacks */
