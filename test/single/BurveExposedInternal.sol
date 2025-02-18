@@ -17,10 +17,12 @@ contract BurveExposedInternal is Burve {
         compoundV3Ranges();
     }
 
-    function getMintAmountsPerUnitNominalLiqX64Exposed(
-        bool skipIsland
-    ) public view returns (uint256, uint256) {
-        return getMintAmountsPerUnitNominalLiqX64(skipIsland);
+    function getCompoundNominalLiqForCollectedAmountsExposed() public returns (uint128) {
+        return getCompoundNominalLiqForCollectedAmounts();
+    }
+
+    function getCompoundAmountsPerUnitNominalLiqX64Exposed() public view returns (uint256, uint256) {
+        return getCompoundAmountsPerUnitNominalLiqX64();
     }
 
     function collectV3FeesExposed() public {
