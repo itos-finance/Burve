@@ -1270,7 +1270,8 @@ contract BurveTest is ForkableTest {
         deal(address(token1), address(burve), collected1);
 
         // compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiq = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
 
         // v3 compounded liq
@@ -1340,33 +1341,43 @@ contract BurveTest is ForkableTest {
         assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Collected0IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Collected0IsZero()
+        public
+    {
         // simulate collected amounts
         deal(address(token1), address(burve), 10e18);
 
         // verify assumptions about other parameters in equations
-        (uint256 amount0InUnitLiqX64,) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 amount0InUnitLiqX64, ) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiq = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Collected1IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Collected1IsZero()
+        public
+    {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
 
         // verify assumptions about other parameters in equations
-        (, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (, uint256 amount1InUnitLiqX64) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiq = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero()
+        public
+    {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
         deal(address(token1), address(burve), 10e18);
@@ -1378,16 +1389,20 @@ contract BurveTest is ForkableTest {
         );
 
         // verify assumptions about other parameters in equations
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertEq(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 == 0");
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiq = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero()
+        public
+    {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
         deal(address(token1), address(burve), 10e18);
@@ -1399,33 +1414,40 @@ contract BurveTest is ForkableTest {
         );
 
         // verify assumptions about other parameters in equations
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
         assertEq(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 == 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiq = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_NormalAmounts() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_NormalAmounts()
+        public
+    {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
         deal(address(token1), address(burve), 10e18);
 
         // verify assumptions about other parameters in equations
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiq = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Extremes() public {
         // verify assumptions about other parameters in equations
-        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
@@ -1433,17 +1455,27 @@ contract BurveTest is ForkableTest {
         deal(address(token0), address(burve), type(uint192).max);
         deal(address(token1), address(burve), type(uint192).max);
 
-        uint128 compoundedNominalLiqAtMax192 = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiqAtMax192 = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
 
         // amounts at max type(uint256).max
         deal(address(token0), address(burve), type(uint256).max);
         deal(address(token1), address(burve), type(uint256).max);
 
-        uint128 compoundedNominalLiqAtMax256 = burve.getCompoundNominalLiqForCollectedAmountsExposed();
+        uint128 compoundedNominalLiqAtMax256 = burve
+            .getCompoundNominalLiqForCollectedAmountsExposed();
 
         // check compounded nominal liq
-        assertEq(compoundedNominalLiqAtMax192, compoundedNominalLiqAtMax256, "equal compounded nominal liq");
-        assertEq(compoundedNominalLiqAtMax192, type(uint128).max - 2, "equal max nominal liq");
+        assertEq(
+            compoundedNominalLiqAtMax192,
+            compoundedNominalLiqAtMax256,
+            "equal compounded nominal liq"
+        );
+        assertEq(
+            compoundedNominalLiqAtMax192,
+            type(uint128).max - 2,
+            "equal max nominal liq"
+        );
     }
 
     function test_GetCompoundAmountsPerUnitNominalLiqX64_CurrentSqrtP() public {
@@ -1460,7 +1492,8 @@ contract BurveTest is ForkableTest {
         );
 
         // compound amounts
-        (uint256 compound0, uint256 compound1) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 compound0, uint256 compound1) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
 
         assertEq(compound0, v3Mint0, "compount0 == v3Mint0");
         assertGt(compound0, 0, "compound0 > 0");
@@ -1488,7 +1521,8 @@ contract BurveTest is ForkableTest {
         );
 
         // compound amounts
-        (uint256 compound0, uint256 compound1) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 compound0, uint256 compound1) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
 
         assertEq(compound0, v3Mint0, "compount0 == v3Mint0");
         assertGt(compound0, 0, "compound0 > 0");
@@ -1515,7 +1549,8 @@ contract BurveTest is ForkableTest {
         );
 
         // compound amounts
-        (uint256 compound0, uint256 compound1) = burve.getCompoundAmountsPerUnitNominalLiqX64Exposed();
+        (uint256 compound0, uint256 compound1) = burve
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
 
         assertEq(compound0, 0, "compount0 == 0");
         assertEq(compound1, v3Mint1, "compound1 == v3Mint1");
