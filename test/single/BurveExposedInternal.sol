@@ -17,8 +17,8 @@ contract BurveExposedInternal is Burve {
         compoundV3Ranges();
     }
 
-    function getCompoundNominalLiqForCollectedAmountsExposed() public returns (uint128) {
-        return getCompoundNominalLiqForCollectedAmounts();
+    function collectAndCalcCompoundExposed() public returns (uint128) {
+        return collectAndCalcCompound();
     }
 
     function getCompoundAmountsPerUnitNominalLiqX64Exposed() public view returns (uint256, uint256) {

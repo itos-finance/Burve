@@ -424,7 +424,7 @@ contract Burve is ERC20 {
 
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
-        uint128 compoundedNominalLiq = getCompoundNominalLiqForCollectedAmounts();
+        uint128 compoundedNominalLiq = collectAndCalcCompound();
         if (compoundedNominalLiq == 0) {
             return;
         }
@@ -526,7 +526,7 @@ contract Burve is ERC20 {
     /// @notice Calculates nominal compound liq for the collected token amounts.
     /// @dev Collected amounts are limited to a max of type(uint192).max and
     ///      computed liquidity is limited to a max of type(uint128).max.
-    function getCompoundNominalLiqForCollectedAmounts()
+    function collectAndCalcCompound()
         internal
         view
         returns (uint128 mintNominalLiq)

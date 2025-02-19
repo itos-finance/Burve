@@ -1271,7 +1271,7 @@ contract BurveTest is ForkableTest {
 
         // compounded nominal liq
         uint128 compoundedNominalLiq = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
 
         // v3 compounded liq
@@ -1354,7 +1354,7 @@ contract BurveTest is ForkableTest {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1371,7 +1371,7 @@ contract BurveTest is ForkableTest {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1396,7 +1396,7 @@ contract BurveTest is ForkableTest {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1421,7 +1421,7 @@ contract BurveTest is ForkableTest {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1440,7 +1440,7 @@ contract BurveTest is ForkableTest {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
@@ -1456,14 +1456,14 @@ contract BurveTest is ForkableTest {
         deal(address(token1), address(burve), type(uint192).max);
 
         uint128 compoundedNominalLiqAtMax192 = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
 
         // amounts at max type(uint256).max
         deal(address(token0), address(burve), type(uint256).max);
         deal(address(token1), address(burve), type(uint256).max);
 
         uint128 compoundedNominalLiqAtMax256 = burve
-            .getCompoundNominalLiqForCollectedAmountsExposed();
+            .collectAndCalcCompoundExposed();
 
         // check compounded nominal liq
         assertEq(
