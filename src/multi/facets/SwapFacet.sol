@@ -14,6 +14,8 @@ import {ClosureDist} from "../Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
 import {console} from "forge-std/console.sol";
 
+/// Swap related functions
+/// @dev Remember that amounts are real, but prices are nominal.
 contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     // Reports the NOMINAL price as it goes out of bounds by being too far from one due to a swap.
     error SwapOutOfBounds(uint160 resultingSqrtPriceX96);
@@ -26,14 +28,14 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
         uint256 inAmount,
         uint256 outAmount,
         uint160 finalSqrtPriceX96
-    );
+    ); // Nominal prices.
 
     function swap(
         address recipient,
         address inToken,
         address outToken,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96
+        uint160 sqrtPriceLimitX96 // Nominal.
     )
         external
         nonReentrant
@@ -73,7 +75,7 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
         address inToken,
         address outToken,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96
+        uint160 sqrtPriceLimitX96 // Nominal
     )
         external
         view
@@ -89,9 +91,9 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     }
 
     /// Get the price of the pool denominated as the higher address token / the lower address token.
-    /// @dev price convention is what it is to match uniswap's.
+    /// @dev price convention is what it is to match uniswap's. The price is NOMINAL.
     /// @dev This is intended for front-end and other non-critical use cases where small variations
-    /// price between teh time of query and time of use is not important. Thus the rounding is not specified.
+    /// price between the time of query and time of use is not important. Thus the rounding is not specified.
     function getSqrtPrice(
         address inToken,
         address outToken
@@ -118,14 +120,6 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             !zeroForOne
         );
         sqrtPriceX96 = slot0.sqrtPriceX96;
-        console.log(slot0.sqrtPriceX96, "slotPrice");
-        sqrtPriceX96 = uint160(
-            FullMath.mulX128(
-                slot0.sqrtPriceX96,
-                Store.adjustor().realSqrtRatioX128(token1, token0, false),
-                true
-            ) // From our tests, rounding down then up will give the least residual errors.
-        );
     }
 
     /* Helpers */
@@ -173,15 +167,6 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             amountSpecified,
             false
         );
-        // For the limit price we want to be conservative, so we round down on buys and up on sells.
-        uint256 nomRatioX128 = adj.nominalSqrtRatioX128(
-            token1,
-            token0,
-            zeroForOne
-        );
-        sqrtPriceLimitX96 = SafeCast.toUint160(
-            FullMath.mulX128(sqrtPriceLimitX96, nomRatioX128, zeroForOne)
-        );
 
         // Calculate the swap amounts and protocolFee
         int256 amount0;
@@ -206,7 +191,7 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             outAmount = uint256(-amount0);
         }
 
-        // Now we have to denormalize/convert the values to real amounts.
+        // Now we have to denormalize/convert the amounts to real amounts.
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
             outAmount = adj.toReal(outToken, outAmount, false);
@@ -215,12 +200,7 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             inAmount = adj.toReal(inToken, inAmount, true);
         }
         protocolFee = adj.toReal(inToken, protocolFee, false);
-        // The final price is purely cosmetic. It gets recalculated on the next swap anyways.
-        // We know this fits because our real price is at most 20 whole bits, and
-        // normalizing can at most add 18.
-        finalSqrtPriceX96 = uint160(
-            FullMath.mulDiv(finalSqrtPriceX96, 1 << 128, nomRatioX128)
-        );
+        // We always leave the final price as nominal.
     }
 
     // Called to perform the actual exchange from one token balance to another.
