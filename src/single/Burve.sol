@@ -476,6 +476,10 @@ contract Burve is ERC20 {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         uint128 compoundedNominalLiq = getCompoundNominalLiqForCollectedAmounts();
+        if (compoundedNominalLiq == 0) {
+            return;
+        }
+
         totalNominalLiq += compoundedNominalLiq;
 
         // calculate liq and mint amounts
