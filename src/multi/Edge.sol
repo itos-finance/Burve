@@ -6,7 +6,6 @@ import {UniV3Edge} from "./UniV3Edge.sol";
 import {FullMath} from "../FullMath.sol";
 import {Store} from "./Store.sol";
 import {SimplexStorage} from "./facets/SimplexFacet.sol";
-import {TransferHelper} from "../TransferHelper.sol";
 import {VertexId, newVertexId} from "./Vertex.sol";
 import {ClosureDist} from "./Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
@@ -58,20 +57,7 @@ using EdgeImpl for Edge global;
 library EdgeImpl {
     uint256 constant X224 = 1 << 224; // used in getInvPriceX128
 
-    event Swap(
-        address sender,
-        address indexed recipient,
-        address indexed token0,
-        address indexed token1,
-        int256 amount0,
-        int256 amount1,
-        uint160 sqrtPriceX96,
-        uint128 liquidity,
-        int24 tick
-    );
-
     error NoEdgeSettings(address token0, address token1);
-    error SwapOutOfBounds(uint160 newSqrtPriceX96);
 
     /* Admin function to set edge parameters */
 
@@ -113,91 +99,7 @@ library EdgeImpl {
         self.feeProtocol = feeProtocol;
     }
 
-    /* Interface functions */
-
-    /// A complete swap function that calculates and exchanges one token for another.
-    /// @dev This does NOT modify edge.
-    /// @param token0 The lower address token.
-    function swap(
-        Edge storage self,
-        address token0,
-        address token1,
-        address recipient,
-        bool zeroForOne,
-        int256 amountSpecified,
-        uint160 sqrtPriceLimitX96
-    ) internal returns (uint256 inAmount, uint256 outAmount) {
-        // Log the start of the swap function
-        // Prep the swap.
-        UniV3Edge.Slot0 memory slot0 = getSlot0(
-            self,
-            token0,
-            token1,
-            !zeroForOne
-        );
-
-        // Calculate the swap amounts and protocolFee
-        (
-            int256 amount0,
-            int256 amount1,
-            uint128 protocolFee,
-            uint160 finalSqrtPriceX96,
-            int24 finalTick
-        ) = UniV3Edge.swap(
-                self,
-                slot0,
-                zeroForOne,
-                amountSpecified,
-                sqrtPriceLimitX96
-            );
-        if (
-            (zeroForOne && (finalSqrtPriceX96 < MIN_SQRT_PRICE_X96)) ||
-            (!zeroForOne && (finalSqrtPriceX96 > MAX_SQRT_PRICE_X96))
-        ) revert SwapOutOfBounds(finalSqrtPriceX96);
-        address inToken;
-        address outToken;
-        if (zeroForOne) {
-            inToken = token0;
-            inAmount = uint256(amount0);
-            outToken = token1;
-            outAmount = uint256(-amount1);
-        } else {
-            inToken = token1;
-            inAmount = uint256(amount1);
-            outToken = token0;
-            outAmount = uint256(-amount0);
-        }
-
-        exchange(
-            recipient,
-            inToken,
-            inAmount,
-            outToken,
-            outAmount,
-            protocolFee
-        );
-
-        uint128 finalLiq = updateLiquidity(
-            self,
-            finalTick,
-            slot0.tick,
-            slot0.liquidity
-        );
-
-        emit Swap(
-            msg.sender,
-            recipient,
-            token0,
-            token1,
-            amount0,
-            amount1,
-            finalSqrtPriceX96,
-            finalLiq,
-            finalTick
-        );
-    }
-
-    /* Methods used by the UniV3Edge */
+    /* Methods used for the UniV3Edge */
 
     /// Called by the UniV3Edge to fetch the information it needs to swap.
     /// @param roundUp Whether we want to round the price up or down.
@@ -252,37 +154,10 @@ library EdgeImpl {
 
     /* Private Swap Helpers */
 
-    // Called to perform the actual exchange from one token balance to another.
-    function exchange(
-        address recipient,
-        address inToken,
-        uint256 inAmount,
-        address outToken,
-        uint256 outAmount,
-        uint256 protocolFee
-    ) private {
-        VertexId inVid = newVertexId(inToken);
-        VertexId outVid = newVertexId(outToken);
-        // We send out the outtoken, and give the intoken to the appropriate closures.
-        ClosureDist memory dist = Store.vertex(outVid).homSubtract(
-            inVid,
-            outAmount
-        );
-        if (outAmount > 0)
-            TransferHelper.safeTransfer(outToken, recipient, outAmount);
-        if (inAmount > 0)
-            TransferHelper.safeTransferFrom(
-                inToken,
-                msg.sender,
-                address(this),
-                inAmount
-            );
-        // We leave the protocolFee on this contract.
-        Store.vertex(inVid).homAdd(dist, inAmount - protocolFee);
-    }
-
     /// Fetch the price, tick, and liquidity implied by the current balances for these tokens.
     /// @dev Round the price up when buying, round down when selling. Always round liq down.
+    /// @dev We calculate the implied price in nominal terms. Hence we do the adjustments here.
+    /// Users are responsible for converting to real terms as needed.
     function calcImpliedPool(
         Edge storage self,
         address token0,
@@ -305,10 +180,21 @@ library EdgeImpl {
         uint128 balance1 = SafeCast.toUint128(
             Store.vertex(v1).balance(v0, false)
         );
-        (sqrtPriceX96, currentLiq) = calcImpliedInner(
-            self,
+        // Again, we always round token balances down.
+        uint256 nomBalance0 = Store.adjustor().toNominal(
+            token0,
             balance0,
+            false
+        );
+        uint256 nomBalance1 = Store.adjustor().toNominal(
+            token1,
             balance1,
+            false
+        );
+        (sqrtPriceX96, currentLiq) = calcImpliedHelper(
+            self,
+            nomBalance0,
+            nomBalance1,
             roundUp
         );
         // So far, currentLiq is actually wideLiq.
@@ -317,7 +203,7 @@ library EdgeImpl {
             currentLiq += uint128(self.amplitude * currentLiq);
     }
 
-    function calcImpliedInner(
+    function calcImpliedHelper(
         Edge storage self,
         uint256 balance0,
         uint256 balance1,
@@ -477,9 +363,9 @@ library EdgeImpl {
         if (roundUp && (numX96 % denom > 0)) sqrtPriceX96 += 1;
     }
 
-    /* Helper Price functions */
+    /* Price functions used by LiqFacet */
 
-    /// Fetch the price implied by these balances on this edge denoted in terms of token1.
+    /// Fetch the REAL price implied by these balances on this edge denoted in terms of token1.
     /// @dev This ALWAYS rounds up due to its usage in Add.
     /// @param balance0 This is the balance of token0
     /// @param balance1 This is the balance of token1
@@ -489,12 +375,14 @@ library EdgeImpl {
         uint128 balance0,
         uint128 balance1
     ) internal view returns (uint256 priceX128) {
-        (uint256 sqrtPriceX96, ) = calcImpliedInner(
+        (uint256 sqrtPriceX96, ) = calcImpliedHelper(
             self,
             balance0,
             balance1,
             true
         );
+
+        // Store.adjustor().realSqrtRatioX128()
 
         return FullMath.mulX128(sqrtPriceX96, sqrtPriceX96 << 64, true);
     }
@@ -509,7 +397,7 @@ library EdgeImpl {
         uint128 balance0,
         uint128 balance1
     ) internal view returns (uint256 invPriceX128) {
-        (uint256 sqrtPriceX96, ) = calcImpliedInner(
+        (uint256 sqrtPriceX96, ) = calcImpliedHelper(
             self,
             balance0,
             balance1,

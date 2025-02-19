@@ -5,6 +5,53 @@ pragma solidity ^0.8.27;
 /// For example, it re-normalizes non-18 decimal tokens to 18 decimals.
 /// Or converts appreciating LSTs to the underlier's balance.
 interface IAdjustor {
-    function toNominal(uint256 balance) external view returns (uint256 real);
-    function toReal(uint256 balance) external view returns (uint256 nominal);
+    /// Convert a uint to the nominal value by normalizing the decimals around 18.
+    function toNominal(
+        address token,
+        uint256 real,
+        bool roundUp
+    ) external view returns (uint256 nominal);
+
+    /// Convert an int to the nominal value by normalizing the decimals around 18.
+    function toNominal(
+        address token,
+        int256 real,
+        bool roundUp
+    ) external view returns (int256 nominal);
+
+    /// Convert a uint to the real value by denormalizing the decimals back to their original value.
+    function toReal(
+        address token,
+        uint256 nominal,
+        bool roundUp
+    ) external view returns (uint256 real);
+
+    /// Convert an int to the real value by denormalizing the decimals back to their original value.
+    function toReal(
+        address token,
+        int256 nominal,
+        bool roundUp
+    ) external view returns (int256 real);
+
+    /// Query the multiplicative factor for converting the real-valued square root ratio of two token values to
+    /// a nominal value.
+    function nominalSqrtRatioX128(
+        address numToken,
+        address denomToken,
+        bool roundUp
+    ) external view returns (uint256 ratioX128);
+
+    /// Query the multiplicative factor for converting the nominal-valued square root ratio of two token values to
+    /// their real value. Dividing by nominalSqrtRatioX128 can be used instead.
+    function realSqrtRatioX128(
+        address numToken,
+        address denomToken,
+        bool roundUp
+    ) external view returns (uint256 ratioX128);
+
+    /// If an adjustment will be queried often, someone can call this to cache the result for cheaper views.
+    function cacheAdjustment(address token) external;
+
+    /// If a ratio will be queried often, someone can call this to cache the result for cheaper views.
+    function cacheRatio(address numToken, address denomToken) external;
 }
