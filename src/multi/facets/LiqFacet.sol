@@ -11,6 +11,7 @@ import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../../FullMath.sol";
 import {AssetStorage, AssetLib} from "../Asset.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -94,11 +95,28 @@ contract LiqFacet is ReentrancyGuardTransient {
                         // We use an added token as the numeraire to save gas.
                         numerairePost = postBalance[i];
                     }
-                } else {
-                    postBalance[i] = preBalance[i];
-                }
+                } // Right now unaltered postBalances are 0.
             }
         }
+        // When working with vaults and vertices, we handle real token balances.
+        // But now that we're about to compute value from prices, we switch to nominal balances.
+        IAdjustor adj = Store.adjustor();
+        for (uint8 i = 0; i < n; ++i) {
+            // Not in a view function so we can cache the value.
+            address token = tokenReg.tokens[i];
+            adj.cacheAdjustment(token);
+            // Round up to increase the original value.
+            preBalance[i] = uint128(adj.toNominal(token, preBalance[i], true));
+            if (postBalance[i] == 0) {
+                postBalance[i] = preBalance[i];
+            } else {
+                // Round down the increase in value.
+                postBalance[i] = uint128(
+                    adj.toNominal(token, postBalance[i], false)
+                );
+            }
+        }
+        numerairePost = uint128(adj.toNominal(numeraire, numerairePost, false));
 
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
@@ -137,6 +155,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         emit AddLiquidity(recipient, _closureId, amounts, shares);
     }
 
+    /// @dev This can entirely be done in real amounts.
     function removeLiq(
         address recipient,
         uint16 _closureId,
