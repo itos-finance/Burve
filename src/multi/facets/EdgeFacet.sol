@@ -18,6 +18,7 @@ contract EdgeFacet is BurveFacetBase {
     );
 
     /// Set the swap parameters for a single edge.
+    /// @dev Note that the ticks are nominal values, so centered at one.
     function setEdge(
         address token0,
         address token1,

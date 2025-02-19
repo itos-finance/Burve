@@ -8,7 +8,7 @@ import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
-import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
+// import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
@@ -26,7 +26,7 @@ contract MultiSetupTest is Test {
     LiqFacet public liqFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
-    LockFacet public lockFacet;
+    // LockFacet public lockFacet;
 
     uint16 public closureId;
 
@@ -51,7 +51,7 @@ contract MultiSetupTest is Test {
         liqFacet = LiqFacet(diamond);
         simplexFacet = SimplexFacet(diamond);
         swapFacet = SwapFacet(diamond);
-        lockFacet = LockFacet(diamond);
+        // lockFacet = LockFacet(diamond);
     }
 
     /// Deploy two tokens and install them as vertices in the diamond with an edge.

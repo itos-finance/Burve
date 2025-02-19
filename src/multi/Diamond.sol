@@ -21,13 +21,14 @@ import {LiqFacet} from "./facets/LiqFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
 import {ViewFacet} from "./facets/ViewFacet.sol";
+import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 
 error FunctionNotFound(bytes4 _functionSelector);
 
 contract SimplexDiamond is IDiamond {
     constructor(BurveFacets memory facets) {
         AdminLib.initOwner(msg.sender);
-        Store.adjustor() = facets.adjustor;
+        Store.load().adjustor = IAdjustor(facets.adjustor);
 
         FacetCut[] memory cuts = new FacetCut[](8);
 
