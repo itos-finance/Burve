@@ -9,6 +9,7 @@ import {AdminLib} from "Commons/Util/Admin.sol";
 
 import {FullMath} from "../FullMath.sol";
 import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
+import {Info} from "../../src/single/Info.sol";
 import {IStationProxy} from "./IStationProxy.sol";
 import {IUniswapV3Pool} from "./integrations/kodiak/IUniswapV3Pool.sol";
 import {LiquidityAmounts} from "./integrations/uniswap/LiquidityAmounts.sol";
@@ -28,16 +29,17 @@ contract Burve is ERC20 {
     IStationProxy public stationProxy;
 
     /// The n ranges.
+    /// If there is an island that range lies at index 0, encoded as (0, 0).
     TickRange[] public ranges;
 
     /// The relative liquidity for our n ranges.
     /// If there is an island that distribution lies at index 0.
     uint256[] public distX96;
 
-    /// Total nominal liquidity in Burve.
+    /// Total nominal liquidity.
     uint128 public totalNominalLiq;
 
-    /// Total shares of nominal liquidity in Burve.
+    /// Total shares of nominal liquidity.
     uint256 public totalShares;
 
     /// Mapping of owner to island shares they own.
@@ -466,6 +468,20 @@ contract Burve is ERC20 {
             uint128(x),
             uint128(y)
         );
+    }
+
+    /// @notice Returns info about the contract.
+    /// @return info The info struct.
+    function getInfo() external view returns (Info memory info) {
+        info.pool = pool;
+        info.token0 = token0;
+        info.token1 = token1;
+        info.island = island;
+        info.stationProxy = stationProxy;
+        info.totalNominalLiq = totalNominalLiq;
+        info.totalShares = totalShares;
+        info.ranges = ranges;
+        info.distX96 = distX96;
     }
 
     /// @notice Collect fees and compound them for each v3 range.

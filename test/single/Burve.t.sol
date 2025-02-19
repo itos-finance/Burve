@@ -14,6 +14,7 @@ import {Burve} from "../../src/single/Burve.sol";
 import {BurveExposedInternal} from "./BurveExposedInternal.sol";
 import {FullMath} from "../../src/FullMath.sol";
 import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
+import {Info} from "../../src/single/Info.sol";
 import {IStationProxy} from "../../src/single/IStationProxy.sol";
 import {IUniswapV3Pool} from "../../src/single/integrations/kodiak/IUniswapV3Pool.sol";
 import {LiquidityAmounts} from "../../src/single/integrations/uniswap/LiquidityAmounts.sol";
@@ -1270,8 +1271,7 @@ contract BurveTest is ForkableTest {
         deal(address(token1), address(burve), collected1);
 
         // compounded nominal liq
-        uint128 compoundedNominalLiq = burve
-            .collectAndCalcCompoundExposed();
+        uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
 
         // v3 compounded liq
@@ -1353,8 +1353,7 @@ contract BurveTest is ForkableTest {
         assertGt(amount0InUnitLiqX64, 0, "amount0InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve
-            .collectAndCalcCompoundExposed();
+        uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1370,8 +1369,7 @@ contract BurveTest is ForkableTest {
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve
-            .collectAndCalcCompoundExposed();
+        uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1395,8 +1393,7 @@ contract BurveTest is ForkableTest {
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve
-            .collectAndCalcCompoundExposed();
+        uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1420,8 +1417,7 @@ contract BurveTest is ForkableTest {
         assertEq(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 == 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve
-            .collectAndCalcCompoundExposed();
+        uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
@@ -1439,8 +1435,7 @@ contract BurveTest is ForkableTest {
         assertGt(amount1InUnitLiqX64, 0, "amount1InUnitLiqX64 > 0");
 
         // check compounded nominal liq
-        uint128 compoundedNominalLiq = burve
-            .collectAndCalcCompoundExposed();
+        uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
@@ -1573,6 +1568,117 @@ contract BurveTest is ForkableTest {
             )
         );
         burveV3.collectV3FeesExposed();
+    }
+
+    // Get Info Tests
+
+    function test_GetInfo_Island() public {
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveIsland), type(uint256).max);
+        token1.approve(address(burveIsland), type(uint256).max);
+        burveIsland.mint(address(alice), 1000, 0, type(uint128).max);
+        burveIsland.mint(address(alice), 400, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // Get Info
+        Info memory info = burveIsland.getInfo();
+        assertEq(address(info.pool), address(pool), "pool address");
+        assertEq(address(info.token0), address(token0), "token0 address");
+        assertEq(address(info.token1), address(token1), "token0 address");
+        assertEq(
+            address(info.island),
+            address(burveIsland.island()),
+            "island address"
+        );
+        assertEq(
+            info.totalNominalLiq,
+            burveIsland.totalNominalLiq(),
+            "total nominal liq"
+        );
+        assertEq(info.totalShares, burveIsland.totalShares(), "total shares");
+        assertEq(info.ranges.length, 1, "ranges length");
+        (int24 lower, int24 upper) = burveIsland.ranges(0);
+        assertEq(info.ranges[0].lower, lower, "range0 lower tick");
+        assertEq(info.ranges[0].upper, upper, "range0 upper tick");
+        assertEq(info.distX96.length, 1, "distX96 length");
+        assertEq(info.distX96[0], burveIsland.distX96(0), "distX96 0");
+    }
+
+    function test_GetInfo_V3() public {
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+        burveV3.mint(address(alice), 1000, 0, type(uint128).max);
+        burveV3.mint(address(alice), 400, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // Get Info
+        Info memory info = burveV3.getInfo();
+        assertEq(address(info.pool), address(pool), "pool address");
+        assertEq(address(info.token0), address(token0), "token0 address");
+        assertEq(address(info.token1), address(token1), "token0 address");
+        assertEq(
+            address(info.island),
+            address(burveV3.island()),
+            "island address"
+        );
+        assertEq(
+            info.totalNominalLiq,
+            burveV3.totalNominalLiq(),
+            "total nominal liq"
+        );
+        assertEq(info.totalShares, burveV3.totalShares(), "total shares");
+        assertEq(info.ranges.length, 1, "ranges length");
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+        assertEq(info.ranges[0].lower, lower, "range0 lower tick");
+        assertEq(info.ranges[0].upper, upper, "range0 upper tick");
+        assertEq(info.distX96.length, 1, "distX96 length");
+        assertEq(info.distX96[0], burveV3.distX96(0), "distX96 0");
+    }
+
+    function test_GetInfo() public {
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burve), type(uint256).max);
+        token1.approve(address(burve), type(uint256).max);
+        burve.mint(address(alice), 1000, 0, type(uint128).max);
+        burve.mint(address(alice), 400, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // Get Info
+        Info memory info = burve.getInfo();
+        assertEq(address(info.pool), address(pool), "pool address");
+        assertEq(address(info.token0), address(token0), "token0 address");
+        assertEq(address(info.token1), address(token1), "token0 address");
+        assertEq(
+            address(info.island),
+            address(burve.island()),
+            "island address"
+        );
+        assertEq(
+            info.totalNominalLiq,
+            burve.totalNominalLiq(),
+            "total nominal liq"
+        );
+        assertEq(info.totalShares, burve.totalShares(), "total shares");
+        assertEq(info.ranges.length, 2, "ranges length");
+        (int24 lower, int24 upper) = burve.ranges(0);
+        assertEq(info.ranges[0].lower, lower, "range0 lower tick");
+        assertEq(info.ranges[0].upper, upper, "range0 upper tick");
+        (lower, upper) = burve.ranges(1);
+        assertEq(info.ranges[1].lower, lower, "range1 lower tick");
+        assertEq(info.ranges[1].upper, upper, "range1 upper tick");
+        assertEq(info.distX96.length, 2, "distX96 length");
+        assertEq(info.distX96[0], burve.distX96(0), "distX96 0");
+        assertEq(info.distX96[1], burve.distX96(1), "distX96 1");
     }
 
     // Helpers
