@@ -420,18 +420,19 @@ contract Burve is ERC20 {
         );
     }
 
-    /// @notice Returns the current token amounts in a users position.
+    /// @notice Returns the current token amounts in a user's position.
     /// @param owner The owner of the position.
     function queryValue(
         address owner
     ) external view returns (uint256 amount0, uint256 amount1) {
-        uint256 shares = balanceOf(owner);
+        // contract is empty
+        if (totalShares == 0) {
+            return (0, 0);
+        }
 
         (, int24 tick, , , , , ) = pool.slot0();
 
-        // island
-
-        // v3 ranges
+        // accumulate total token amounts in the v3 ranges owned by this contract
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
@@ -464,7 +465,27 @@ contract Burve is ERC20 {
             amount1 += fees1;
         }
 
-        // calculate owner share
+        // calculate share of total amounts owned by the owner
+        uint256 shares = balanceOf(owner);
+        amount0 = FullMath.mulDiv(amount0, shares, totalShares);
+        amount1 = FullMath.mulDiv(amount1, shares, totalShares);
+
+        // calculate amounts owned by island position
+        uint256 ownerIslandShares = islandSharesPerOwner(owner);
+        if (ownerIslandShares > 0) {
+            uint256 totalIslandShares = island.totalSupply();
+            (uint256 island0, uint256 island1) = island.getUnderlyingBalances();
+            amount0 += FullMath.mulDiv(
+                island0,
+                ownerIslandShares,
+                totalIslandShares
+            );
+            amount1 += FullMath.mulDiv(
+                island1,
+                ownerIslandShares,
+                totalIslandShares
+            );
+        }
     }
 
     /// @notice Returns info about the contract.
