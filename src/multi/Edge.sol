@@ -382,8 +382,6 @@ library EdgeImpl {
             true
         );
 
-        // Store.adjustor().realSqrtRatioX128()
-
         return FullMath.mulX128(sqrtPriceX96, sqrtPriceX96 << 64, true);
     }
 

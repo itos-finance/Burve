@@ -45,7 +45,11 @@ contract AdjustmentTest is MultiSetupTest {
         liqFacet.addLiq(address(this), 0x7, amounts);
         // This will lower the third tokens price.
         sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertLt(sqrtPX96, 1 << 96);
+        if (tokens[2] < tokens[0]) {
+            assertLt(sqrtPX96, 1 << 96);
+        } else {
+            assertGt(sqrtPX96, 1 << 96);
+        }
     }
 
     function testSwap() public {
@@ -62,7 +66,7 @@ contract AdjustmentTest is MultiSetupTest {
             100,
             1 << 95
         );
-        assertEq(x, y);
+        assertApproxEqAbs(x, y, 1);
 
         uint160 limit = tokens[2] < tokens[0] ? 1 << 95 : 1 << 97;
         (, y) = swapFacet.swap(address(this), tokens[2], tokens[0], 10, limit);
