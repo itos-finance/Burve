@@ -28,7 +28,7 @@ error FunctionNotFound(bytes4 _functionSelector);
 contract SimplexDiamond is IDiamond {
     constructor(BurveFacets memory facets) {
         AdminLib.initOwner(msg.sender);
-        Store.adjustor() = facets.adjustor;
+        Store.load().adjustor = IAdjustor(facets.adjustor);
 
         FacetCut[] memory cuts = new FacetCut[](9);
 

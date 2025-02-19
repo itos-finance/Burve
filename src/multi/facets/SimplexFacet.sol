@@ -69,6 +69,7 @@ contract SimplexFacet {
     /* Admin Function */
 
     /// These will be the paramters used by all edges on construction.
+    /// @dev Note that the ticks are nominal values, so centered at one.
     function setDefaultEdge(
         uint128 amplitude,
         int24 lowTick,
