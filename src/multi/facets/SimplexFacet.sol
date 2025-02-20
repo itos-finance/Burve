@@ -63,6 +63,7 @@ contract SimplexFacet {
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
+        Store.adjustor().cacheAdjustment(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
         emit VertexAdded(token, vault, vType);
     }
