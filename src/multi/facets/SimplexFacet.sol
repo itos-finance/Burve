@@ -8,6 +8,7 @@ import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 struct SimplexStorage {
     string name;
@@ -100,6 +101,15 @@ contract SimplexFacet {
         defaultE.setRange(amplitude, lowTick, highTick);
         defaultE.setFee(fee, feeProtocol);
         emit DefaultEdgeSet(amplitude, lowTick, highTick, fee, feeProtocol);
+    }
+
+    function setAdjustor(IAdjustor adj) external {
+        AdminLib.validateOwner();
+        Store.load().adjustor = adj;
+        address[] storage tokens = Store.tokenRegistry().tokens;
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            adj.cacheAdjustment(tokens[i]);
+        }
     }
 
     function setName(string calldata newName) external {
