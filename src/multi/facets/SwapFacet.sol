@@ -21,6 +21,8 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
 
     // Reports the NOMINAL price as it goes out of bounds by being too far from one due to a swap.
     error SwapOutOfBounds(uint160 resultingSqrtPriceX96);
+    // When the user specifies an exact out amount and we fail to fetch it for an
+    error InsufficientOutAmount(uint256 expected, uint256 actual);
 
     event Swap(
         address sender,
@@ -173,9 +175,9 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
 
         // When we perform the swap calculation, we want to normalize the amounts, price, ticks, etc. around one.
         IAdjustor adj = Store.adjustor();
-        // If positive, they want to spent at MOST that amount of the inToken, so we round the amount down.
+        // If positive, they want to spend at MOST that amount of the inToken, so we round the amount down.
         // If negative they want to get at LEAST that mount of the outToken, so we round the raw negative number down.
-        amountSpecified = adj.toNominal(
+        int256 nomAmountSpecified = adj.toNominal(
             amountSpecified > 0 ? inToken : outToken,
             amountSpecified,
             false
@@ -188,7 +190,7 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             edge,
             slot0,
             zeroForOne,
-            amountSpecified,
+            nomAmountSpecified,
             sqrtPriceLimitX96
         );
         // Check the resulting final nominal price.
@@ -209,6 +211,9 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             inAmount = uint256(amountSpecified);
             outAmount = adj.toReal(outToken, outAmount, false);
         } else {
+            uint256 expectedOut = uint256(-nomAmountSpecified);
+            if (outAmount != expectedOut)
+                revert InsufficientOutAmount(expectedOut, outAmount);
             outAmount = uint256(-amountSpecified);
             inAmount = adj.toReal(inToken, inAmount, true);
         }
