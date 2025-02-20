@@ -23,7 +23,6 @@ contract AdjustmentTest is MultiSetupTest {
         );
         simplexFacet.addVertex(tokens[2], address(vaults[2]), VaultType.E4626);
 
-        // Fund alice for all 3 tokens.
         _fundAccount(address(this));
     }
 
@@ -52,6 +51,45 @@ contract AdjustmentTest is MultiSetupTest {
         }
     }
 
+    function testAddedShares() public {
+        // Mint some liquidity. We should put them in equal proportion according to their decimals.
+        uint128[] memory amounts = new uint128[](3);
+        amounts[0] = 1e18;
+        amounts[1] = 1e18;
+        amounts[2] = 1e6;
+        uint256 initLiq = liqFacet.addLiq(address(this), 0x7, amounts);
+
+        // These three mints should all be of roughly equal value.
+        amounts[0] = 1e12;
+        amounts[1] = 0;
+        amounts[2] = 0;
+        uint256 added0 = liqFacet.addLiq(address(this), 0x7, amounts);
+        amounts[0] = 0;
+        amounts[1] = 1e12;
+        amounts[2] = 0;
+        uint256 added1 = liqFacet.addLiq(address(this), 0x7, amounts);
+        amounts[0] = 0;
+        amounts[1] = 0;
+        amounts[2] = 1;
+        uint256 added2 = liqFacet.addLiq(address(this), 0x7, amounts);
+        assertApproxEqRel(initLiq / 3e6, added0, 1e16); // 1% diff
+        assertApproxEqRel(added0, added1, 1e16); // 1% diff.
+        assertApproxEqRel(added0, added2, 1e16); // 1% diff.
+        assertApproxEqRel(added1, added2, 1e16); // 1% diff.
+        // What appears odd at first is that adding these small amounts together gets successively more shares.
+        // This is because it slightly pushes down the price of the token after they deposit.
+        // So effective the induced slight arb is given to the next person LPing.
+        assertGt(added1, added0);
+        assertGt(added2, added1);
+        // To show this is not a property of the token, we now add 2 again.
+        uint256 added22 = liqFacet.addLiq(address(this), 0x7, amounts);
+        assertLt(added22, added2);
+        assertApproxEqRel(added22, added2, 1e16); // 1% diff.
+        // Being the first to move things out of balance is what causes it.
+        // In fact, at these small balances, the two "firsts" have equal shares.
+        assertEq(added0, added22);
+    }
+
     function testSwap() public {
         uint128[] memory amounts = new uint128[](3);
         amounts[0] = 100e18;
@@ -63,14 +101,22 @@ contract AdjustmentTest is MultiSetupTest {
         (uint256 x, uint256 y, ) = swapFacet.simSwap(
             tokens[0],
             tokens[1],
-            100,
+            10000,
             1 << 95
         );
-        assertApproxEqAbs(x, y, 1);
+        assertApproxEqAbs(x, y, 1); // 1 for rounding.
+
+        (, uint256 refY, ) = swapFacet.simSwap(
+            tokens[0],
+            tokens[1],
+            1e12,
+            1 << 95
+        );
 
         uint160 limit = tokens[2] < tokens[0] ? 1 << 95 : 1 << 97;
-        (, y) = swapFacet.swap(address(this), tokens[2], tokens[0], 10, limit);
-        assertEq(y, 1e13);
+        (, y) = swapFacet.swap(address(this), tokens[2], tokens[0], 1, limit); // The same as swapping 1e12.
+        assertEq(y, refY);
+        assertApproxEqAbs(y, 1e12, 1e5); // There's some slippage at this amount.
     }
 
     function testVault() public {
@@ -80,15 +126,15 @@ contract AdjustmentTest is MultiSetupTest {
         amounts[2] = 100e5;
         liqFacet.addLiq(address(this), 0x7, amounts);
 
-        // Price is currently insufficient.
+        // Balance is currently insufficient.
         uint160 sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertLt(sqrtPX96, 1 << 96);
+        assertLt(sqrtPX96, 1 << 95); // So the price is less than 0.5!
 
         // Adding some tokens to the vault will skew prices because of the adjustment.
         TransferHelper.safeTransfer(
             tokens[2],
             address(vaults[2]),
-            100e6 - 100e5
+            100e6 - 100e5 + 10 // Due to openzeppelin's ERC4626 conversions, directly sending tokens loses some dust.
         );
         sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
         assertEq(sqrtPX96, 1 << 96);
