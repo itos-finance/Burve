@@ -8,6 +8,7 @@ import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 struct SimplexStorage {
     string name;
