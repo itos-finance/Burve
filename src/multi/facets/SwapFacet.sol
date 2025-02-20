@@ -19,10 +19,6 @@ import {console} from "forge-std/console.sol";
 contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     error SwapTokenLocked(address token);
 
-    /// Swap one token for another.
-    /// @param amountSpecified The exact input when positive, the exact output when negative.
-    /// @param sqrtPriceLimitX96 is the NOMINAL square root price limit.
-
     // Reports the NOMINAL price as it goes out of bounds by being too far from one due to a swap.
     error SwapOutOfBounds(uint160 resultingSqrtPriceX96);
 
@@ -36,6 +32,9 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
         uint160 finalSqrtPriceX96
     ); // Nominal prices.
 
+    /// Swap one token for another.
+    /// @param amountSpecified The exact input when positive, the exact output when negative.
+    /// @param sqrtPriceLimitX96 is the NOMINAL square root price limit.
     function swap(
         address recipient,
         address inToken,

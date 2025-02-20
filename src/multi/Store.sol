@@ -81,6 +81,7 @@ library Store {
 
     function locker() internal view returns (Locker storage l) {
         return load()._locker;
+    }
 
     function adjustor() internal view returns (IAdjustor adj) {
         return load().adjustor;
