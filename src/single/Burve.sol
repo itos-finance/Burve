@@ -533,8 +533,6 @@ contract Burve is ERC20 {
 
     /// @notice Collect fees and compound them for each v3 range.
     function compoundV3Ranges() internal {
-        // return; 
-
         // collect fees
         collectV3Fees();
 
