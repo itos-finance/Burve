@@ -500,8 +500,7 @@ contract Burve is ERC20 {
                 uint128 liquidity,
                 uint256 feeGrowthInside0LastX128,
                 uint256 feeGrowthInside1LastX128,
-                uint256 tokensOwed0,
-                uint256 tokensOwed1
+                ,
             ) = pool.positions(positionId);
 
             (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
