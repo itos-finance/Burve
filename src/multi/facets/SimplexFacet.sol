@@ -8,6 +8,7 @@ import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
 import {VaultType} from "../VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 struct SimplexStorage {
     string name;
@@ -68,25 +69,11 @@ contract SimplexFacet {
 
     /* Admin Function */
 
-    /// These will be the paramters used by all edges on construction.
-    function setDefaultEdge(
-        uint128 amplitude,
-        int24 lowTick,
-        int24 highTick,
-        uint24 fee,
-        uint8 feeProtocol
-    ) external {
-        AdminLib.validateOwner();
-        Edge storage defaultE = Store.simplex().defaultEdge;
-        defaultE.setRange(amplitude, lowTick, highTick);
-        defaultE.setFee(fee, feeProtocol);
-        emit DefaultEdgeSet(amplitude, lowTick, highTick, fee, feeProtocol);
-    }
-
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
+        Store.adjustor().cacheAdjustment(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
         emit VertexAdded(token, vault, vType);
     }
@@ -104,7 +91,30 @@ contract SimplexFacet {
         emit FeesWithdrawn(token, amount);
     }
 
-    /* Naming */
+    /// These will be the paramters used by all edges on construction.
+    /// @dev Note that the ticks are nominal values, so centered at one.
+    function setDefaultEdge(
+        uint128 amplitude,
+        int24 lowTick,
+        int24 highTick,
+        uint24 fee,
+        uint8 feeProtocol
+    ) external {
+        AdminLib.validateOwner();
+        Edge storage defaultE = Store.simplex().defaultEdge;
+        defaultE.setRange(amplitude, lowTick, highTick);
+        defaultE.setFee(fee, feeProtocol);
+        emit DefaultEdgeSet(amplitude, lowTick, highTick, fee, feeProtocol);
+    }
+
+    function setAdjustor(IAdjustor adj) external {
+        AdminLib.validateOwner();
+        Store.load().adjustor = adj;
+        address[] storage tokens = Store.tokenRegistry().tokens;
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            adj.cacheAdjustment(tokens[i]);
+        }
+    }
 
     function setName(string calldata newName) external {
         AdminLib.validateOwner();

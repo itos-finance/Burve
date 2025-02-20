@@ -3,14 +3,16 @@ pragma solidity ^0.8.27;
 
 import {ClosureId} from "../Closure.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
+import {SafeCast} from "Commons/Math/Cast.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
 import {VaultLib, VaultPointer} from "../VaultProxy.sol";
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {FullMath} from "../FullMath.sol";
-import {AssetStorage, AssetLib} from "../Asset.sol";
+import {FullMath} from "../../FullMath.sol";
+import {AssetLib} from "../Asset.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -74,32 +76,23 @@ contract LiqFacet is ReentrancyGuardTransient {
                 vert.ensureClosure(cid);
                 // We can't add to any CIDs that have a locked vertex.
                 if (vert.isLocked()) revert VertexLockedInCID(v);
-                // Get the before balance.
-                VaultPointer memory vPtr = VaultLib.get(v);
-                preBalance[i] = vPtr.balance(cid, true);
                 uint128 addAmount = amounts[i];
-                if (addAmount > 0) {
-                    address token = tokenReg.tokens[i];
-                    // Get those tokens to this contract.
-                    TransferHelper.safeTransferFrom(
-                        token,
-                        msg.sender,
-                        address(this),
-                        addAmount
-                    );
-                    // Move to the vault.
-                    vPtr.deposit(cid, addAmount);
-                    postBalance[i] = vPtr.balance(cid, false);
-                    // Commit the deposit.
-                    vPtr.commit();
-                    // Set a numeraire if we don't have one yet
-                    if (numeraire == address(0)) {
-                        numeraire = token;
-                        // We use an added token as the numeraire to save gas.
-                        numerairePost = postBalance[i];
-                    }
-                } else {
-                    postBalance[i] = preBalance[i];
+                address token = tokenReg.tokens[i];
+                // Get the balances.
+                (preBalance[i], postBalance[i]) = getPrePostBalances(
+                    v,
+                    cid,
+                    token,
+                    addAmount
+                );
+                // Set a numeraire if we don't have one yet
+                if (
+                    (numeraire == address(0)) &&
+                    (preBalance[i] != postBalance[i])
+                ) {
+                    numeraire = token;
+                    // We use an added token as the numeraire to save gas.
+                    numerairePost = postBalance[i];
                 }
             }
         }
@@ -141,6 +134,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         emit AddLiquidity(recipient, _closureId, amounts, shares);
     }
 
+    /// @dev This can entirely be done in real amounts.
     function removeLiq(
         address recipient,
         uint16 _closureId,
@@ -173,10 +167,8 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint256 shares
     ) external view returns (uint256[] memory) {
         ClosureId cid = ClosureId.wrap(_closureId);
-        AssetStorage storage assets = Store.assets();
-        uint256 percentX256 = AssetLib.viewPercentX256(assets, cid, shares);
+        uint256 percentX256 = AssetLib.viewPercentX256(cid, shares);
         uint256 n = TokenRegLib.numVertices();
-
         uint256[] memory withdrawnAmounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
@@ -189,5 +181,41 @@ contract LiqFacet is ReentrancyGuardTransient {
         }
 
         return withdrawnAmounts;
+    }
+
+    /* Helpers */
+
+    /// Fetches the NOMINAL balances before and after a deposit.
+    function getPrePostBalances(
+        VertexId v,
+        ClosureId cid,
+        address token,
+        uint128 addAmount
+    ) private returns (uint128 preBalance, uint128 postBalance) {
+        VaultPointer memory vPtr = VaultLib.get(v);
+        IAdjustor adj = Store.adjustor();
+        // Since we're working with stables and LSTs we know. Nothing will go
+        // over 128 bits or else money means nothing.
+        preBalance = SafeCast.toUint128(
+            adj.toNominal(token, vPtr.balance(cid, true), true)
+        );
+        if (addAmount > 0) {
+            // Get those tokens to this contract.
+            TransferHelper.safeTransferFrom(
+                token,
+                msg.sender,
+                address(this),
+                addAmount
+            );
+            // Move to the vault.
+            vPtr.deposit(cid, addAmount);
+            // Commit the deposit and refetch.
+            vPtr.refresh();
+            postBalance = SafeCast.toUint128(
+                adj.toNominal(token, vPtr.balance(cid, false), false)
+            );
+        } else {
+            postBalance = preBalance;
+        }
     }
 }

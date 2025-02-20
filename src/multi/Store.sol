@@ -8,8 +8,10 @@ import {TokenRegistry} from "./Token.sol";
 import {Edge} from "./Edge.sol";
 import {SimplexStorage} from "./facets/SimplexFacet.sol";
 import {Locker} from "./facets/LockFacet.sol";
+import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 
 struct Storage {
+    IAdjustor adjustor;
     AssetStorage assets;
     TokenRegistry tokenReg;
     VaultStorage _vaults;
@@ -79,5 +81,8 @@ library Store {
 
     function locker() internal view returns (Locker storage l) {
         return load()._locker;
+
+    function adjustor() internal view returns (IAdjustor adj) {
+        return load().adjustor;
     }
 }

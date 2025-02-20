@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {FullMath} from "./FullMath.sol";
+import {FullMath} from "../FullMath.sol";
 import {VertexId} from "./Vertex.sol";
 import {Store} from "./Store.sol";
 import {TokenRegistry} from "./Token.sol";

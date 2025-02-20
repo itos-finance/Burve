@@ -17,8 +17,8 @@ import {VaultType} from "../../src/multi/VaultProxy.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 
 contract MultiSetupTest is Test {
-    uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
-    uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
+    uint256 constant INITIAL_MINT_AMOUNT = 1e30;
+    uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100_000e18;
 
     /* Diamond */
     address public diamond;

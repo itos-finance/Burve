@@ -155,6 +155,16 @@ library VaultPointerImpl {
         }
     }
 
+    /// A convenience function that forces a commit and re-fetches from the underlying vault.
+    function refresh(VaultPointer memory self) internal {
+        if (self.vType == VaultType.E4626) {
+            VaultE4626 storage v = getE4626(self);
+            v.commit(self.temp);
+            clearTemp(self);
+            v.fetch(self.temp);
+        }
+    }
+
     /* helpers */
 
     function getE4626(
@@ -162,6 +172,12 @@ library VaultPointerImpl {
     ) private pure returns (VaultE4626 storage proxy) {
         assembly {
             proxy.slot := mload(self)
+        }
+    }
+
+    function clearTemp(VaultPointer memory self) private {
+        for (uint256 i = 0; i < NUM_VAULT_VARS; ++i) {
+            self.temp.vars[i] = 0;
         }
     }
 }

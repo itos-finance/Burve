@@ -240,21 +240,13 @@ contract BurveForkTest is ForkableTest, Auto165 {
         honey.approve(address(diamond), type(uint256).max);
 
         // Get quote for swap
-        (int256 amount0, int256 amount1, uint160 sqrtPriceAfter) = swapFacet
+        (, uint256 expectedDaiAmount, uint160 sqrtPriceAfter) = swapFacet
             .simSwap(
                 address(honey), // token in
                 address(dai), // token out
                 int256(swapAmount), // amount in
                 uint160(MIN_SQRT_PRICE_X96) // min sqrt price
             );
-
-        // Convert the simulated amounts to expected output
-        uint256 expectedDaiAmount;
-        if (address(honey) < address(dai)) {
-            expectedDaiAmount = uint256(-amount1);
-        } else {
-            expectedDaiAmount = uint256(-amount0);
-        }
 
         console.log("Expected DAI output:", expectedDaiAmount);
         console.log("Sqrt price after:", sqrtPriceAfter);

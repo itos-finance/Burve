@@ -2,7 +2,7 @@
 pragma solidity >=0.5.0;
 
 import {FixedPoint96} from "v3-core/contracts/libraries/FixedPoint96.sol";
-import {FullMath} from "Commons/Math/FullMath.sol";
+import {FullMath} from "../../../FullMath.sol";
 import {UnsafeMath} from "Commons/Math/UnsafeMath.sol";
 
 /// @title Liquidity amount functions
