@@ -68,10 +68,6 @@ forge test
 forge verify-contract --chain-id 1 --etherscan-api-key <your_etherscan_api_key> --constructor-args <constructor_args> <contract_address> <contract_source_path>
 ```
 
-## License
-
-This project is licensed under the Business Source License 1.1 (BUSL-1.1) - see the [LICENSE](LICENSE) file for details.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -252,3 +248,15 @@ For local testing with a fork of mainnet:
 ```bash
 forge script script/Deploy.s.sol:DeployBurve --fork-url your_archive_node_url
 ```
+
+## License
+
+The primary license for Burve Protocol is the Business Source License 1.1 (BUSL-1.1), see [LICENSE](LICENSE). However, some files have different licenses:
+
+### MIT License
+
+-   `src/FullMath.sol` is licensed under MIT (as indicated in its SPDX header)
+
+### Test Files
+
+All files in the `test/` directory are UNLICENSED (as indicated in their SPDX headers).
