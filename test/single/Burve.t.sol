@@ -1472,7 +1472,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
         assertEq(
             compoundedNominalLiqAtMax192,
-            type(uint128).max - 2,
+            type(uint128).max - 4, // - 2 * distX96 length
             "equal max nominal liq"
         );
     }
@@ -1996,6 +1996,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(query1, 0, "query1 == 0");
     }
 
+    // running from block number 10803630 on bArito exposed a STF error during compound
+    // which is why we subtract 2 * distX96.length in collectAndCalcCompound
+    // ensuring we collected enough tokens to mint
     function test_QueryValue_NoFees() public {
         uint128 aliceMintLiq = 100_000_000_000;
         uint128 charlieMintLiq = 20_000_000_000;
