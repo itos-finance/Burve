@@ -789,15 +789,13 @@ contract Burve is ERC20 {
                 continue;
             }
 
-
             // skip islands
             if (range.isIsland()) {
                 continue;
             }
 
             // collect fees
-            // burn is required for uniswap to update tokensOwned amounts internally. 
-
+            // call to burn is required for uniswap internals to have proper bookkeeping (tokensOwed to be updated)
             pool.burn(range.lower, range.upper, 0);
             pool.collect(
                 address(this),
@@ -833,6 +831,12 @@ contract Burve is ERC20 {
         );
     }
 
+    /// @notice Calculate liquidity amount in given tokens.
+    /// @param sqrtRatioX96 The current sqrt ratio of the pool.
+    /// @param amount0 The amount of token 0.
+    /// @param amount1 The amount of token 1.
+    /// @param lower The lower tick of the range.
+    /// @param upper The upper tick of the range.
     function getLiquidityForAmounts(
         uint160 sqrtRatioX96,
         uint256 amount0,
