@@ -686,7 +686,7 @@ contract Burve is ERC20 {
         // we subtract by the number of ranges to ensure we have enough liq
         mintNominalLiq = mintNominalLiq <= distX96.length
             ? 0
-            : mintNominalLiq - uint128(distX96.length);
+            : mintNominalLiq - uint128(2 * distX96.length);
     }
 
     /// @notice Calculates token amounts needed for compounding one X64 unit of nominal liquidity in the v3 ranges.
