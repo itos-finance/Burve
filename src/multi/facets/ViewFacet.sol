@@ -75,11 +75,6 @@ contract ViewFacet {
         return Store.simplex().defaultEdge;
     }
 
-    /// @notice Get the number of vertices in the system
-    function numVertices() external view returns (uint8) {
-        return TokenRegLib.numVertices();
-    }
-
     /// @notice Get the index of a token in the registry
     /// @return idx The index of the token, or revert if not registered
     function getTokenIndex(address token) external view returns (uint8 idx) {
