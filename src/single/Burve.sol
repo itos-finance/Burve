@@ -461,8 +461,6 @@ contract Burve is ERC20 {
     /// @param liq The amount of liquidity to burn.
     function burnV3(TickRange memory range, uint128 liq) internal {
         (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
-        console.log("burnV3 x ", x);
-        console.log("burnV3 y ", y);
 
         if (x > type(uint128).max) revert TooMuchBurnedAtOnce(liq, x, true);
         if (y > type(uint128).max) revert TooMuchBurnedAtOnce(liq, y, false);
@@ -471,8 +469,6 @@ contract Burve is ERC20 {
             address(this),
             range.lower,
             range.upper,
-            // type(uint128).max,
-            // type(uint128).max
             uint128(x),
             uint128(y)
         );
@@ -553,10 +549,7 @@ contract Burve is ERC20 {
         query0 = FullMath.mulDiv(query0, shares, totalShares);
         query1 = FullMath.mulDiv(query1, shares, totalShares);
 
-        return (query0, query1);
-
-        // // calculate amounts owned by island position
-        // 538401360 <= 538816112
+        // calculate amounts owned by island position
         uint256 ownerIslandShares = islandSharesPerOwner[owner];
         if (ownerIslandShares > 0) {
             uint256 totalIslandShares = island.totalSupply();
