@@ -30,6 +30,8 @@ contract SimplexFacet {
         uint8 feeProtocol
     );
 
+    /* Getters */
+
     /// Convert your token of interest to the vertex id which you can
     /// sum with other vertex ids to create a closure Id.
     function getVertexId(address token) external view returns (uint16 vid) {
@@ -60,6 +62,13 @@ contract SimplexFacet {
         }
     }
 
+    /// Get the number of currently installed vertices
+    function numVertices() external view returns (uint8) {
+        return TokenRegLib.numVertices();
+    }
+
+    /* Admin Function */
+
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
@@ -67,11 +76,6 @@ contract SimplexFacet {
         Store.adjustor().cacheAdjustment(token);
         Store.vertex(newVertexId(token)).init(token, vault, vType);
         emit VertexAdded(token, vault, vType);
-    }
-
-    /// Get the number of currently installed vertices
-    function numVertices() external view returns (uint8) {
-        return TokenRegLib.numVertices();
     }
 
     /// Withdraw fees earned by the protocol.

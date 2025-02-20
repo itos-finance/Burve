@@ -17,6 +17,12 @@ import {console} from "forge-std/console.sol";
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal.
 contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
+    error SwapTokenLocked(address token);
+
+    /// Swap one token for another.
+    /// @param amountSpecified The exact input when positive, the exact output when negative.
+    /// @param sqrtPriceLimitX96 is the NOMINAL square root price limit.
+
     // Reports the NOMINAL price as it goes out of bounds by being too far from one due to a swap.
     error SwapOutOfBounds(uint160 resultingSqrtPriceX96);
 
@@ -139,6 +145,14 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
             uint160 finalSqrtPriceX96
         )
     {
+        // First check if any of the swap tokens are locked.
+        if (Store.vertex(newVertexId(inToken)).isLocked())
+            revert SwapTokenLocked(inToken);
+        if (Store.vertex(newVertexId(outToken)).isLocked())
+            revert SwapTokenLocked(outToken);
+        // Note that we don't allow buying or selling a locked token.
+        // In theory we could allow buys, but even if it repegs
+        // the LVR capture is most likely worth more than the fees.
         address token0;
         address token1;
         bool zeroForOne;

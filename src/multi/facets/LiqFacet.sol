@@ -24,6 +24,7 @@ functions here.
 */
 contract LiqFacet is ReentrancyGuardTransient {
     error DeMinimisDeposit();
+    error VertexLockedInCID(VertexId);
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
 
     /// @notice Emitted when liquidity is added to a closure
@@ -70,8 +71,11 @@ contract LiqFacet is ReentrancyGuardTransient {
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
             if (cid.contains(v)) {
+                Vertex storage vert = Store.vertex(v);
                 // We need to add it to the Vertex so we can use it in swaps.
-                Store.vertex(v).ensureClosure(cid);
+                vert.ensureClosure(cid);
+                // We can't add to any CIDs that have a locked vertex.
+                if (vert.isLocked()) revert VertexLockedInCID(v);
                 uint128 addAmount = amounts[i];
                 address token = tokenReg.tokens[i];
                 // Get the balances.
