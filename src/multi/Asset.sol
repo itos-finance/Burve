@@ -37,16 +37,16 @@ library AssetLib {
         uint256 shares
     ) internal returns (uint256 percentX256) {
         AssetStorage storage assets = Store.assets();
-        percentX256 = viewPercentX256(assets, cid, shares);
+        percentX256 = viewPercentX256(cid, shares);
         assets.shares[owner][cid] -= shares; // Will error on underflow.
         assets.totalShares[cid] -= shares;
     }
 
     function viewPercentX256(
-        AssetStorage storage assets,
         ClosureId cid,
         uint256 shares
     ) internal view returns (uint256 percentX256) {
+        AssetStorage storage assets = Store.assets();
         uint256 total = assets.totalShares[cid];
         if (shares == total) {
             percentX256 = type(uint256).max;

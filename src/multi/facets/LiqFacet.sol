@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import {ClosureId} from "../Closure.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
+import {SafeCast} from "Commons/Math/Cast.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
 import {VaultLib, VaultPointer} from "../VaultProxy.sol";
@@ -10,7 +11,7 @@ import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {FullMath} from "../../FullMath.sol";
-import {AssetStorage, AssetLib} from "../Asset.sol";
+import {AssetLib} from "../Asset.sol";
 import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 /*
@@ -71,52 +72,26 @@ contract LiqFacet is ReentrancyGuardTransient {
             if (cid.contains(v)) {
                 // We need to add it to the Vertex so we can use it in swaps.
                 Store.vertex(v).ensureClosure(cid);
-                // Get the before balance.
-                VaultPointer memory vPtr = VaultLib.get(v);
-                preBalance[i] = vPtr.balance(cid, true);
                 uint128 addAmount = amounts[i];
-                if (addAmount > 0) {
-                    address token = tokenReg.tokens[i];
-                    // Get those tokens to this contract.
-                    TransferHelper.safeTransferFrom(
-                        token,
-                        msg.sender,
-                        address(this),
-                        addAmount
-                    );
-                    // Move to the vault.
-                    vPtr.deposit(cid, addAmount);
-                    postBalance[i] = vPtr.balance(cid, false);
-                    // Commit the deposit.
-                    vPtr.commit();
-                    // Set a numeraire if we don't have one yet
-                    if (numeraire == address(0)) {
-                        numeraire = token;
-                        // We use an added token as the numeraire to save gas.
-                        numerairePost = postBalance[i];
-                    }
-                } // Right now unaltered postBalances are 0.
-            }
-        }
-        // When working with vaults and vertices, we handle real token balances.
-        // But now that we're about to compute value from prices, we switch to nominal balances.
-        IAdjustor adj = Store.adjustor();
-        for (uint8 i = 0; i < n; ++i) {
-            // Not in a view function so we can cache the value.
-            address token = tokenReg.tokens[i];
-            adj.cacheAdjustment(token);
-            // Round up to increase the original value.
-            preBalance[i] = uint128(adj.toNominal(token, preBalance[i], true));
-            if (postBalance[i] == 0) {
-                postBalance[i] = preBalance[i];
-            } else {
-                // Round down the increase in value.
-                postBalance[i] = uint128(
-                    adj.toNominal(token, postBalance[i], false)
+                address token = tokenReg.tokens[i];
+                // Get the balances.
+                (preBalance[i], postBalance[i]) = getPrePostBalances(
+                    v,
+                    cid,
+                    token,
+                    addAmount
                 );
+                // Set a numeraire if we don't have one yet
+                if (
+                    (numeraire == address(0)) &&
+                    (preBalance[i] != postBalance[i])
+                ) {
+                    numeraire = token;
+                    // We use an added token as the numeraire to save gas.
+                    numerairePost = postBalance[i];
+                }
             }
         }
-        numerairePost = uint128(adj.toNominal(numeraire, numerairePost, false));
 
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
@@ -188,10 +163,8 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint256 shares
     ) external view returns (uint256[] memory) {
         ClosureId cid = ClosureId.wrap(_closureId);
-        AssetStorage storage assets = Store.assets();
-        uint256 percentX256 = AssetLib.viewPercentX256(assets, cid, shares);
+        uint256 percentX256 = AssetLib.viewPercentX256(cid, shares);
         uint256 n = TokenRegLib.numVertices();
-
         uint256[] memory withdrawnAmounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
@@ -204,5 +177,41 @@ contract LiqFacet is ReentrancyGuardTransient {
         }
 
         return withdrawnAmounts;
+    }
+
+    /* Helpers */
+
+    /// Fetches the NOMINAL balances before and after a deposit.
+    function getPrePostBalances(
+        VertexId v,
+        ClosureId cid,
+        address token,
+        uint128 addAmount
+    ) private returns (uint128 preBalance, uint128 postBalance) {
+        VaultPointer memory vPtr = VaultLib.get(v);
+        IAdjustor adj = Store.adjustor();
+        // Since we're working with stables and LSTs we know. Nothing will go
+        // over 128 bits or else money means nothing.
+        preBalance = SafeCast.toUint128(
+            adj.toNominal(token, vPtr.balance(cid, true), true)
+        );
+        if (addAmount > 0) {
+            // Get those tokens to this contract.
+            TransferHelper.safeTransferFrom(
+                token,
+                msg.sender,
+                address(this),
+                addAmount
+            );
+            // Move to the vault.
+            vPtr.deposit(cid, addAmount);
+            // Commit the deposit and refetch.
+            vPtr.refresh();
+            postBalance = SafeCast.toUint128(
+                adj.toNominal(token, vPtr.balance(cid, false), false)
+            );
+        } else {
+            postBalance = preBalance;
+        }
     }
 }
