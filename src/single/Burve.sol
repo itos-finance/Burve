@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {Test, console} from "forge-std/Test.sol";
+
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 
+import {FeeLib} from "./Fees.sol";
 import {FullMath} from "../FullMath.sol";
 import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
 import {Info} from "../../src/single/Info.sol";
@@ -407,6 +410,8 @@ contract Burve is ERC20 {
     /// @param liq The amount of liquidity to burn.
     function burnV3(TickRange memory range, uint128 liq) internal {
         (uint256 x, uint256 y) = pool.burn(range.lower, range.upper, liq);
+        console.log("burnV3 x ", x);
+        console.log("burnV3 y ", y);
 
         if (x > type(uint128).max) revert TooMuchBurnedAtOnce(liq, x, true);
         if (y > type(uint128).max) revert TooMuchBurnedAtOnce(liq, y, false);
@@ -415,6 +420,8 @@ contract Burve is ERC20 {
             address(this),
             range.lower,
             range.upper,
+            // type(uint128).max,
+            // type(uint128).max
             uint128(x),
             uint128(y)
         );
@@ -424,13 +431,13 @@ contract Burve is ERC20 {
     /// @param owner The owner of the position.
     function queryValue(
         address owner
-    ) external view returns (uint256 amount0, uint256 amount1) {
+    ) external returns (uint256 query0, uint256 query1) {
         // contract is empty
         if (totalShares == 0) {
             return (0, 0);
         }
 
-        (, int24 tick, , , , , ) = pool.slot0();
+        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
 
         // accumulate total token amounts in the v3 ranges owned by this contract
         for (uint256 i = 0; i < distX96.length; ++i) {
@@ -449,8 +456,6 @@ contract Burve is ERC20 {
                 uint256 tokensOwed0,
                 uint256 tokensOwed1
             ) = pool.positions(positionId);
-            amount0 += tokensOwed0;
-            amount1 += tokensOwed1;
 
             (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
                 pool,
@@ -461,26 +466,56 @@ contract Burve is ERC20 {
                 feeGrowthInside0LastX128,
                 feeGrowthInside1LastX128
             );
-            amount0 += fees0;
-            amount1 += fees1;
+
+            uint128 liqInFees = getLiquidityForAmounts(
+                sqrtRatioX96,
+                fees0,
+                fees1,
+                range.lower,
+                range.upper
+            );
+
+            (uint256 compoundedFees0, uint256 compoundedFees1) = getAmountsForLiquidity(
+                sqrtRatioX96,
+                liqInFees,
+                range.lower,
+                range.upper,
+                false
+            );
+
+            query0 += compoundedFees0;
+            query1 += compoundedFees1;
+
+            (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+                sqrtRatioX96,
+                liquidity,
+                range.lower,
+                range.upper,
+                false
+            );
+            query0 += amount0;
+            query1 += amount1;
         }
 
         // calculate share of total amounts owned by the owner
         uint256 shares = balanceOf(owner);
-        amount0 = FullMath.mulDiv(amount0, shares, totalShares);
-        amount1 = FullMath.mulDiv(amount1, shares, totalShares);
+        query0 = FullMath.mulDiv(query0, shares, totalShares);
+        query1 = FullMath.mulDiv(query1, shares, totalShares);
 
-        // calculate amounts owned by island position
-        uint256 ownerIslandShares = islandSharesPerOwner(owner);
+        return (query0, query1);
+
+        // // calculate amounts owned by island position
+        // 538401360 <= 538816112
+        uint256 ownerIslandShares = islandSharesPerOwner[owner];
         if (ownerIslandShares > 0) {
             uint256 totalIslandShares = island.totalSupply();
             (uint256 island0, uint256 island1) = island.getUnderlyingBalances();
-            amount0 += FullMath.mulDiv(
+            query0 += FullMath.mulDiv(
                 island0,
                 ownerIslandShares,
                 totalIslandShares
             );
-            amount1 += FullMath.mulDiv(
+            query1 += FullMath.mulDiv(
                 island1,
                 ownerIslandShares,
                 totalIslandShares
@@ -504,6 +539,8 @@ contract Burve is ERC20 {
 
     /// @notice Collect fees and compound them for each v3 range.
     function compoundV3Ranges() internal {
+        // return; 
+
         // collect fees
         collectV3Fees();
 
@@ -701,12 +738,24 @@ contract Burve is ERC20 {
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
 
+            uint128 liqInRange = uint128(
+                shift96(uint256(totalNominalLiq) * distX96[i], true)
+            );
+
+            if (liqInRange == 0) {
+                continue;
+            }
+
+
             // skip islands
             if (range.isIsland()) {
                 continue;
             }
 
             // collect fees
+            // burn is required for uniswap to update tokensOwned amounts internally. 
+
+            pool.burn(range.lower, range.upper, 0);
             pool.collect(
                 address(this),
                 range.lower,
@@ -738,6 +787,25 @@ contract Burve is ERC20 {
             sqrtRatioBX96,
             liquidity,
             roundUp
+        );
+    }
+
+    function getLiquidityForAmounts(
+        uint160 sqrtRatioX96,
+        uint256 amount0,
+        uint256 amount1,
+        int24 lower,
+        int24 upper
+    ) internal pure returns (uint128 liq) {
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
+
+        liq = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtRatioX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            amount0,
+            amount1
         );
     }
 

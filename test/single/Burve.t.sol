@@ -16,13 +16,14 @@ import {FullMath} from "../../src/FullMath.sol";
 import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
 import {Info} from "../../src/single/Info.sol";
 import {IStationProxy} from "../../src/single/IStationProxy.sol";
+import {IUniswapV3SwapCallback} from "../../src/single/integrations/kodiak/pool/IUniswapV3SwapCallback.sol";
 import {IUniswapV3Pool} from "../../src/single/integrations/kodiak/IUniswapV3Pool.sol";
 import {LiquidityAmounts} from "../../src/single/integrations/uniswap/LiquidityAmounts.sol";
 import {NullStationProxy} from "./NullStationProxy.sol";
 import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
 import {TickRange} from "../../src/single/TickRange.sol";
 
-contract BurveTest is ForkableTest {
+contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     uint256 private constant X96_MASK = (1 << 96) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
 
@@ -38,10 +39,12 @@ contract BurveTest is ForkableTest {
     IStationProxy stationProxy;
 
     address alice;
+    address charlie;
     address sender;
 
     function forkSetup() internal virtual override {
         alice = makeAddr("Alice");
+        charlie = makeAddr("Charlie");
         sender = makeAddr("Sender");
 
         stationProxy = new NullStationProxy();
@@ -1570,6 +1573,399 @@ contract BurveTest is ForkableTest {
         burveV3.collectV3FeesExposed();
     }
 
+    // Query Value Tests 
+
+    function test_QueryValue_Island_NoFees() public {
+        IKodiakIsland island = burveIsland.island();
+
+        // mint calc alice
+        uint128 aliceMintLiq = 10_000;
+        (uint256 amountAlice0, uint256 amountAlice1) = getAmountsForLiquidity(
+            aliceMintLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            true
+        );
+        (uint256 mintAlice0, uint256 mintAlice1, ) = island.getMintAmounts(amountAlice0, amountAlice1);
+
+        // mint calc charlie
+        uint128 charlieMintLiq = 2_000;
+        (uint256 amountCharlie0, uint256 amountCharlie1) = getAmountsForLiquidity(
+            charlieMintLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            true
+        );
+        (uint256 mintCharlie0, uint256 mintCharlie1, ) = island.getMintAmounts(amountCharlie0, amountCharlie1);
+
+        // execute mints
+        uint256 mint0 = mintAlice0 + mintCharlie0;
+        uint256 mint1 = mintAlice1 + mintCharlie1;
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+
+        vm.startPrank(sender);
+
+        token0.approve(address(burveIsland), mint0);
+        token1.approve(address(burveIsland), mint1);
+
+        burveIsland.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burveIsland.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+
+        vm.stopPrank();
+
+        // query 
+        (uint256 queryAlice0, uint256 queryAlice1) = burveIsland.queryValue(alice);
+        (uint256 queryCharlie0, uint256 queryCharlie1) = burveIsland.queryValue(charlie);
+
+        // burn       
+        uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
+        uint256 priorBalanceAlice1 = token1.balanceOf(address(alice));
+
+        uint256 priorBalanceCharlie0 = token0.balanceOf(address(charlie));
+        uint256 priorBalanceCharlie1 = token1.balanceOf(address(charlie));
+
+        vm.startPrank(alice);
+        burveIsland.burn(burveIsland.balanceOf(alice), 0, type(uint128).max);
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
+        burveIsland.burn(burveIsland.balanceOf(charlie), 0, type(uint128).max);
+        vm.stopPrank();
+
+        uint256 burnAlice0 = token0.balanceOf(alice) - priorBalanceAlice0;
+        uint256 burnAlice1 = token1.balanceOf(alice) - priorBalanceAlice1;
+        assertGt(burnAlice0, 0, "burn alice token0");
+        assertGt(burnAlice1, 0, "burn alice token1");
+
+        uint256 burnCharlie0 = token0.balanceOf(charlie) - priorBalanceAlice0;
+        uint256 burnCharlie1 = token1.balanceOf(charlie) - priorBalanceAlice1;
+        assertGt(burnCharlie0, 0, "burn charlie token0");
+        assertGt(burnCharlie1, 0, "burn charlie token1");
+
+        // check results
+        assertEq(queryAlice0, burnAlice0, "query alice token0");
+        assertEq(queryAlice1, burnAlice1, "query alice token1");
+
+        assertEq(queryCharlie0, burnCharlie0, "query charlie token0");
+        assertEq(queryCharlie1, burnCharlie1, "query charlie token1");
+    }
+ 
+    function test_QueryValue_Island_WithFees() public {
+        IKodiakIsland island = burveIsland.island();
+
+        // mint calc alice
+        uint128 aliceMintLiq = 10_000;
+        (uint256 amountAlice0, uint256 amountAlice1) = getAmountsForLiquidity(
+            aliceMintLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            true
+        );
+        (uint256 mintAlice0, uint256 mintAlice1, ) = island.getMintAmounts(amountAlice0, amountAlice1);
+
+        // mint calc charlie
+        uint128 charlieMintLiq = 2_000;
+        (uint256 amountCharlie0, uint256 amountCharlie1) = getAmountsForLiquidity(
+            charlieMintLiq,
+            island.lowerTick(),
+            island.upperTick(),
+            true
+        );
+        (uint256 mintCharlie0, uint256 mintCharlie1, ) = island.getMintAmounts(amountCharlie0, amountCharlie1);
+
+        // execute mints
+        uint256 mint0 = mintAlice0 + mintCharlie0;
+        uint256 mint1 = mintAlice1 + mintCharlie1;
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+
+        vm.startPrank(sender);
+
+        token0.approve(address(burveIsland), mint0);
+        token1.approve(address(burveIsland), mint1);
+
+        burveIsland.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burveIsland.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+
+        vm.stopPrank();
+
+        // query w/o fees
+        (uint256 queryNoFeeAlice0, uint256 queryNoFeeAlice1) = burveIsland.queryValue(alice);
+        (uint256 queryNoFeeCharlie0, uint256 queryNoFeeCharlie1) = burveIsland.queryValue(charlie);
+
+        // accumulate fees 
+        deal(address(token0), address(this), 100_000e18);
+        deal(address(token1), address(this), 100_000e18);
+
+        pool.swap(address(this), true, 100_000e18, TickMath.MIN_SQRT_RATIO + 1, new bytes(0));
+        pool.swap(address(this), false, 100_000e18, TickMath.MAX_SQRT_RATIO - 1, new bytes(0));
+
+        vm.warp(block.timestamp * 100_000);
+
+        // query w/ fees
+        (uint256 queryWithFeeAlice0, uint256 queryWithFeeAlice1) = burveIsland.queryValue(alice);
+        (uint256 queryWithFeeCharlie0, uint256 queryWithFeeCharlie1) = burveIsland.queryValue(charlie);
+
+        assertGt(queryWithFeeAlice0, queryNoFeeAlice0, "query token0 fees");
+
+        // // burn       
+        // uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
+        // uint256 priorBalanceAlice1 = token1.balanceOf(address(alice));
+
+        // uint256 priorBalanceCharlie0 = token0.balanceOf(address(charlie));
+        // uint256 priorBalanceCharlie1 = token1.balanceOf(address(charlie));
+
+        // vm.startPrank(alice);
+        // burveIsland.burn(burveIsland.balanceOf(alice), 0, type(uint128).max);
+        // vm.stopPrank();
+
+        // vm.startPrank(charlie);
+        // burveIsland.burn(burveIsland.balanceOf(charlie), 0, type(uint128).max);
+        // vm.stopPrank();
+
+        // uint256 burnAlice0 = token0.balanceOf(alice) - priorBalanceAlice0;
+        // uint256 burnAlice1 = token1.balanceOf(alice) - priorBalanceAlice1;
+
+        // uint256 burnCharlie0 = token0.balanceOf(charlie) - priorBalanceAlice0;
+        // uint256 burnCharlie1 = token1.balanceOf(charlie) - priorBalanceAlice1;
+
+        // // check results
+        // assertEq(queryAlice0, burnAlice0, "query alice token0");
+        // assertEq(queryAlice1, burnAlice1, "query alice token1");
+
+        // assertEq(queryCharlie0, burnCharlie0, "query charlie token0");
+        // assertEq(queryCharlie1, burnCharlie1, "query charlie token1");
+    }
+ 
+    function test_QueryValue_Island_NoPosition() public {
+        // mint alice
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveIsland), type(uint256).max);
+        token1.approve(address(burveIsland), type(uint256).max);
+        burveIsland.mint(address(alice), 10_000, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        assertGt(burveIsland.totalShares(), 0, "total shares > 0");
+
+        // query charlie
+        (uint256 query0, uint256 query1) = burveIsland.queryValue(address(charlie));
+        assertEq(query0, 0, "query0 == 0");
+        assertEq(query1, 0, "query1 == 0");
+    }
+
+    function test_QueryValue_V3_NoFees() public {
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+
+        // mint calc alice
+        uint128 aliceMintLiq = 10_000;
+        (uint256 mintAlice0, uint256 mintAlice1) = getAmountsForLiquidity(
+            aliceMintLiq,
+            lower,
+            upper,
+            true
+        );
+
+        // mint calc charlie
+        uint128 charlieMintLiq = 2_000;
+        (uint256 mintCharlie0, uint256 mintCharlie1) = getAmountsForLiquidity(
+            charlieMintLiq,
+            lower,
+            upper,
+            true
+        );
+
+        // execute mints
+        uint256 mint0 = mintAlice0 + mintCharlie0;
+        uint256 mint1 = mintAlice1 + mintCharlie1;
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+
+        vm.startPrank(sender);
+
+        token0.approve(address(burveV3), mint0);
+        token1.approve(address(burveV3), mint1);
+
+        burveV3.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burveV3.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+
+        vm.stopPrank();
+
+        // query 
+        (uint256 queryAlice0, uint256 queryAlice1) = burveV3.queryValue(alice);
+        (uint256 queryCharlie0, uint256 queryCharlie1) = burveV3.queryValue(charlie);
+
+        // burn       
+        uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
+        uint256 priorBalanceAlice1 = token1.balanceOf(address(alice));
+
+        uint256 priorBalanceCharlie0 = token0.balanceOf(address(charlie));
+        uint256 priorBalanceCharlie1 = token1.balanceOf(address(charlie));
+
+        vm.startPrank(alice);
+        burveV3.burn(burveV3.balanceOf(alice), 0, type(uint128).max);
+        vm.stopPrank();
+
+        vm.startPrank(charlie);
+        burveV3.burn(burveV3.balanceOf(charlie), 0, type(uint128).max);
+        vm.stopPrank();
+
+        uint256 burnAlice0 = token0.balanceOf(alice) - priorBalanceAlice0;
+        uint256 burnAlice1 = token1.balanceOf(alice) - priorBalanceAlice1;
+        assertGt(burnAlice0, 0, "burn alice token0");
+        assertGt(burnAlice1, 0, "burn alice token1");
+
+        uint256 burnCharlie0 = token0.balanceOf(charlie) - priorBalanceAlice0;
+        uint256 burnCharlie1 = token1.balanceOf(charlie) - priorBalanceAlice1;
+        assertGt(burnCharlie0, 0, "burn charlie token0");
+        assertGt(burnCharlie1, 0, "burn charlie token1");
+
+        // check results
+        assertEq(queryAlice0, burnAlice0, "query alice token0");
+        assertEq(queryAlice1, burnAlice1, "query alice token1");
+
+        assertEq(queryCharlie0, burnCharlie0, "query charlie token0");
+        assertEq(queryCharlie1, burnCharlie1, "query charlie token1");
+    }
+
+    function test_QueryValue_V3_WithFees() public {
+        (int24 lower, int24 upper) = burveV3.ranges(0);
+
+        // mint calc alice
+        uint128 aliceMintLiq = 100_000_000_000;
+        (uint256 mintAlice0, uint256 mintAlice1) = getAmountsForLiquidity(
+            aliceMintLiq,
+            lower,
+            upper,
+            true
+        );
+
+        // // mint calc charlie
+        // uint128 charlieMintLiq = 20_000_000_000;
+        // (uint256 mintCharlie0, uint256 mintCharlie1) = getAmountsForLiquidity(
+        //     charlieMintLiq,
+        //     lower,
+        //     upper,
+        //     true
+        // );
+
+        // // execute mints
+        // uint256 mint0 = mintAlice0 + mintCharlie0;
+        // uint256 mint1 = mintAlice1 + mintCharlie1;
+        uint256 mint0 = mintAlice0;
+        uint256 mint1 = mintAlice1;
+
+        deal(address(token0), address(sender), mint0);
+        deal(address(token1), address(sender), mint1);
+
+        vm.startPrank(sender);
+
+        token0.approve(address(burveV3), mint0);
+        token1.approve(address(burveV3), mint1);
+
+        burveV3.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        // burveV3.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+
+        vm.stopPrank();
+
+        // query w/o fees
+        (uint256 queryNoFeeAlice0, uint256 queryNoFeeAlice1) = burveV3.queryValue(alice);
+        // (uint256 queryNoFeeCharlie0, uint256 queryNoFeeCharlie1) = burveV3.queryValue(charlie);
+
+        // accumulate fees 
+        (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
+
+        deal(address(token0), address(this), 100_100_000e18);
+        deal(address(token1), address(this), 100_100_000e18);
+
+        pool.swap(address(this), true, 100_100_000e18, TickMath.MIN_SQRT_RATIO + 1, new bytes(0));
+        pool.swap(address(this), false, 100_100_000e18, sqrtPriceX96, new bytes(0));
+
+        vm.roll(block.timestamp * 100_000);
+
+        (uint160 postSqrtPriceX96, , , , , , ) = pool.slot0();
+        assertEq(postSqrtPriceX96, sqrtPriceX96, "swapped sqrt price back to original");
+
+        // query w/ fees
+        (uint256 queryWithFeeAlice0, uint256 queryWithFeeAlice1) = burveV3.queryValue(alice);
+        // (uint256 queryWithFeeCharlie0, uint256 queryWithFeeCharlie1) = burveV3.queryValue(charlie);
+
+        // burn       
+        uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
+        uint256 priorBalanceAlice1 = token1.balanceOf(address(alice));
+
+        // uint256 priorBalanceCharlie0 = token0.balanceOf(address(charlie));
+        // uint256 priorBalanceCharlie1 = token1.balanceOf(address(charlie));
+
+        vm.startPrank(alice);
+        burveV3.burn(burveV3.balanceOf(alice), 0, type(uint128).max);
+        vm.stopPrank();
+
+        // vm.startPrank(charlie);
+        // burveV3.burn(burveV3.balanceOf(charlie), 0, type(uint128).max);
+        // vm.stopPrank();
+
+        uint256 burnAlice0 = token0.balanceOf(alice) - priorBalanceAlice0;
+        uint256 burnAlice1 = token1.balanceOf(alice) - priorBalanceAlice1;
+        // assertGt(burnAlice0, 0, "burn alice token0");
+        // assertGt(burnAlice1, 0, "burn alice token1");
+
+        // uint256 burnCharlie0 = token0.balanceOf(charlie) - priorBalanceAlice0;
+        // uint256 burnCharlie1 = token1.balanceOf(charlie) - priorBalanceAlice1;
+        // assertGt(burnCharlie0, 0, "burn charlie token0");
+        // assertGt(burnCharlie1, 0, "burn charlie token1");
+
+        console.log("burve token0 balance ", token0.balanceOf(address(burveV3)));
+        console.log("burve token1 balance ", token1.balanceOf(address(burveV3)));
+
+        // check results
+        uint256 leftover0 = token0.balanceOf(address(burveV3));
+        uint256 leftover1 = token1.balanceOf(address(burveV3));
+        
+        assertLe(queryWithFeeAlice0, burnAlice0, "query fee alice token0"); //
+        assertLe(queryWithFeeAlice1, burnAlice1, "query fee alice token1");
+
+        // assertEq(queryWithFeeCharlie0, burnCharlie0, "query fee charlie token0");
+        // assertEq(queryWithFeeCharlie1, burnCharlie1, "query fee charlie token1");
+
+        // assertGt(queryWithFeeAlice0, queryNoFeeAlice0, "query alice earned token0");
+        // assertGt(queryWithFeeAlice1, queryNoFeeAlice1, "query alice earned token1");
+
+        // assertGt(queryWithFeeAlice0, queryNoFeeAlice0, "query charlie earned token0");
+        // assertGt(queryWithFeeAlice1, queryNoFeeAlice1, "query charlie earned token1");
+    }
+
+    function test_QueryValue_V3_NoPosition() public {
+        // mint alice
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+        burveV3.mint(address(alice), 10_000, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        assertGt(burveV3.totalShares(), 0, "total shares > 0");
+
+        // query charlie
+        (uint256 query0, uint256 query1) = burveV3.queryValue(address(charlie));
+        assertEq(query0, 0, "query0 == 0");
+        assertEq(query1, 0, "query1 == 0");
+    }
+
+    function test_QueryValue_EmptyContract() public {
+        (uint256 query0, uint256 query1) = burve.queryValue(address(alice));
+        assertEq(query0, 0, "query0 == 0");
+        assertEq(query1, 0, "query1 == 0");
+    }
+
     // Get Info Tests
 
     function test_GetInfo_Island() public {
@@ -1737,4 +2133,14 @@ contract BurveTest is ForkableTest {
         b = a >> 96;
         if (roundUp && (a & X96_MASK) > 0) b += 1;
     }
+
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata data
+    ) external {
+        if (amount0Delta > 0) token0.transfer(address(pool), uint256(amount0Delta));
+        if (amount1Delta > 0) token1.transfer(address(pool), uint256(amount1Delta));
+    }
+
 }
