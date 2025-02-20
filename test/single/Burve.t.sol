@@ -12,6 +12,7 @@ import {ForkableTest} from "Commons/Test/ForkableTest.sol";
 import {BartioAddresses} from "../utils/BaritoAddresses.sol";
 import {Burve} from "../../src/single/Burve.sol";
 import {BurveExposedInternal} from "./BurveExposedInternal.sol";
+import {FeeLib} from "../../src/single/Fees.sol";
 import {FullMath} from "../../src/FullMath.sol";
 import {IKodiakIsland} from "../../src/single/integrations/kodiak/IKodiakIsland.sol";
 import {Info} from "../../src/single/Info.sol";
@@ -1557,6 +1558,72 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     function test_CollectV3Fees() public forkOnly {
         (int24 lower, int24 upper) = burveV3.ranges(0);
+
+        // mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+
+        vm.startPrank(sender);
+
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+
+        burveV3.mint(address(alice), 100_000_000_000, 0, type(uint128).max);
+
+        vm.stopPrank();
+
+        // accumulate fees
+        (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
+
+        deal(address(token0), address(this), 100_100_000e18);
+        deal(address(token1), address(this), 100_100_000e18);
+
+        pool.swap(address(this), true, 100_100_000e18, TickMath.MIN_SQRT_RATIO + 1, new bytes(0));
+        pool.swap(address(this), false, 100_100_000e18, sqrtPriceX96, new bytes(0));
+
+        vm.roll(block.timestamp * 100_000);
+
+        (uint160 postSqrtPriceX96, , , , , , ) = pool.slot0();
+        assertEq(postSqrtPriceX96, sqrtPriceX96, "swapped sqrt price back to original");
+
+        // prior balances
+        uint256 priorBalance0 = token0.balanceOf(address(burveV3));
+        uint256 priorBalance1 = token1.balanceOf(address(burveV3));
+
+        // calculate collected fees
+        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
+        bytes32 positionId = keccak256(
+            abi.encodePacked(address(burveV3), lower, upper)
+        );
+        (
+            uint128 liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            ,
+        ) = pool.positions(positionId);
+
+        (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
+            pool,
+            lower,
+            upper,
+            tick,
+            liquidity,
+            feeGrowthInside0LastX128,
+            feeGrowthInside1LastX128
+        );
+
+        // check collect call
+        vm.expectCall(
+            address(pool),
+            abi.encodeCall(
+                pool.burn,
+                (
+                    lower,
+                    upper,
+                    0
+                )
+            )
+        );
         vm.expectCall(
             address(pool),
             abi.encodeCall(
@@ -1570,7 +1637,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
                 )
             )
         );
+
         burveV3.collectV3FeesExposed();
+
+        // check collected
+        uint256 collected0 = token0.balanceOf(address(burveV3)) - priorBalance0;
+        uint256 collected1 = token1.balanceOf(address(burveV3)) - priorBalance1;
+        assertGt(collected0, 0, "collected0 > 0");
+        assertGt(collected1, 0, "collected1 > 0");
+
+        // check calculated fees against collected fees
+        assertEq(collected0, fees0, "collected0 == fees0");
+        assertEq(collected1, fees1, "collected1 == fees1");
     }
 
     // Query Value Tests 
