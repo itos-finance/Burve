@@ -452,6 +452,7 @@ contract Burve is ERC20 {
                 ,
             ) = pool.positions(positionId);
 
+            // amount in fees that will be collected on the contract during the next mint / burn
             (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
                 pool,
                 range.lower,
@@ -470,6 +471,7 @@ contract Burve is ERC20 {
                 range.upper
             );
 
+            // some amount of tokens won't be compounded, and thus remain on the contract as leftovers instead of going to the user
             (uint256 compoundedFees0, uint256 compoundedFees1) = getAmountsForLiquidity(
                 sqrtRatioX96,
                 liqInFees,
@@ -477,10 +479,10 @@ contract Burve is ERC20 {
                 range.upper,
                 false
             );
-
             query0 += compoundedFees0;
             query1 += compoundedFees1;
 
+            // amounts in deposited liquidity
             (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
                 sqrtRatioX96,
                 liquidity,
