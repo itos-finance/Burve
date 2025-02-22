@@ -45,6 +45,9 @@ contract Burve is ERC20 {
     /// Total shares of nominal liquidity.
     uint256 public totalShares;
 
+    // Total island shares.
+    uint256 public totalIslandShares;
+
     /// Mapping of owner to island shares they own.
     mapping(address owner => uint256 islandShares) public islandSharesPerOwner;
 
@@ -280,6 +283,7 @@ contract Burve is ERC20 {
 
         islandShares = mintShares;
         islandSharesPerOwner[recipient] += mintShares;
+        totalIslandShares += mintShares;
 
         // transfer required tokens to this contract
         TransferHelper.safeTransferFrom(
@@ -391,6 +395,7 @@ contract Burve is ERC20 {
 
         islandShares = islandBurnShares;
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
+        totalIslandShares -= islandBurnShares;
 
         // withdraw burn shares from the station proxy
         stationProxy.withdrawLP(address(island), islandBurnShares, msg.sender);

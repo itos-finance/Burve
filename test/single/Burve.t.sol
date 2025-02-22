@@ -250,6 +250,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         // check shares
         assertEq(burveIsland.totalShares(), liq, "total shares");
 
+        // check island shares
+        assertEq(
+            burveIsland.totalIslandShares(),
+            mintShares,
+            "total island shares"
+        );
+
         // check pool token balances
         assertEq(token0.balanceOf(address(alice)), 0, "alice token0 balance");
         assertEq(token1.balanceOf(address(alice)), 0, "alice token1 balance");
@@ -309,6 +316,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check shares
         assertEq(burveIsland.totalShares(), liq, "total shares");
+
+        // check island shares
+        assertEq(
+            burveIsland.totalIslandShares(),
+            mintShares,
+            "total island shares"
+        );
 
         // check pool token balances
         assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
@@ -478,6 +492,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         // check shares
         assertEq(burve.totalShares(), liq, "total shares");
 
+        // check island shares
+        assertEq(
+            burve.totalIslandShares(),
+            islandMintShares,
+            "total island shares"
+        );
+
         // check pool token balances
         assertEq(token0.balanceOf(address(alice)), 0, "alice token0 balance");
         assertEq(token1.balanceOf(address(alice)), 0, "alice token1 balance");
@@ -555,6 +576,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check shares
         assertEq(burve.totalShares(), liq, "total shares");
+
+        // check island shares
+        assertEq(
+            burve.totalIslandShares(),
+            islandMintShares,
+            "total island shares"
+        );
 
         // check pool token balances
         assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
@@ -781,6 +809,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         // check shares
         assertEq(burveIsland.totalShares(), 0, "total shares");
 
+        // check island shares
+        assertEq(burveIsland.totalIslandShares(), 0, "total island shares");
+
         // check pool token balances
         assertGe(
             token0.balanceOf(address(alice)),
@@ -868,6 +899,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check shares
         assertEq(burveIsland.totalShares(), mintLiq - burnLiq, "total shares");
+
+        // check island shares
+        assertEq(
+            burveIsland.totalIslandShares(),
+            islandShares - burnIslandShares,
+            "total island shares"
+        );
 
         // check pool token balances
         assertGe(
@@ -1090,6 +1128,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         // check shares
         assertEq(burve.totalShares(), 0, "total shares");
 
+        // check island shares
+        assertEq(burveIsland.totalIslandShares(), 0, "total island shares");
+
         // check pool token balances
         assertGe(
             token0.balanceOf(address(alice)),
@@ -1190,6 +1231,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check shares
         assertEq(burve.totalShares(), mintLiq - burnLiq, "total shares");
+
+        // check island shares
+        assertEq(
+            burve.totalIslandShares(),
+            islandShares - burnIslandShares,
+            "total island shares"
+        );
 
         // check pool token balances
         assertGe(
