@@ -201,7 +201,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         burve.migrateStationProxy(newStationProxy);
     }
 
-    function testRevert_MigrateStationProxy_ToSameStationProxy() public forkOnly {
+    function testRevert_MigrateStationProxy_ToSameStationProxy()
+        public
+        forkOnly
+    {
         vm.expectRevert(Burve.MigrateToSameStationProxy.selector);
         burve.migrateStationProxy(stationProxy);
     }
@@ -234,7 +237,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check mint event
         vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(alice, alice, liq);
+        emit Burve.Mint(alice, alice, liq, mintShares);
 
         // mint
         burveIsland.mint(address(alice), liq, 0, type(uint128).max);
@@ -294,7 +297,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check mint event
         vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(sender, alice, liq);
+        emit Burve.Mint(sender, alice, liq, mintShares);
 
         // mint
         burveIsland.mint(address(alice), liq, 0, type(uint128).max);
@@ -352,7 +355,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check mint event
         vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(alice, alice, liq);
+        emit Burve.Mint(alice, alice, liq, 0);
 
         // mint
         burveV3.mint(address(alice), liq, 0, type(uint128).max);
@@ -397,7 +400,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check mint event
         vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(sender, alice, liq);
+        emit Burve.Mint(sender, alice, liq, 0);
 
         // mint
         burveV3.mint(address(alice), liq, 0, type(uint128).max);
@@ -462,7 +465,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check mint event
         vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(alice, alice, liq);
+        emit Burve.Mint(alice, alice, liq, islandMintShares);
 
         // mint
         burve.mint(address(alice), liq, 0, type(uint128).max);
@@ -540,7 +543,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check mint event
         vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(sender, alice, liq);
+        emit Burve.Mint(sender, alice, liq, islandMintShares);
 
         // mint
         burve.mint(address(alice), liq, 0, type(uint128).max);
@@ -585,10 +588,6 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
 
-        // 1st check mint event
-        vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(sender, alice, 1000);
-
         // 1st mint
         burve.mint(address(alice), 1000, 0, type(uint128).max);
 
@@ -601,10 +600,6 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             "alice burve LP balance 1st mint"
         );
 
-        // 2nd check mint event
-        vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(sender, alice, 500);
-
         // 2nd mint (lower amount)
         burve.mint(address(alice), 500, 0, type(uint128).max);
 
@@ -616,10 +611,6 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             1500,
             "alice burve LP balance 2nd mint"
         );
-
-        // 3rd check mint event
-        vm.expectEmit(true, true, false, true);
-        emit Burve.Mint(sender, alice, 3000);
 
         // 3rd mint (higher amount)
         burve.mint(address(alice), 3000, 0, type(uint128).max);
@@ -758,9 +749,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         IKodiakIsland island = burveIsland.island();
 
         // calc island burn
+        uint256 burnIslandShares = burveIsland.islandSharesPerOwner(alice);
         uint128 islandBurnLiq = islandSharesToLiquidity(
             island,
-            burveIsland.islandSharesPerOwner(alice)
+            burnIslandShares
         );
         (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(
             islandBurnLiq,
@@ -776,7 +768,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check burn event
         vm.expectEmit(true, false, false, true);
-        emit Burve.Burn(alice, mintLiq);
+        emit Burve.Burn(alice, mintLiq, burnIslandShares);
 
         // burn
         burveIsland.burn(mintLiq, 0, type(uint128).max);
@@ -860,7 +852,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check burn event
         vm.expectEmit(true, false, false, true);
-        emit Burve.Burn(alice, burnLiq);
+        emit Burve.Burn(alice, burnLiq, burnIslandShares);
 
         // burn
         burveIsland.burn(burnLiq, 0, type(uint128).max);
@@ -940,7 +932,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check burn event
         vm.expectEmit(true, false, false, true);
-        emit Burve.Burn(alice, mintLiq);
+        emit Burve.Burn(alice, mintLiq, 0);
 
         // burn
         burveV3.burn(mintLiq, 0, type(uint128).max);
@@ -1000,7 +992,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check burn event
         vm.expectEmit(true, false, false, true);
-        emit Burve.Burn(alice, burnLiq);
+        emit Burve.Burn(alice, burnLiq, 0);
 
         // burn
         burveV3.burn(burnLiq, 0, type(uint128).max);
@@ -1053,9 +1045,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         IKodiakIsland island = burve.island();
 
         // calc island burn
+        uint256 burnIslandShares = burve.islandSharesPerOwner(alice);
         uint128 islandBurnLiq = islandSharesToLiquidity(
             island,
-            burve.islandSharesPerOwner(alice)
+            burnIslandShares
         );
         (uint256 islandBurn0, uint256 islandBurn1) = getAmountsForLiquidity(
             islandBurnLiq,
@@ -1084,7 +1077,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check burn event
         vm.expectEmit(true, false, false, true);
-        emit Burve.Burn(alice, mintLiq);
+        emit Burve.Burn(alice, mintLiq, burnIslandShares);
 
         // burn
         burve.burn(mintLiq, 0, type(uint128).max);
@@ -1181,7 +1174,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check burn event
         vm.expectEmit(true, false, false, true);
-        emit Burve.Burn(alice, burnLiq);
+        emit Burve.Burn(alice, burnLiq, burnIslandShares);
 
         // burn
         burve.burn(burnLiq, 0, type(uint128).max);
@@ -1337,13 +1330,17 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_CompoundV3Ranges_CompoundedNominalLiqIsZero() public forkOnly {
+    function test_CompoundV3Ranges_CompoundedNominalLiqIsZero()
+        public
+        forkOnly
+    {
         burve.compoundV3RangesExposed();
         assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Collected0IsZero()
-        public forkOnly
+        public
+        forkOnly
     {
         // simulate collected amounts
         deal(address(token1), address(burve), 10e18);
@@ -1359,7 +1356,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Collected1IsZero()
-        public forkOnly
+        public
+        forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1375,7 +1373,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero()
-        public forkOnly
+        public
+        forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1399,7 +1398,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero()
-        public forkOnly
+        public
+        forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1423,7 +1423,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_NormalAmounts()
-        public forkOnly
+        public
+        forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1440,7 +1441,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Extremes() public forkOnly {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Extremes()
+        public
+        forkOnly
+    {
         // verify assumptions about other parameters in equations
         (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
             .getCompoundAmountsPerUnitNominalLiqX64Exposed();
@@ -1501,7 +1505,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(compound1, 0, "compound0 > 0");
     }
 
-    function test_GetCompoundAmountsPerUnitNominalLiqX64_MinSqrtP() public forkOnly {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_MinSqrtP()
+        public
+        forkOnly
+    {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(pool.slot0.selector),
@@ -1529,7 +1536,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(compound1, 0, "compound1 == 0");
     }
 
-    function test_GetCompoundAmountsPerUnitNominalLiqX64_MaxSqrtP() public forkOnly {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_MaxSqrtP()
+        public
+        forkOnly
+    {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(pool.slot0.selector),

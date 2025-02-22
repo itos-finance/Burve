@@ -52,10 +52,11 @@ contract Burve is ERC20 {
     event Mint(
         address indexed sender,
         address indexed recipient,
-        uint256 shares
+        uint256 shares,
+        uint256 islandShares
     );
     /// Emitted when shares are burned.
-    event Burn(address indexed owner, uint256 shares);
+    event Burn(address indexed owner, uint256 shares, uint256 islandShares);
     /// Emitted when the station proxy is migrated.
     event MigrateStationProxy(
         IStationProxy indexed from,
@@ -222,6 +223,8 @@ contract Burve is ERC20 {
         // compound v3 ranges
         compoundV3Ranges();
 
+        uint256 islandShares = 0;
+
         // mint liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
             uint128 liqInRange = uint128(
@@ -234,7 +237,7 @@ contract Burve is ERC20 {
 
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
-                mintIsland(recipient, liqInRange);
+                islandShares = mintIsland(recipient, liqInRange);
             } else {
                 // mint the V3 ranges
                 pool.mint(
@@ -266,13 +269,16 @@ contract Burve is ERC20 {
         totalShares += shares;
         _mint(recipient, shares);
 
-        emit Mint(msg.sender, recipient, shares);
+        emit Mint(msg.sender, recipient, shares, islandShares);
     }
 
     /// @notice Mints to the island.
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
-    function mintIsland(address recipient, uint128 liq) internal {
+    function mintIsland(
+        address recipient,
+        uint128 liq
+    ) internal returns (uint256 islandShares) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
@@ -285,6 +291,7 @@ contract Burve is ERC20 {
         (uint256 mint0, uint256 mint1, uint256 mintShares) = island
             .getMintAmounts(amount0, amount1);
 
+        islandShares = mintShares;
         islandSharesPerOwner[recipient] += mintShares;
 
         // transfer required tokens to this contract
@@ -379,11 +386,13 @@ contract Burve is ERC20 {
         uint256 priorBalance0 = token0.balanceOf(address(this));
         uint256 priorBalance1 = token1.balanceOf(address(this));
 
+        uint256 islandShares = 0;
+
         // burn liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
-                burnIsland(shares);
+                islandShares = burnIsland(shares);
             } else {
                 uint128 liqInRange = uint128(
                     shift96(uint256(burnLiqNominal) * distX96[i], false)
@@ -412,12 +421,14 @@ contract Burve is ERC20 {
             postBalance1 - priorBalance1
         );
 
-        emit Burn(msg.sender, shares);
+        emit Burn(msg.sender, shares, islandShares);
     }
 
     /// @notice Burns share of the island on behalf of msg.sender.
     /// @param shares The amount of Burve LP token to burn.
-    function burnIsland(uint256 shares) internal {
+    function burnIsland(
+        uint256 shares
+    ) internal returns (uint256 islandShares) {
         // calculate island shares to burn
         uint256 islandBurnShares = FullMath.mulDiv(
             islandSharesPerOwner[msg.sender],
@@ -426,9 +437,10 @@ contract Burve is ERC20 {
         );
 
         if (islandBurnShares == 0) {
-            return;
+            return 0;
         }
 
+        islandShares = islandBurnShares;
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
 
         // withdraw burn shares from the station proxy
