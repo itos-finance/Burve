@@ -175,7 +175,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Migrate Station Proxy Tests
 
-    function test_MigrateStationProxy() public {
+    function test_MigrateStationProxy() public forkOnly {
         IStationProxy newStationProxy = new NullStationProxy();
 
         vm.expectCall(
@@ -194,21 +194,21 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_MigrateStationProxy_SenderNotOwner() public {
+    function testRevert_MigrateStationProxy_SenderNotOwner() public forkOnly {
         IStationProxy newStationProxy = new NullStationProxy();
         vm.expectRevert(AdminLib.NotOwner.selector);
         vm.prank(alice);
         burve.migrateStationProxy(newStationProxy);
     }
 
-    function testRevert_MigrateStationProxy_ToSameStationProxy() public {
+    function testRevert_MigrateStationProxy_ToSameStationProxy() public forkOnly {
         vm.expectRevert(Burve.MigrateToSameStationProxy.selector);
         burve.migrateStationProxy(stationProxy);
     }
 
     // Mint Tests
 
-    function test_Mint_Island_SenderIsRecipient() public {
+    function test_Mint_Island_SenderIsRecipient() public forkOnly {
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -268,7 +268,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveIsland.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function test_Mint_Island_SenderNotRecipient() public {
+    function test_Mint_Island_SenderNotRecipient() public forkOnly {
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -328,7 +328,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveIsland.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function test_Mint_V3_SenderIsRecipient() public {
+    function test_Mint_V3_SenderIsRecipient() public forkOnly {
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -373,7 +373,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveV3.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function test_Mint_V3_SenderNotRecipient() public {
+    function test_Mint_V3_SenderNotRecipient() public forkOnly {
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -418,7 +418,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveV3.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function test_Mint_SenderIsRecipient() public {
+    function test_Mint_SenderIsRecipient() public forkOnly {
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -496,7 +496,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burve.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function test_Mint_SenderNotRecipient() public {
+    function test_Mint_SenderNotRecipient() public forkOnly {
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -574,7 +574,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burve.balanceOf(alice), liq, "alice burve LP balance");
     }
 
-    function test_Mint_SubsequentShareCalc() public {
+    function test_Mint_SubsequentShareCalc() public forkOnly {
         // deal max tokens
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -636,7 +636,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
     }
 
-    function test_UniswapV3MintCallback() public {
+    function test_UniswapV3MintCallback() public forkOnly {
         uint256 priorPoolBalance0 = token0.balanceOf(address(pool));
         uint256 priorPoolBalance1 = token1.balanceOf(address(pool));
 
@@ -690,7 +690,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_UniswapV3MintCallbackSenderNotPool() public {
+    function testRevert_UniswapV3MintCallbackSenderNotPool() public forkOnly {
         vm.expectRevert(
             abi.encodeWithSelector(
                 Burve.UniswapV3MintCallbackSenderNotPool.selector,
@@ -700,7 +700,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         burveV3.uniswapV3MintCallback(0, 0, abi.encode(address(this)));
     }
 
-    function testRevert_Mint_SqrtPX96BelowLowerLimit() public {
+    function testRevert_Mint_SqrtPX96BelowLowerLimit() public forkOnly {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
@@ -720,7 +720,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_Mint_SqrtPX96AboveUpperLimit() public {
+    function testRevert_Mint_SqrtPX96AboveUpperLimit() public forkOnly {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
@@ -742,7 +742,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Burn Tests
 
-    function test_Burn_IslandFull() public {
+    function test_Burn_IslandFull() public forkOnly {
         uint128 mintLiq = 10_000;
 
         // Mint
@@ -818,7 +818,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveIsland.balanceOf(alice), 0, "alice burve LP balance");
     }
 
-    function test_Burn_IslandPartial() public {
+    function test_Burn_IslandPartial() public forkOnly {
         uint128 mintLiq = 10_000;
         uint128 burnLiq = 1_000;
 
@@ -910,7 +910,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_Burn_V3Full() public {
+    function test_Burn_V3Full() public forkOnly {
         uint128 mintLiq = 10_000;
 
         // Mint
@@ -969,7 +969,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveIsland.balanceOf(alice), 0, "alice burve LP balance");
     }
 
-    function test_Burn_V3Partial() public {
+    function test_Burn_V3Partial() public forkOnly {
         uint128 mintLiq = 10_000;
         uint128 burnLiq = 1_000;
 
@@ -1037,7 +1037,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_Burn_Full() public {
+    function test_Burn_Full() public forkOnly {
         uint128 mintLiq = 10_000;
 
         // Mint
@@ -1126,7 +1126,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burve.balanceOf(alice), 0, "alice burve LP balance");
     }
 
-    function test_Burn_Partial() public {
+    function test_Burn_Partial() public forkOnly {
         uint128 mintLiq = 10_000;
         uint128 burnLiq = 1_000;
 
@@ -1231,7 +1231,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_Burn_SqrtPX96BelowLowerLimit() public {
+    function testRevert_Burn_SqrtPX96BelowLowerLimit() public forkOnly {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 + 100;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 + 200;
@@ -1246,7 +1246,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
     }
 
-    function testRevert_Burn_SqrtPX96AboveUpperLimit() public {
+    function testRevert_Burn_SqrtPX96AboveUpperLimit() public forkOnly {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
         uint160 lowerSqrtPriceLimitX96 = sqrtRatioX96 - 200;
         uint160 upperSqrtPriceLimitX96 = sqrtRatioX96 - 100;
@@ -1263,7 +1263,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Compound Tests
 
-    function test_CompoundV3Ranges_Single() public {
+    function test_CompoundV3Ranges_Single() public forkOnly {
         uint256 collected0 = 10e18;
         uint256 collected1 = 10e18;
 
@@ -1337,13 +1337,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_CompoundV3Ranges_CompoundedNominalLiqIsZero() public {
+    function test_CompoundV3Ranges_CompoundedNominalLiqIsZero() public forkOnly {
         burve.compoundV3RangesExposed();
         assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Collected0IsZero()
-        public
+        public forkOnly
     {
         // simulate collected amounts
         deal(address(token1), address(burve), 10e18);
@@ -1359,7 +1359,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Collected1IsZero()
-        public
+        public forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1375,7 +1375,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero()
-        public
+        public forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1399,7 +1399,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero()
-        public
+        public forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1423,7 +1423,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_GetCompoundNominalLiqForCollectedAmounts_NormalAmounts()
-        public
+        public forkOnly
     {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
@@ -1440,7 +1440,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Extremes() public {
+    function test_GetCompoundNominalLiqForCollectedAmounts_Extremes() public forkOnly {
         // verify assumptions about other parameters in equations
         (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
             .getCompoundAmountsPerUnitNominalLiqX64Exposed();
@@ -1474,7 +1474,11 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_GetCompoundAmountsPerUnitNominalLiqX64_CurrentSqrtP() public {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_CurrentSqrtP()
+        public
+        view
+        forkOnly
+    {
         // calc v3
         uint128 v3Liq = uint128(
             shift96(UNIT_NOMINAL_LIQ_X64 * burve.distX96(1), true)
@@ -1497,7 +1501,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(compound1, 0, "compound0 > 0");
     }
 
-    function test_GetCompoundAmountsPerUnitNominalLiqX64_MinSqrtP() public {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_MinSqrtP() public forkOnly {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(pool.slot0.selector),
@@ -1525,7 +1529,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(compound1, 0, "compound1 == 0");
     }
 
-    function test_GetCompoundAmountsPerUnitNominalLiqX64_MaxSqrtP() public {
+    function test_GetCompoundAmountsPerUnitNominalLiqX64_MaxSqrtP() public forkOnly {
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(pool.slot0.selector),
@@ -1660,9 +1664,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Query Value Tests
 
-    function test_QueryValue_Island_NoFees() public {
+    function test_QueryValue_Island_NoFees() public forkOnly {
         uint128 aliceMintLiq = 100_000_000_000;
-        // uint128 charlieMintLiq = 20_000_000_000;
+        uint128 charlieMintLiq = 20_000_000_000;
 
         // execute mints
         deal(address(token0), address(sender), type(uint256).max);
@@ -1674,7 +1678,12 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token1.approve(address(burveIsland), type(uint256).max);
 
         burveIsland.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        // burveIsland.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+        burveIsland.mint(
+            address(charlie),
+            charlieMintLiq,
+            0,
+            type(uint128).max
+        );
 
         vm.stopPrank();
 
@@ -1682,60 +1691,52 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         (uint256 queryAlice0, uint256 queryAlice1) = burveIsland.queryValue(
             alice
         );
-        // (uint256 queryCharlie0, uint256 queryCharlie1) = burveIsland.queryValue(charlie);
+        (uint256 queryCharlie0, uint256 queryCharlie1) = burveIsland.queryValue(
+            charlie
+        );
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
         uint256 priorBalanceAlice1 = token1.balanceOf(address(alice));
 
-        // uint256 priorBalanceCharlie0 = token0.balanceOf(address(charlie));
-        // uint256 priorBalanceCharlie1 = token1.balanceOf(address(charlie));
+        uint256 priorBalanceCharlie0 = token0.balanceOf(address(charlie));
+        uint256 priorBalanceCharlie1 = token1.balanceOf(address(charlie));
 
         vm.startPrank(alice);
         burveIsland.burn(burveIsland.balanceOf(alice), 0, type(uint128).max);
         vm.stopPrank();
 
-        // vm.startPrank(charlie);
-        // burveIsland.burn(burveIsland.balanceOf(charlie), 0, type(uint128).max);
-        // vm.stopPrank();
+        vm.startPrank(charlie);
+        burveIsland.burn(burveIsland.balanceOf(charlie), 0, type(uint128).max);
+        vm.stopPrank();
 
         uint256 burnAlice0 = token0.balanceOf(alice) - priorBalanceAlice0;
         uint256 burnAlice1 = token1.balanceOf(alice) - priorBalanceAlice1;
         assertGt(burnAlice0, 0, "burn alice token0");
         assertGt(burnAlice1, 0, "burn alice token1");
 
-        // uint256 burnCharlie0 = token0.balanceOf(charlie) - priorBalanceAlice0;
-        // uint256 burnCharlie1 = token1.balanceOf(charlie) - priorBalanceAlice1;
-        // assertGt(burnCharlie0, 0, "burn charlie token0");
-        // assertGt(burnCharlie1, 0, "burn charlie token1");
+        uint256 burnCharlie0 = token0.balanceOf(charlie) - priorBalanceAlice0;
+        uint256 burnCharlie1 = token1.balanceOf(charlie) - priorBalanceAlice1;
+        assertGt(burnCharlie0, 0, "burn charlie token0");
+        assertGt(burnCharlie1, 0, "burn charlie token1");
 
-        // check query nearly matches burn
-        assertApproxEqAbs(
-            queryAlice0,
-            burnAlice0,
-            2,
-            "query alice token0 matches burn"
+        // check query matches burn
+        assertEq(queryAlice0, burnAlice0, "query alice token0 matches burn");
+        assertEq(queryAlice1, burnAlice1, "query alice token1 matches burn");
+
+        assertEq(
+            queryCharlie0,
+            burnCharlie0,
+            "query charlie token0 matches burn"
         );
-        assertApproxEqAbs(
-            queryAlice1,
-            burnAlice1,
-            2,
-            "query alice token1 matches burn"
+        assertEq(
+            queryCharlie1,
+            burnCharlie1,
+            "query charlie token1 matches burn"
         );
-
-        // assertApproxEqAbs(queryCharlie0, burnCharlie0, 2, "query charlie token0 matches burn");
-        // assertApproxEqAbs(queryCharlie1, burnCharlie1, 2, "query charlie token1 matches burn");
-
-        // check query underestimates burn
-        // TODO: island query is 1 more token than burn
-        assertLe(queryAlice0, burnAlice0, "query alice token0 Le burn");
-        assertLe(queryAlice1, burnAlice1, "query alice token1 Le burn");
-
-        // assertLe(queryCharlie0, burnCharlie0, "query charlie token0 Le burn");
-        // assertLe(queryCharlie1, burnCharlie1, "query charlie token1 Le burn");
     }
 
-    function test_QueryValue_Island_WithFees() public {
+    function test_QueryValue_Island_WithFees() public forkOnly {
         uint128 aliceMintLiq = 100_000_000_000;
         uint128 charlieMintLiq = 20_000_000_000;
 
@@ -1759,10 +1760,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // query w/o fees
-        // (uint256 queryNoFeeAlice0, uint256 queryNoFeeAlice1) = burveIsland
-        //     .queryValue(alice);
-        // (uint256 queryNoFeeCharlie0, uint256 queryNoFeeCharlie1) = burveIsland
-        //     .queryValue(charlie);
+        (uint256 queryNoFeeAlice0, uint256 queryNoFeeAlice1) = burveIsland
+            .queryValue(alice);
+        (uint256 queryNoFeeCharlie0, uint256 queryNoFeeCharlie1) = burveIsland
+            .queryValue(charlie);
 
         // accumulate fees
         (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
@@ -1827,82 +1828,54 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(burnCharlie0, 0, "burn charlie token0");
         assertGt(burnCharlie1, 0, "burn charlie token1");
 
-        // check query fee nearly matches burn
-        assertApproxEqAbs(
+        // check query fee matches burn
+        assertEq(
             queryWithFeeAlice0,
             burnAlice0,
-            2,
             "query alice token0 matches burn"
         );
-        assertApproxEqAbs(
+        assertEq(
             queryWithFeeAlice1,
             burnAlice1,
-            2,
             "query alice token1 matches burn"
         );
 
-        assertApproxEqAbs(
+        assertEq(
             queryWithFeeCharlie0,
             burnCharlie0,
-            2,
             "query charlie token0 matches burn"
         );
-        assertApproxEqAbs(
+        assertEq(
             queryWithFeeCharlie1,
             burnCharlie1,
-            2,
             "query charlie token1 matches burn"
         );
 
-        // check query underestimates burn
-        assertLe(
+        // check fees accumulated
+        assertGt(
             queryWithFeeAlice0,
-            burnAlice0 + 1,
-            "query alice token0 Le burn"
+            queryNoFeeAlice0,
+            "query alice earned token0"
         );
-        assertLe(
+        assertGt(
             queryWithFeeAlice1,
-            burnAlice1 + 1,
-            "query alice token1 Le burn"
+            queryNoFeeAlice1,
+            "query alice earned token1"
         );
 
-        assertLe(
+        assertGt(
             queryWithFeeCharlie0,
-            burnCharlie0 + 1,
-            "query charlie token0 Le burn"
+            queryNoFeeCharlie0,
+            "query charlie earned token0"
         );
-        assertLe(
+        assertGt(
             queryWithFeeCharlie1,
-            burnCharlie1 + 1,
-            "query charlie token1 Le burn"
+            queryNoFeeCharlie1,
+            "query charlie earned token1"
         );
-
-        // // check fees accumulated
-        // // TODO: island query is 1 more token than burn
-        // assertGt(
-        //     queryWithFeeAlice0,
-        //     queryNoFeeAlice0 + 1,
-        //     "query alice earned token0"
-        // );
-        // assertGt(
-        //     queryWithFeeAlice1,
-        //     queryNoFeeAlice1 + 1,
-        //     "query alice earned token1"
-        // );
-
-        // assertGt(
-        //     queryWithFeeCharlie0,
-        //     queryNoFeeCharlie0 + 1,
-        //     "query charlie earned token0"
-        // );
-        // assertGt(
-        //     queryWithFeeCharlie1,
-        //     queryNoFeeCharlie1 + 1,
-        //     "query charlie earned token1"
-        // );
     }
 
-    function test_QueryValue_Island_NoPosition() public {
+    function test_QueryValue_Island_NoPosition() public forkOnly {
         // mint alice
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -1923,7 +1896,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(query1, 0, "query1 == 0");
     }
 
-    function test_QueryValue_V3_NoFees() public {
+    function test_QueryValue_V3_NoFees() public forkOnly {
         uint128 aliceMintLiq = 100_000_000_000;
         uint128 charlieMintLiq = 20_000_000_000;
 
@@ -1972,42 +1945,23 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(burnCharlie0, 0, "burn charlie token0");
         assertGt(burnCharlie1, 0, "burn charlie token1");
 
-        // check query nearly matches burn
-        assertApproxEqAbs(
-            queryAlice0,
-            burnAlice0,
-            2,
-            "query alice token0 matches burn"
-        );
-        assertApproxEqAbs(
-            queryAlice1,
-            burnAlice1,
-            2,
-            "query alice token1 matches burn"
-        );
+        // check query matches burn
+        assertEq(queryAlice0, burnAlice0, "query alice token0 matches burn");
+        assertEq(queryAlice1, burnAlice1, "query alice token1 matches burn");
 
-        assertApproxEqAbs(
+        assertEq(
             queryCharlie0,
             burnCharlie0,
-            2,
             "query charlie token0 matches burn"
         );
-        assertApproxEqAbs(
+        assertEq(
             queryCharlie1,
             burnCharlie1,
-            2,
             "query charlie token1 matches burn"
         );
-
-        // check query underestimates burn
-        assertLe(queryAlice0, burnAlice0, "query alice token0 Le burn");
-        assertLe(queryAlice1, burnAlice1, "query alice token1 Le burn");
-
-        assertLe(queryCharlie0, burnCharlie0, "query charlie token0 Le burn");
-        assertLe(queryCharlie1, burnCharlie1, "query charlie token1 Le burn");
     }
 
-    function test_QueryValue_V3_WithFees() public {
+    function test_QueryValue_V3_WithFees() public forkOnly {
         uint128 aliceMintLiq = 100_000_000_000;
         uint128 charlieMintLiq = 20_000_000_000;
 
@@ -2104,26 +2058,26 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             queryWithFeeAlice0,
             burnAlice0,
-            2,
+            1,
             "query alice token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeAlice1,
             burnAlice1,
-            2,
+            1,
             "query alice token1 matches burn"
         );
 
         assertApproxEqAbs(
             queryWithFeeCharlie0,
             burnCharlie0,
-            2,
+            1,
             "query charlie token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeCharlie1,
             burnCharlie1,
-            2,
+            1,
             "query charlie token1 matches burn"
         );
 
@@ -2166,7 +2120,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_QueryValue_V3_NoPosition() public {
+    function test_QueryValue_V3_NoPosition() public forkOnly {
         // mint alice
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -2188,7 +2142,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     // running from block number 10803630 on bArito exposed a STF error during compound
     // which is why we subtract 2 * distX96.length in collectAndCalcCompound
     // ensuring we collected enough tokens to mint
-    function test_QueryValue_NoFees() public {
+    function test_QueryValue_NoFees() public forkOnly {
         uint128 aliceMintLiq = 100_000_000_000;
         uint128 charlieMintLiq = 20_000_000_000;
 
@@ -2238,50 +2192,22 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(burnCharlie1, 0, "burn charlie token1");
 
         // check query nearly matches burn
-        assertApproxEqAbs(
-            queryAlice0,
-            burnAlice0,
-            2,
-            "query alice token0 matches burn"
-        );
-        assertApproxEqAbs(
-            queryAlice1,
-            burnAlice1,
-            2,
-            "query alice token1 matches burn"
-        );
+        assertEq(queryAlice0, burnAlice0, "query alice token0 matches burn");
+        assertEq(queryAlice1, burnAlice1, "query alice token1 matches burn");
 
-        assertApproxEqAbs(
+        assertEq(
             queryCharlie0,
             burnCharlie0,
-            2,
             "query charlie token0 matches burn"
         );
-        assertApproxEqAbs(
+        assertEq(
             queryCharlie1,
             burnCharlie1,
-            2,
             "query charlie token1 matches burn"
-        );
-
-        // check query underestimates burn
-        // TODO: island query is 1 more token than burn
-        assertLe(queryAlice0, burnAlice0 + 1, "query alice token0 Le burn");
-        assertLe(queryAlice1, burnAlice1 + 1, "query alice token1 Le burn");
-
-        assertLe(
-            queryCharlie0,
-            burnCharlie0 + 1,
-            "query charlie token0 Le burn"
-        );
-        assertLe(
-            queryCharlie1,
-            burnCharlie1 + 1,
-            "query charlie token1 Le burn"
         );
     }
 
-    function test_QueryValue_WithFees() public {
+    function test_QueryValue_WithFees() public forkOnly {
         uint128 aliceMintLiq = 100_000_000_000;
         uint128 charlieMintLiq = 20_000_000_000;
 
@@ -2379,50 +2305,41 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             queryWithFeeAlice0,
             burnAlice0,
-            2,
+            1,
             "query alice token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeAlice1,
             burnAlice1,
-            2,
+            1,
             "query alice token1 matches burn"
         );
 
         assertApproxEqAbs(
             queryWithFeeCharlie0,
             burnCharlie0,
-            2,
+            1,
             "query charlie token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeCharlie1,
             burnCharlie1,
-            2,
+            1,
             "query charlie token1 matches burn"
         );
 
         // check query underestimates burn
-        // TODO: island query is 1 more token than burn
-        assertLe(
-            queryWithFeeAlice0,
-            burnAlice0 + 1,
-            "query alice token0 Le burn"
-        );
-        assertLe(
-            queryWithFeeAlice1,
-            burnAlice1 + 1,
-            "query alice token1 Le burn"
-        );
+        assertLe(queryWithFeeAlice0, burnAlice0, "query alice token0 Le burn");
+        assertLe(queryWithFeeAlice1, burnAlice1, "query alice token1 Le burn");
 
         assertLe(
             queryWithFeeCharlie0,
-            burnCharlie0 + 1,
+            burnCharlie0,
             "query charlie token0 Le burn"
         );
         assertLe(
             queryWithFeeCharlie1,
-            burnCharlie1 + 1,
+            burnCharlie1,
             "query charlie token1 Le burn"
         );
 
@@ -2450,7 +2367,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function test_QueryValue_NoPosition() public {
+    function test_QueryValue_NoPosition() public forkOnly {
         // mint alice
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -2469,7 +2386,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(query1, 0, "query1 == 0");
     }
 
-    function test_QueryValue_EmptyContract() public {
+    function test_QueryValue_EmptyContract() public forkOnly {
         (uint256 query0, uint256 query1) = burve.queryValue(address(alice));
         assertEq(query0, 0, "query0 == 0");
         assertEq(query1, 0, "query1 == 0");
@@ -2477,7 +2394,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Get Info Tests
 
-    function test_GetInfo_Island() public {
+    function test_GetInfo_Island() public forkOnly {
         // Mint
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -2512,7 +2429,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(info.distX96[0], burveIsland.distX96(0), "distX96 0");
     }
 
-    function test_GetInfo_V3() public {
+    function test_GetInfo_V3() public forkOnly {
         // Mint
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);
@@ -2547,7 +2464,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(info.distX96[0], burveV3.distX96(0), "distX96 0");
     }
 
-    function test_GetInfo() public {
+    function test_GetInfo() public forkOnly {
         // Mint
         deal(address(token0), address(sender), type(uint256).max);
         deal(address(token1), address(sender), type(uint256).max);

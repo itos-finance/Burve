@@ -215,20 +215,10 @@ contract Burve is ERC20 {
         uint128 mintNominalLiq,
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
-    ) external {
-        // check sqrtP limits
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (
-            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
-            sqrtRatioX96 > upperSqrtPriceLimitX96
-        ) {
-            revert SqrtPriceX96OverLimit(
-                sqrtRatioX96,
-                lowerSqrtPriceLimitX96,
-                upperSqrtPriceLimitX96
-            );
-        }
-
+    )
+        external
+        withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96)
+    {
         // compound v3 ranges
         compoundV3Ranges();
 
@@ -372,22 +362,10 @@ contract Burve is ERC20 {
         uint256 shares,
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
-    ) external {
-        console.log("burn...");
-
-        // check sqrtP limits
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (
-            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
-            sqrtRatioX96 > upperSqrtPriceLimitX96
-        ) {
-            revert SqrtPriceX96OverLimit(
-                sqrtRatioX96,
-                lowerSqrtPriceLimitX96,
-                upperSqrtPriceLimitX96
-            );
-        }
-
+    )
+        external
+        withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96)
+    {
         // compound v3 ranges
         compoundV3Ranges();
 
@@ -434,12 +412,6 @@ contract Burve is ERC20 {
             postBalance1 - priorBalance1
         );
 
-        console.log("managerBalance0 ", island.managerBalance0());
-        console.log("managerBalance1 ", island.managerBalance1());
-
-        console.log("balance0 ", token0.balanceOf(address(island)));
-        console.log("balance1 ", token1.balanceOf(address(island)));
-
         emit Burn(msg.sender, shares);
     }
 
@@ -460,16 +432,8 @@ contract Burve is ERC20 {
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
 
         // withdraw burn shares from the station proxy
-        uint256 priorBalance0 = token0.balanceOf(address(this));
-        uint256 priorBalance1 = token1.balanceOf(address(this));
-
         stationProxy.withdrawLP(address(island), islandBurnShares, msg.sender);
         island.burn(islandBurnShares, address(this));
-
-        uint256 collected0 = token0.balanceOf(address(this)) - priorBalance0;
-        uint256 collected1 = token1.balanceOf(address(this)) - priorBalance1;
-        console.log("burned0 ", collected0);
-        console.log("burned1 ", collected1);
     }
 
     /// @notice Burns liquidity for a v3 range.
@@ -492,17 +456,124 @@ contract Burve is ERC20 {
 
     /// @notice Returns the current token amounts in a user's position.
     /// @param owner The owner of the position.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
     function queryValue(
         address owner
     ) external view returns (uint256 query0, uint256 query1) {
-        console.log("queryValue...");
-
         // contract is empty
         if (totalShares == 0) {
             return (0, 0);
         }
 
+        // calculate amounts owned in v3 ranges
+        uint256 shares = balanceOf(owner);
+        if (shares > 0) {
+            (query0, query1) = queryValueV3Ranges(shares);
+        }
+
+        // calculate amounts owned by island position
+        uint256 ownerIslandShares = islandSharesPerOwner[owner];
+        if (ownerIslandShares > 0) {
+            (uint256 island0, uint256 island1) = queryValueIsland(
+                ownerIslandShares
+            );
+            query0 += island0;
+            query1 += island1;
+        }
+    }
+
+    /// @notice Queries amounts in the island by simulating a burn.
+    /// @param islandShares Island shares.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryValueIsland(
+        uint256 islandShares
+    ) internal view returns (uint256 query0, uint256 query1) {
+        int24 lower = island.lowerTick();
+        int24 upper = island.upperTick();
+        uint256 totalSupply = island.totalSupply();
+
         (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
+
+        // get island position id
+        bytes32 positionId = keccak256(
+            abi.encodePacked(address(island), lower, upper)
+        );
+
+        // lookup island position
+        (
+            uint128 liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint256 tokensOwed0,
+            uint256 tokensOwed1
+        ) = pool.positions(positionId);
+
+        // calculate accumulated fees
+        (uint256 fees0, uint256 fees1) = FeeLib.viewAccumulatedFees(
+            pool,
+            lower,
+            upper,
+            tick,
+            liquidity,
+            feeGrowthInside0LastX128,
+            feeGrowthInside1LastX128
+        );
+        fees0 += tokensOwed0;
+        fees1 += tokensOwed1;
+
+        // subtract manager fee
+        (fees0, fees1) = subtractManagerFee(
+            fees0,
+            fees1,
+            island.managerFeeBPS()
+        );
+
+        // get amounts for burned liquidity
+        uint128 burnedLiq = uint128(
+            FullMath.mulDiv(liquidity, islandShares, totalSupply)
+        );
+        (query0, query1) = getAmountsForLiquidity(
+            sqrtRatioX96,
+            burnedLiq,
+            lower,
+            upper,
+            false
+        );
+
+        // award share of fees
+        query0 += FullMath.mulDiv(
+            fees0 +
+                token0.balanceOf(address(island)) -
+                island.managerBalance0(),
+            islandShares,
+            totalSupply
+        );
+        query1 += FullMath.mulDiv(
+            fees1 +
+                token1.balanceOf(address(island)) -
+                island.managerBalance1(),
+            islandShares,
+            totalSupply
+        );
+    }
+
+    /// @notice Queries amounts in the v3 ranges by simulating burns.
+    /// @param shares The amount of Burve LP token.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryValueV3Ranges(
+        uint256 shares
+    ) internal view returns (uint256 query0, uint256 query1) {
+        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
+
+        uint256 accumulatedFees0 = 0;
+        uint256 accumulatedFees1 = 0;
+
+        uint128 burnLiqNominal = uint128(
+            FullMath.mulDiv(shares, uint256(totalNominalLiq), totalShares)
+        );
 
         // accumulate total token amounts in the v3 ranges owned by this contract
         for (uint256 i = 0; i < distX96.length; ++i) {
@@ -510,9 +581,14 @@ contract Burve is ERC20 {
             if (range.isIsland()) {
                 continue;
             }
+
+            // get v3 position id
             bytes32 positionId = keccak256(
                 abi.encodePacked(address(this), range.lower, range.upper)
             );
+
+            // lookup v3 position
+            // owed tokens will be 0 due to compounding
             (
                 uint128 liquidity,
                 uint256 feeGrowthInside0LastX128,
@@ -520,7 +596,10 @@ contract Burve is ERC20 {
                 ,
 
             ) = pool.positions(positionId);
-            // amount in fees that will be collected on the contract during the next mint / burn
+
+            // calculate accumulated fees that would be compounded
+            // some amount of tokens will remain on the contract as leftovers because they can't be compounded into a unit of liquidity
+            // uncompounded tokens remain on the contract instead of going to the user
             (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
                 pool,
                 range.lower,
@@ -537,7 +616,6 @@ contract Burve is ERC20 {
                 range.lower,
                 range.upper
             );
-            // some amount of tokens won't be compounded, and thus remain on the contract as leftovers instead of going to the user
             (
                 uint256 compoundedFees0,
                 uint256 compoundedFees1
@@ -548,12 +626,16 @@ contract Burve is ERC20 {
                     range.upper,
                     false
                 );
-            query0 += compoundedFees0;
-            query1 += compoundedFees1;
-            // amounts in deposited liquidity
+            accumulatedFees0 += compoundedFees0;
+            accumulatedFees1 += compoundedFees1;
+
+            // get amounts for burned liquidity
+            uint128 liqInRange = uint128(
+                shift96(uint256(burnLiqNominal) * distX96[i], false)
+            );
             (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
                 sqrtRatioX96,
-                liquidity,
+                liqInRange,
                 range.lower,
                 range.upper,
                 false
@@ -562,351 +644,13 @@ contract Burve is ERC20 {
             query1 += amount1;
         }
 
-        // calculate share of total amounts owned by the owner
-        uint256 shares = balanceOf(owner);
-        query0 = FullMath.mulDiv(query0, shares, totalShares);
-        query1 = FullMath.mulDiv(query1, shares, totalShares);
-
-        // calculate amounts owned by island position
-        uint256 ownerIslandShares = islandSharesPerOwner[owner];
-        if (ownerIslandShares > 0) {
-            uint256 totalIslandShares = island.totalSupply();
-            (uint256 island0, uint256 island1) = island.getUnderlyingBalances();
-            {
-                // console.log("getUnderlyingBalances0 ", island0);
-                // console.log("getUnderlyingBalances1 ", island1);
-            }
-            query0 += FullMath.mulDiv(
-                island0,
-                ownerIslandShares,
-                totalIslandShares
-            );
-            query1 += FullMath.mulDiv(
-                island1,
-                ownerIslandShares,
-                totalIslandShares
-            );
-            {
-                _simiulateIslandBurnAmounts(ownerIslandShares);
-                _simulateUnderlyingBalances(ownerIslandShares);
-            }
+        // calculate share of accumulated fees
+        if (accumulatedFees0 > 0) {
+            query0 += FullMath.mulDiv(accumulatedFees0, shares, totalShares);
         }
-    }
-
-    //  amount0 = burn0 + FullMath.mulDiv(token0.balanceOf(address(this)) - burn0 - managerBalance0, burnAmount, totalSupply);
-
-    // FeesEarned(feesEarned0: 6038186882782372173 [6.038e18], feesEarned1: 29791718529470395242 [2.979e19])
-
-    // Real Burn
-    // HONEY_NECT_ISLAND::burn(91965607464 [9.196e10], BurveExposedInternal: [0x2e234DAe75C793f67A35089C9d99245E1C58470b])
-    //      HONEY_NECT_POOL_V3::burn(-887220 [-8.872e5], 887220 [8.872e5], 99203384108 [9.92e10])
-    //      emit Burn(owner: HONEY_NECT_ISLAND: [0x4a254B11810B8EBb63C5468E438FC561Cb1bB1da], tickLower: -887220 [-8.872e5], tickUpper: 887220 [8.872e5], amount: 99203384108 [9.92e10], amount0: 35531035528 [3.553e10], amount1: 276977894739 [2.769e11])
-
-    // function burn(uint256 burnAmount, address receiver) external whenNotPaused nonReentrant returns (uint256 amount0, uint256 amount1, uint128 liquidityBurned) {
-    //     require(burnAmount > 0, "burn 0");
-
-    //     uint256 totalSupply = 402169657499728083045498
-
-    //     (uint128 liquidity,,,,) = pool.positions(_getPositionID());
-
-    //     _burn(msg.sender, burnAmount);
-
-    //     uint256 liquidityBurned_ = FullMath.mulDiv(burnAmount, liquidity, totalSupply);
-    //     liquidityBurned = SafeCast.toUint128(liquidityBurned_);
-    //     (uint256 burn0, uint256 burn1, uint256 fee0, uint256 fee1) = _withdraw(lowerTick, upperTick, liquidityBurned);
-    //     _applyFees(fee0, fee1);
-
-    //     burn0(?) = 35531035528
-    //     burn1(?) = 276977894739
-
-    //     amount0 = burn0 + FullMath.mulDiv(token0.balanceOf(address(this)) - burn0 - managerBalance0, burnAmount, totalSupply);
-    //     amount1 = burn1 + FullMath.mulDiv(token1.balanceOf(address(this)) - burn1 - managerBalance1, burnAmount, totalSupply);
-
-    //     burnAmount = 91965607464
-    //     amountO = 35796273171
-    //     amount1 = 279202062739
-    //     liquidityBurned = 99203384108
-
-    // }
-
-    // feesEarned0 = 6709096536424857970
-    // (collected0)  6709096571955893498
-    // feesEarned1 = 33101909477189328046
-    // (collected1)  33101909754167222785
-
-    // managerBalance0 (after) = 374674260804085381582
-    // managerBalance1 (after) = 2577942642747987961208
-
-    // balance0 = 1534570175556602158716
-    // balance1 = 12304327403556036471888
-
-    // function _simiulateIslandBurnAmounts(
-    //     uint256 burnAmount
-    // ) internal view returns (uint256 amount0, uint256 amount1) {
-    //     (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
-
-    //     uint256 totalSupply = island.totalSupply();
-
-    //     (
-    //         uint128 liquidity,
-    //         uint256 feeGrowthInside0LastX128,
-    //         uint256 feeGrowthInside1LastX128,
-    //         uint256 tokensOwed0,
-    //         uint256 tokensOwed1
-    //     ) = pool.positions(island.getPositionID());
-
-    //     uint128 liquidityBurned = uint128(
-    //         FullMath.mulDiv(burnAmount, liquidity, totalSupply)
-    //     );
-    //     (uint256 burn0, uint256 burn1) = getAmountsForLiquidity(
-    //         sqrtRatioX96,
-    //         liquidityBurned,
-    //         island.lowerTick(),
-    //         island.upperTick(),
-    //         false
-    //     );
-    //     (uint256 fees0, uint256 fees1) = FeeLib.viewAccumulatedFees(
-    //         pool,
-    //         island.lowerTick(),
-    //         island.upperTick(),
-    //         tick,
-    //         liquidity,
-    //         feeGrowthInside0LastX128,
-    //         feeGrowthInside1LastX128
-    //     );
-    //     fees0 += tokensOwed0;
-    //     fees1 += tokensOwed1;
-
-    //     fees0 = 6709096571955893498;
-    //     fees1 = 33101909754167222785;
-
-    //     (uint256 managerBalance0, uint256 managerBalance1) = _applyFees(
-    //         fees0,
-    //         fees1
-    //     );
-
-    //     console.log("managerBalance0 ", managerBalance0);
-    //     console.log("managerBalance1 ", managerBalance1);
-    //     managerBalance0 = 374674260804085381582;
-    //     managerBalance1 = 2577942642747987961208;
-
-    //     amount0 =
-    //         burn0 +
-    //         FullMath.mulDiv(
-    //             token0.balanceOf(address(island)) - burn0 - managerBalance0,
-    //             burnAmount,
-    //             totalSupply
-    //         );
-    //     amount1 =
-    //         burn1 +
-    //         FullMath.mulDiv(
-    //             token1.balanceOf(address(island)) - burn1 - managerBalance1,
-    //             burnAmount,
-    //             totalSupply
-    //         );
-
-    //     amount0 =
-    //         uint256(35531035528) +
-    //         FullMath.mulDiv(
-    //             1534570175556602158716 +
-    //                 uint256(35531035528) -
-    //                 374674260804085381582,
-    //             91965607464,
-    //             402169657499728083045498
-    //         );
-
-    //     console.log("simulate burn island0 ", amount0);
-    //     // console.log("simulate burn island1 ", amount1);
-    // }
-
-    function _simiulateIslandBurnAmounts(
-        uint256 burnShares
-    ) internal view returns (uint256 amount0, uint256 amount1) {
-        console.log("_simiulateIslandBurnAmounts...");
-        (
-            uint128 liquidity,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128,
-            uint256 tokensOwed0,
-            uint256 tokensOwed1
-        ) = pool.positions(island.getPositionID());
-
-        uint256 totalSupply = island.totalSupply();
-        uint128 burnedLiq = uint128(
-            FullMath.mulDiv(liquidity, burnShares, totalSupply)
-        );
-        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
-        (amount0, amount1) = getAmountsForLiquidity(
-            sqrtRatioX96,
-            burnedLiq,
-            island.lowerTick(),
-            island.upperTick(),
-            false
-        );
-        console.log("burn0 ", amount0);
-        console.log("burn1 ", amount1);
-
-        (uint256 fees0, uint256 fees1) = FeeLib.viewAccumulatedFees(
-            pool,
-            island.lowerTick(),
-            island.upperTick(),
-            tick,
-            liquidity,
-            feeGrowthInside0LastX128,
-            feeGrowthInside1LastX128
-        );
-        fees0 += tokensOwed0;
-        fees1 += tokensOwed1;
-
-        (fees0, fees1) = _subtractManagerFee(
-            fees0,
-            fees1,
-            island.managerFeeBPS()
-        );
-
-        uint256 earnedFees0 = FullMath.mulDiv(
-            fees0 +
-                token0.balanceOf(address(island)) -
-                island.managerBalance0(),
-            burnShares,
-            totalSupply
-        );
-        uint256 earnedFees1 = FullMath.mulDiv(
-            fees1 +
-                token1.balanceOf(address(island)) -
-                island.managerBalance1(),
-            burnShares,
-            totalSupply
-        );
-        console.log("feesEarned0 ", earnedFees0);
-        console.log("feesEarned1 ", earnedFees1);
-
-        amount0 += earnedFees0;
-        amount1 += earnedFees1;
-
-        console.log("simulate burn island0 ", amount0);
-        console.log("simulate burn island1 ", amount1);
-    }
-
-    // _simiulateIslandBurnAmounts...
-    // burn0  7106207105
-    // burn1  55395578946
-    // feesEarned0  8082089183
-    // feesEarned1  542193693
-    // simulate burn island0  15188296288
-    // simulate burn island1  55937772639
-    // _simulateUnderlyingBalances...
-    // burn0  7106207105
-    // burn1  55395578948
-    // feesEarned0  8082089183
-    // feesEarned1  542193693
-
-    // 55395578948 + 542193693 = 55937772641 (1 less than reported)
-    function _simulateUnderlyingBalances(uint256 burnAmount) internal view {
-        console.log("_simulateUnderlyingBalances...");
-
-        uint256 totalSupply = island.totalSupply();
-
-        (
-            uint128 liquidity,
-            uint256 feeGrowthInside0LastX128,
-            uint256 feeGrowthInside1LastX128,
-            uint256 tokensOwed0,
-            uint256 tokensOwed1
-        ) = pool.positions(island.getPositionID());
-
-        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
-        (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
-            sqrtRatioX96,
-            liquidity,
-            island.lowerTick(),
-            island.upperTick(),
-            false
-        );
-
-        console.log(
-            "burn0 ",
-            FullMath.mulDiv(amount0, burnAmount, totalSupply)
-        );
-        console.log(
-            "burn1 ",
-            FullMath.mulDiv(amount1, burnAmount, totalSupply)
-        );
-
-        (uint256 fees0, uint256 fees1) = FeeLib.viewAccumulatedFees(
-            pool,
-            island.lowerTick(),
-            island.upperTick(),
-            tick,
-            liquidity,
-            feeGrowthInside0LastX128,
-            feeGrowthInside1LastX128
-        );
-        fees0 += tokensOwed0;
-        fees1 += tokensOwed1;
-
-        (fees0, fees1) = _subtractManagerFee(
-            fees0,
-            fees1,
-            island.managerFeeBPS()
-        );
-
-        uint256 earnedFee0 = fees0 +
-            token0.balanceOf(address(island)) -
-            island.managerBalance0();
-
-        uint256 earnedFee1 = fees1 +
-            token1.balanceOf(address(island)) -
-            island.managerBalance1();
-
-        console.log(
-            "feesEarned0 ",
-            FullMath.mulDiv(earnedFee0, burnAmount, totalSupply)
-        );
-        console.log(
-            "feesEarned1 ",
-            FullMath.mulDiv(earnedFee1, burnAmount, totalSupply)
-        );
-
-        amount0 += earnedFee0;
-        amount1 += earnedFee1;
-
-        // console.log("_simulateUnderlyingBalances0 ", amount0);
-        // console.log("_simulateUnderlyingBalances1 ", amount1);
-    }
-
-    // 55937772639
-
-    function _applyFees(
-        uint256 _fee0,
-        uint256 _fee1
-    ) internal view returns (uint256 managerBalance0, uint256 managerBalance1) {
-        uint16 _managerFeeBPS = island.managerFeeBPS();
-
-        managerBalance0 = island.managerBalance0();
-        managerBalance1 = island.managerBalance1();
-
-        if (_managerFeeBPS > 0) {
-            managerBalance0 += (_fee0 * _managerFeeBPS) / 10000;
-            managerBalance1 += (_fee1 * _managerFeeBPS) / 10000;
-            (uint256 fee0, uint256 fee1) = _subtractManagerFee(
-                _fee0,
-                _fee1,
-                _managerFeeBPS
-            );
-            // emit FeesEarned(fee0, fee1);
-        } else {
-            // emit FeesEarned(_fee0, _fee1);
+        if (accumulatedFees1 > 0) {
+            query1 += FullMath.mulDiv(accumulatedFees1, shares, totalShares);
         }
-    }
-
-    function _subtractManagerFee(
-        uint256 _fee0,
-        uint256 _fee1,
-        uint16 _managerFeeBPS
-    ) internal pure returns (uint256 fee0, uint256 fee1) {
-        fee0 = _fee0 - (_fee0 * _managerFeeBPS) / 10000;
-        fee1 = _fee1 - (_fee1 * _managerFeeBPS) / 10000;
     }
 
     /// @notice Returns info about the contract.
@@ -1159,7 +903,7 @@ contract Burve is ERC20 {
         int24 lower,
         int24 upper,
         bool roundUp
-    ) internal pure returns (uint256 amount0, uint256 amount1) {
+    ) private pure returns (uint256 amount0, uint256 amount1) {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
 
@@ -1184,7 +928,7 @@ contract Burve is ERC20 {
         uint256 amount1,
         int24 lower,
         int24 upper
-    ) internal pure returns (uint128 liq) {
+    ) private pure returns (uint128 liq) {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
 
@@ -1197,10 +941,22 @@ contract Burve is ERC20 {
         );
     }
 
-    function shift96(
-        uint256 a,
-        bool roundUp
-    ) internal pure returns (uint256 b) {
+    /// @notice Subtract manager fee from the earned fee.
+    /// @param _fee0 The earned fee amount of token 0.
+    /// @param _fee1 The earned fee amount of token 1.
+    /// @param _managerFeeBPS The manager fee in basis points.
+    /// @return fee0 The earned fee minus manager fee for token 0.
+    /// @return fee1 The earned fee minus manager fee for token 1.
+    function subtractManagerFee(
+        uint256 _fee0,
+        uint256 _fee1,
+        uint16 _managerFeeBPS
+    ) private pure returns (uint256 fee0, uint256 fee1) {
+        fee0 = _fee0 - (_fee0 * _managerFeeBPS) / 10000;
+        fee1 = _fee1 - (_fee1 * _managerFeeBPS) / 10000;
+    }
+
+    function shift96(uint256 a, bool roundUp) private pure returns (uint256 b) {
         b = a >> 96;
         if (roundUp && (a & X96_MASK) > 0) b += 1;
     }
