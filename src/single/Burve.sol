@@ -420,33 +420,39 @@ contract Burve is ERC20 {
         );
     }
 
-    /// @notice Returns the current token amounts in a user's position.
+    /// @notice Queries the token amounts in a user's position.
     /// @param owner The owner of the position.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
     function queryValue(
         address owner
     ) external view returns (uint256 query0, uint256 query1) {
-        // contract is empty
-        if (totalShares == 0) {
-            return (0, 0);
-        }
-
         // calculate amounts owned in v3 ranges
         uint256 shares = balanceOf(owner);
-        if (shares > 0) {
-            (query0, query1) = queryValueV3Ranges(shares);
-        }
+        (query0, query1) = queryValueV3Ranges(shares);
 
         // calculate amounts owned by island position
         uint256 ownerIslandShares = islandSharesPerOwner[owner];
-        if (ownerIslandShares > 0) {
-            (uint256 island0, uint256 island1) = queryValueIsland(
-                ownerIslandShares
-            );
-            query0 += island0;
-            query1 += island1;
-        }
+        (uint256 island0, uint256 island1) = queryValueIsland(
+            ownerIslandShares
+        );
+        query0 += island0;
+        query1 += island1;
+    }
+
+    /// @notice Queries the token amounts held by the contract. Ignoring leftover amounts.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryTVL() external view returns (uint256 query0, uint256 query1) {
+        // calculate amounts owned in v3 ranges
+        (query0, query1) = queryValueV3Ranges(totalShares);
+
+        // calculate amounts owned by island position
+        (uint256 island0, uint256 island1) = queryValueIsland(
+            totalIslandShares
+        );
+        query0 += island0;
+        query1 += island1;
     }
 
     /// @notice Queries amounts in the island by simulating a burn.
@@ -455,7 +461,11 @@ contract Burve is ERC20 {
     /// @return query1 The amount of token 1.
     function queryValueIsland(
         uint256 islandShares
-    ) internal view returns (uint256 query0, uint256 query1) {
+    ) public view returns (uint256 query0, uint256 query1) {
+        if (islandShares == 0) {
+            return (0, 0);
+        }
+
         int24 lower = island.lowerTick();
         int24 upper = island.upperTick();
         uint256 totalSupply = island.totalSupply();
@@ -531,7 +541,11 @@ contract Burve is ERC20 {
     /// @return query1 The amount of token 1.
     function queryValueV3Ranges(
         uint256 shares
-    ) internal view returns (uint256 query0, uint256 query1) {
+    ) public view returns (uint256 query0, uint256 query1) {
+        if (shares == 0) {
+            return (0, 0);
+        }
+
         (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
 
         uint256 accumulatedFees0 = 0;

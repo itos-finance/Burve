@@ -1752,6 +1752,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         (uint256 queryCharlie0, uint256 queryCharlie1) = burveIsland.queryValue(
             charlie
         );
+        (uint256 tvl0, uint256 tvl1) = burveIsland.queryTVL();
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
@@ -1792,6 +1793,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             burnCharlie1,
             "query charlie token1 matches burn"
         );
+
+        // check TVL
+        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
+        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
     }
 
     function test_QueryValue_Island_WithFees() public forkOnly {
@@ -1860,6 +1865,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             uint256 queryWithFeeCharlie0,
             uint256 queryWithFeeCharlie1
         ) = burveIsland.queryValue(charlie);
+        (uint256 tvl0, uint256 tvl1) = burveIsland.queryTVL();
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
@@ -1931,6 +1937,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             queryNoFeeCharlie1,
             "query charlie earned token1"
         );
+
+        // check TVL
+        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
+        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
     }
 
     function test_QueryValue_Island_NoPosition() public forkOnly {
@@ -1977,6 +1987,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         (uint256 queryCharlie0, uint256 queryCharlie1) = burveV3.queryValue(
             charlie
         );
+        (uint256 tvl0, uint256 tvl1) = burveV3.queryTVL();
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
@@ -2017,6 +2028,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             burnCharlie1,
             "query charlie token1 matches burn"
         );
+
+        // check TVL
+        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
+        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
     }
 
     function test_QueryValue_V3_WithFees() public forkOnly {
@@ -2078,6 +2093,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             .queryValue(alice);
         (uint256 queryWithFeeCharlie0, uint256 queryWithFeeCharlie1) = burveV3
             .queryValue(charlie);
+        (uint256 tvl0, uint256 tvl1) = burveV3.queryTVL();
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
@@ -2176,6 +2192,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             queryNoFeeCharlie1,
             "query charlie earned token1"
         );
+
+        // check TVL
+        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
+        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
     }
 
     function test_QueryValue_V3_NoPosition() public forkOnly {
@@ -2223,6 +2243,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         (uint256 queryCharlie0, uint256 queryCharlie1) = burve.queryValue(
             charlie
         );
+        (uint256 tvl0, uint256 tvl1) = burve.queryTVL();
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
@@ -2263,6 +2284,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             burnCharlie1,
             "query charlie token1 matches burn"
         );
+
+        // check TVL
+        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
+        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
     }
 
     function test_QueryValue_WithFees() public forkOnly {
@@ -2325,6 +2350,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             .queryValue(alice);
         (uint256 queryWithFeeCharlie0, uint256 queryWithFeeCharlie1) = burve
             .queryValue(charlie);
+        (uint256 tvl0, uint256 tvl1) = burve.queryTVL();
 
         // burn
         uint256 priorBalanceAlice0 = token0.balanceOf(address(alice));
@@ -2423,6 +2449,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             queryNoFeeCharlie1,
             "query charlie earned token1"
         );
+
+        // check TVL
+        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
+        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
     }
 
     function test_QueryValue_NoPosition() public forkOnly {
@@ -2445,6 +2475,12 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_QueryValue_EmptyContract() public forkOnly {
+        // query tvl
+        (uint256 tvl0, uint256 tvl1) = burve.queryTVL();
+        assertEq(tvl0, 0, "tvl0 == 0");
+        assertEq(tvl1, 0, "tvl1 == 0");
+
+        // query alice
         (uint256 query0, uint256 query1) = burve.queryValue(address(alice));
         assertEq(query0, 0, "query0 == 0");
         assertEq(query1, 0, "query1 == 0");
