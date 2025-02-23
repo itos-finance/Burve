@@ -18,34 +18,34 @@ import {TransferHelper} from "../TransferHelper.sol";
 import {TickMath} from "./integrations/uniswap/TickMath.sol";
 import {TickRange} from "./TickRange.sol";
 
+/// @notice Burve contract focused on a single token pair.
+///         Where LP is split between multiple ranges of a pool.
 contract Burve is ERC20 {
     uint256 private constant X96_MASK = (1 << 96) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
 
+    /// The v3 pool.
     IUniswapV3Pool public pool;
+    /// The pool's token0.
     IERC20 public token0;
+    /// The pool's token1.
     IERC20 public token1;
-
+    /// The optional Kodiak island.
     IKodiakIsland public island;
+    /// The station proxy.
     IStationProxy public stationProxy;
-
     /// The n ranges.
     /// If there is an island that range lies at index 0, encoded as (0, 0).
     TickRange[] public ranges;
-
     /// The relative liquidity for our n ranges.
     /// If there is an island that distribution lies at index 0.
     uint256[] public distX96;
-
     /// Total nominal liquidity.
     uint128 public totalNominalLiq;
-
     /// Total shares of nominal liquidity.
     uint256 public totalShares;
-
     // Total island shares.
     uint256 public totalIslandShares;
-
     /// Mapping of owner to island shares they own.
     mapping(address owner => uint256 islandShares) public islandSharesPerOwner;
 
