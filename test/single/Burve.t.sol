@@ -120,7 +120,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Create Tests
 
-    function testRevert_Create_InvalidRange_Lower() public forkOnly {
+    function testRevert_Create_InvalidRange_Lower() public {
         int24 tickSpacing = pool.tickSpacing();
 
         TickRange[] memory ranges = new TickRange[](1);
@@ -146,7 +146,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_Create_InvalidRange_Upper() public forkOnly {
+    function testRevert_Create_InvalidRange_Upper() public {
         int24 tickSpacing = pool.tickSpacing();
 
         TickRange[] memory ranges = new TickRange[](1);
@@ -169,6 +169,17 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             address(stationProxy),
             ranges,
             weights
+        );
+    }
+
+    function testRevert_Create_PoolAddressIsZero() public {
+        vm.expectRevert();
+        new Burve(
+            address(0x0),
+            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            address(stationProxy),
+            new TickRange[](1),
+            new uint128[](1)
         );
     }
 
