@@ -7,6 +7,7 @@ import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol"
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 
+import {FeeLib} from "./Fees.sol";
 import {FullMath} from "../FullMath.sol";
 import {IKodiakIsland} from "./integrations/kodiak/IKodiakIsland.sol";
 import {Info} from "../../src/single/Info.sol";
@@ -42,6 +43,9 @@ contract Burve is ERC20 {
     /// Total shares of nominal liquidity.
     uint256 public totalShares;
 
+    // Total island shares.
+    uint256 public totalIslandShares;
+
     /// Mapping of owner to island shares they own.
     mapping(address owner => uint256 islandShares) public islandSharesPerOwner;
 
@@ -49,10 +53,11 @@ contract Burve is ERC20 {
     event Mint(
         address indexed sender,
         address indexed recipient,
-        uint256 shares
+        uint256 shares,
+        uint256 islandShares
     );
     /// Emitted when shares are burned.
-    event Burn(address indexed owner, uint256 shares);
+    event Burn(address indexed owner, uint256 shares, uint256 islandShares);
     /// Emitted when the station proxy is migrated.
     event MigrateStationProxy(
         IStationProxy indexed from,
@@ -199,22 +204,14 @@ contract Burve is ERC20 {
         uint128 mintNominalLiq,
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
-    ) external {
-        // check sqrtP limits
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (
-            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
-            sqrtRatioX96 > upperSqrtPriceLimitX96
-        ) {
-            revert SqrtPriceX96OverLimit(
-                sqrtRatioX96,
-                lowerSqrtPriceLimitX96,
-                upperSqrtPriceLimitX96
-            );
-        }
-
+    )
+        external
+        withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96)
+    {
         // compound v3 ranges
         compoundV3Ranges();
+
+        uint256 islandShares = 0;
 
         // mint liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
@@ -228,7 +225,7 @@ contract Burve is ERC20 {
 
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
-                mintIsland(recipient, liqInRange);
+                islandShares = mintIsland(recipient, liqInRange);
             } else {
                 // mint the V3 ranges
                 pool.mint(
@@ -260,25 +257,31 @@ contract Burve is ERC20 {
         totalShares += shares;
         _mint(recipient, shares);
 
-        emit Mint(msg.sender, recipient, shares);
+        emit Mint(msg.sender, recipient, shares, islandShares);
     }
 
     /// @notice Mints to the island.
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
-    function mintIsland(address recipient, uint128 liq) internal {
+    /// @return mintIslandShares The amount of island shares minted.
+    function mintIsland(
+        address recipient,
+        uint128 liq
+    ) internal returns (uint256 mintIslandShares) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
             sqrtRatioX96,
             liq,
             island.lowerTick(),
-            island.upperTick()
+            island.upperTick(),
+            true
         );
         (uint256 mint0, uint256 mint1, uint256 mintShares) = island
             .getMintAmounts(amount0, amount1);
 
         islandSharesPerOwner[recipient] += mintShares;
+        totalIslandShares += mintShares;
 
         // transfer required tokens to this contract
         TransferHelper.safeTransferFrom(
@@ -307,6 +310,8 @@ contract Burve is ERC20 {
         SafeERC20.forceApprove(island, address(stationProxy), mintShares);
         stationProxy.depositLP(address(island), mintShares, recipient);
         SafeERC20.forceApprove(island, address(stationProxy), 0);
+
+        return mintShares;
     }
 
     /// @notice burns liquidity for the msg.sender
@@ -317,20 +322,10 @@ contract Burve is ERC20 {
         uint256 shares,
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
-    ) external {
-        // check sqrtP limits
-        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
-        if (
-            sqrtRatioX96 < lowerSqrtPriceLimitX96 ||
-            sqrtRatioX96 > upperSqrtPriceLimitX96
-        ) {
-            revert SqrtPriceX96OverLimit(
-                sqrtRatioX96,
-                lowerSqrtPriceLimitX96,
-                upperSqrtPriceLimitX96
-            );
-        }
-
+    )
+        external
+        withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96)
+    {
         // compound v3 ranges
         compoundV3Ranges();
 
@@ -344,11 +339,13 @@ contract Burve is ERC20 {
         uint256 priorBalance0 = token0.balanceOf(address(this));
         uint256 priorBalance1 = token1.balanceOf(address(this));
 
+        uint256 islandShares = 0;
+
         // burn liquidity for each range
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
             if (range.isIsland()) {
-                burnIsland(shares);
+                islandShares = burnIsland(shares);
             } else {
                 uint128 liqInRange = uint128(
                     shift96(uint256(burnLiqNominal) * distX96[i], false)
@@ -377,24 +374,28 @@ contract Burve is ERC20 {
             postBalance1 - priorBalance1
         );
 
-        emit Burn(msg.sender, shares);
+        emit Burn(msg.sender, shares, islandShares);
     }
 
     /// @notice Burns share of the island on behalf of msg.sender.
     /// @param shares The amount of Burve LP token to burn.
-    function burnIsland(uint256 shares) internal {
+    /// @return islandBurnShares The amount of island shares burned.
+    function burnIsland(
+        uint256 shares
+    ) internal returns (uint256 islandBurnShares) {
         // calculate island shares to burn
-        uint256 islandBurnShares = FullMath.mulDiv(
+        islandBurnShares = FullMath.mulDiv(
             islandSharesPerOwner[msg.sender],
             shares,
             balanceOf(msg.sender)
         );
 
         if (islandBurnShares == 0) {
-            return;
+            return 0;
         }
 
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
+        totalIslandShares -= islandBurnShares;
 
         // withdraw burn shares from the station proxy
         stationProxy.withdrawLP(address(island), islandBurnShares, msg.sender);
@@ -417,6 +418,219 @@ contract Burve is ERC20 {
             uint128(x),
             uint128(y)
         );
+    }
+
+    /// @notice Queries the token amounts in a user's position.
+    /// @param owner The owner of the position.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryValue(
+        address owner
+    ) external view returns (uint256 query0, uint256 query1) {
+        // calculate amounts owned in v3 ranges
+        uint256 shares = balanceOf(owner);
+        (query0, query1) = queryValueV3Ranges(shares);
+
+        // calculate amounts owned by island position
+        uint256 ownerIslandShares = islandSharesPerOwner[owner];
+        (uint256 island0, uint256 island1) = queryValueIsland(
+            ownerIslandShares
+        );
+        query0 += island0;
+        query1 += island1;
+    }
+
+    /// @notice Queries the token amounts held by the contract. Ignoring leftover amounts.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryTVL() external view returns (uint256 query0, uint256 query1) {
+        // calculate amounts owned in v3 ranges
+        (query0, query1) = queryValueV3Ranges(totalShares);
+
+        // calculate amounts owned by island position
+        (uint256 island0, uint256 island1) = queryValueIsland(
+            totalIslandShares
+        );
+        query0 += island0;
+        query1 += island1;
+    }
+
+    /// @notice Queries amounts in the island by simulating a burn.
+    /// @param islandShares Island shares.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryValueIsland(
+        uint256 islandShares
+    ) public view returns (uint256 query0, uint256 query1) {
+        if (islandShares == 0) {
+            return (0, 0);
+        }
+
+        int24 lower = island.lowerTick();
+        int24 upper = island.upperTick();
+        uint256 totalSupply = island.totalSupply();
+
+        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
+
+        // get island position id
+        bytes32 positionId = keccak256(
+            abi.encodePacked(address(island), lower, upper)
+        );
+
+        // lookup island position
+        (
+            uint128 liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint256 tokensOwed0,
+            uint256 tokensOwed1
+        ) = pool.positions(positionId);
+
+        // calculate accumulated fees
+        (uint256 fees0, uint256 fees1) = FeeLib.viewAccumulatedFees(
+            pool,
+            lower,
+            upper,
+            tick,
+            liquidity,
+            feeGrowthInside0LastX128,
+            feeGrowthInside1LastX128
+        );
+        fees0 += tokensOwed0;
+        fees1 += tokensOwed1;
+
+        // subtract manager fee
+        (fees0, fees1) = subtractManagerFee(
+            fees0,
+            fees1,
+            island.managerFeeBPS()
+        );
+
+        // get amounts for burned liquidity
+        uint128 burnedLiq = uint128(
+            FullMath.mulDiv(liquidity, islandShares, totalSupply)
+        );
+        (query0, query1) = getAmountsForLiquidity(
+            sqrtRatioX96,
+            burnedLiq,
+            lower,
+            upper,
+            false
+        );
+
+        // award share of fees
+        query0 += FullMath.mulDiv(
+            fees0 +
+                token0.balanceOf(address(island)) -
+                island.managerBalance0(),
+            islandShares,
+            totalSupply
+        );
+        query1 += FullMath.mulDiv(
+            fees1 +
+                token1.balanceOf(address(island)) -
+                island.managerBalance1(),
+            islandShares,
+            totalSupply
+        );
+    }
+
+    /// @notice Queries amounts in the v3 ranges by simulating burns.
+    /// @param shares The amount of Burve LP token.
+    /// @return query0 The amount of token 0.
+    /// @return query1 The amount of token 1.
+    function queryValueV3Ranges(
+        uint256 shares
+    ) public view returns (uint256 query0, uint256 query1) {
+        if (shares == 0) {
+            return (0, 0);
+        }
+
+        (uint160 sqrtRatioX96, int24 tick, , , , , ) = pool.slot0();
+
+        uint256 accumulatedFees0 = 0;
+        uint256 accumulatedFees1 = 0;
+
+        uint128 burnLiqNominal = uint128(
+            FullMath.mulDiv(shares, uint256(totalNominalLiq), totalShares)
+        );
+
+        // accumulate total token amounts in the v3 ranges owned by this contract
+        for (uint256 i = 0; i < distX96.length; ++i) {
+            TickRange memory range = ranges[i];
+            if (range.isIsland()) {
+                continue;
+            }
+
+            // get v3 position id
+            bytes32 positionId = keccak256(
+                abi.encodePacked(address(this), range.lower, range.upper)
+            );
+
+            // lookup v3 position
+            // owed tokens will be 0 due to compounding
+            (
+                uint128 liquidity,
+                uint256 feeGrowthInside0LastX128,
+                uint256 feeGrowthInside1LastX128,
+                ,
+
+            ) = pool.positions(positionId);
+
+            // calculate accumulated fees that would be compounded
+            // some amount of tokens will remain on the contract as leftovers because they can't be compounded into a unit of liquidity
+            // uncompounded tokens remain on the contract instead of going to the user
+            (uint128 fees0, uint128 fees1) = FeeLib.viewAccumulatedFees(
+                pool,
+                range.lower,
+                range.upper,
+                tick,
+                liquidity,
+                feeGrowthInside0LastX128,
+                feeGrowthInside1LastX128
+            );
+            uint128 liqInFees = getLiquidityForAmounts(
+                sqrtRatioX96,
+                fees0,
+                fees1,
+                range.lower,
+                range.upper
+            );
+            (
+                uint256 compoundedFees0,
+                uint256 compoundedFees1
+            ) = getAmountsForLiquidity(
+                    sqrtRatioX96,
+                    liqInFees,
+                    range.lower,
+                    range.upper,
+                    false
+                );
+            accumulatedFees0 += compoundedFees0;
+            accumulatedFees1 += compoundedFees1;
+
+            // get amounts for burned liquidity
+            uint128 liqInRange = uint128(
+                shift96(uint256(burnLiqNominal) * distX96[i], false)
+            );
+            (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+                sqrtRatioX96,
+                liqInRange,
+                range.lower,
+                range.upper,
+                false
+            );
+            query0 += amount0;
+            query1 += amount1;
+        }
+
+        // calculate share of accumulated fees
+        if (accumulatedFees0 > 0) {
+            query0 += FullMath.mulDiv(accumulatedFees0, shares, totalShares);
+        }
+        if (accumulatedFees1 > 0) {
+            query1 += FullMath.mulDiv(accumulatedFees1, shares, totalShares);
+        }
     }
 
     /// @notice Returns info about the contract.
@@ -474,7 +688,8 @@ contract Burve is ERC20 {
                 sqrtRatioX96,
                 compoundLiq,
                 range.lower,
-                range.upper
+                range.upper,
+                true
             );
             totalMint0 += mint0;
             totalMint1 += mint1;
@@ -585,9 +800,9 @@ contract Burve is ERC20 {
 
         // during mint the liq at each range is rounded up
         // we subtract by the number of ranges to ensure we have enough liq
-        mintNominalLiq = mintNominalLiq <= distX96.length
+        mintNominalLiq = mintNominalLiq <= (2 * distX96.length)
             ? 0
-            : mintNominalLiq - uint128(distX96.length);
+            : mintNominalLiq - uint128(2 * distX96.length);
     }
 
     /// @notice Calculates token amounts needed for compounding one X64 unit of nominal liquidity in the v3 ranges.
@@ -618,7 +833,8 @@ contract Burve is ERC20 {
                     sqrtRatioX96,
                     liqInRangeX64,
                     range.lower,
-                    range.upper
+                    range.upper,
+                    true
                 );
             amount0InUnitLiqX64 += range0InUnitLiqX64;
             amount1InUnitLiqX64 += range1InUnitLiqX64;
@@ -630,12 +846,22 @@ contract Burve is ERC20 {
         for (uint256 i = 0; i < distX96.length; ++i) {
             TickRange memory range = ranges[i];
 
+            uint128 liqInRange = uint128(
+                shift96(uint256(totalNominalLiq) * distX96[i], true)
+            );
+
+            if (liqInRange == 0) {
+                continue;
+            }
+
             // skip islands
             if (range.isIsland()) {
                 continue;
             }
 
             // collect fees
+            // call to burn is required for uniswap internals to have proper bookkeeping (tokensOwed to be updated)
+            pool.burn(range.lower, range.upper, 0);
             pool.collect(
                 address(this),
                 range.lower,
@@ -647,7 +873,6 @@ contract Burve is ERC20 {
     }
 
     /// @notice Calculate token amounts in liquidity for the given range.
-    /// @dev The amounts are rounded up.
     /// @param sqrtRatioX96 The current sqrt ratio of the pool.
     /// @param liquidity The amount of liquidity.
     /// @param lower The lower tick of the range.
@@ -656,8 +881,9 @@ contract Burve is ERC20 {
         uint160 sqrtRatioX96,
         uint128 liquidity,
         int24 lower,
-        int24 upper
-    ) internal pure returns (uint256 amount0, uint256 amount1) {
+        int24 upper,
+        bool roundUp
+    ) private pure returns (uint256 amount0, uint256 amount1) {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
 
@@ -666,14 +892,52 @@ contract Burve is ERC20 {
             sqrtRatioAX96,
             sqrtRatioBX96,
             liquidity,
-            true
+            roundUp
         );
     }
 
-    function shift96(
-        uint256 a,
-        bool roundUp
-    ) internal pure returns (uint256 b) {
+    /// @notice Calculate liquidity amount in given tokens.
+    /// @dev Calculated liq is rounded down.
+    /// @param sqrtRatioX96 The current sqrt ratio of the pool.
+    /// @param amount0 The amount of token 0.
+    /// @param amount1 The amount of token 1.
+    /// @param lower The lower tick of the range.
+    /// @param upper The upper tick of the range.
+    function getLiquidityForAmounts(
+        uint160 sqrtRatioX96,
+        uint256 amount0,
+        uint256 amount1,
+        int24 lower,
+        int24 upper
+    ) private pure returns (uint128 liq) {
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(lower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(upper);
+
+        liq = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtRatioX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            amount0,
+            amount1
+        );
+    }
+
+    /// @notice Subtract manager fee from the earned fee.
+    /// @param _fee0 The earned fee amount of token 0.
+    /// @param _fee1 The earned fee amount of token 1.
+    /// @param _managerFeeBPS The manager fee in basis points.
+    /// @return fee0 The earned fee minus manager fee for token 0.
+    /// @return fee1 The earned fee minus manager fee for token 1.
+    function subtractManagerFee(
+        uint256 _fee0,
+        uint256 _fee1,
+        uint16 _managerFeeBPS
+    ) private pure returns (uint256 fee0, uint256 fee1) {
+        fee0 = _fee0 - (_fee0 * _managerFeeBPS) / 10000;
+        fee1 = _fee1 - (_fee1 * _managerFeeBPS) / 10000;
+    }
+
+    function shift96(uint256 a, bool roundUp) private pure returns (uint256 b) {
         b = a >> 96;
         if (roundUp && (a & X96_MASK) > 0) b += 1;
     }
