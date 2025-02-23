@@ -66,12 +66,10 @@ contract Burve is ERC20 {
 
     /// Thrown if the given tick range does not match the pools tick spacing.
     error InvalidRange(int24 lower, int24 upper);
-    /// Thrown when island specific logic is invoked but the contract was not initialized with an island.
+    /// Thrown in the constructor if an island range is provided but no island.
     error NoIsland();
     /// Thrown when the provided island points to a pool that does not match the provided pool.
     error MismatchedIslandPool(address island, address pool);
-    /// Thrown in the consturctor if the supplied pool address is the zero address.
-    error PoolIsZeroAddress();
     /// Thrown when the number of ranges and number of weights do not match.
     error MismatchedRangeWeightLengths(
         uint256 rangeLength,
@@ -144,10 +142,6 @@ contract Burve is ERC20 {
 
         island = IKodiakIsland(_island);
         stationProxy = IStationProxy(_stationProxy);
-
-        if (_pool == address(0x0)) {
-            revert PoolIsZeroAddress();
-        }
 
         if (_island != address(0x0) && address(island.pool()) != _pool) {
             revert MismatchedIslandPool(_island, _pool);
