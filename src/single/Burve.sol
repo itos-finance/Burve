@@ -263,10 +263,11 @@ contract Burve is ERC20 {
     /// @notice Mints to the island.
     /// @param recipient The recipient of the minted liquidity.
     /// @param liq The amount of liquidity to mint.
+    /// @return mintIslandShares The amount of island shares minted.
     function mintIsland(
         address recipient,
         uint128 liq
-    ) internal returns (uint256 islandShares) {
+    ) internal returns (uint256 mintIslandShares) {
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
 
         (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
@@ -279,7 +280,6 @@ contract Burve is ERC20 {
         (uint256 mint0, uint256 mint1, uint256 mintShares) = island
             .getMintAmounts(amount0, amount1);
 
-        islandShares = mintShares;
         islandSharesPerOwner[recipient] += mintShares;
         totalIslandShares += mintShares;
 
@@ -310,6 +310,8 @@ contract Burve is ERC20 {
         SafeERC20.forceApprove(island, address(stationProxy), mintShares);
         stationProxy.depositLP(address(island), mintShares, recipient);
         SafeERC20.forceApprove(island, address(stationProxy), 0);
+
+        return mintShares;
     }
 
     /// @notice burns liquidity for the msg.sender
@@ -377,11 +379,12 @@ contract Burve is ERC20 {
 
     /// @notice Burns share of the island on behalf of msg.sender.
     /// @param shares The amount of Burve LP token to burn.
+    /// @return islandBurnShares The amount of island shares burned.
     function burnIsland(
         uint256 shares
-    ) internal returns (uint256 islandShares) {
+    ) internal returns (uint256 islandBurnShares) {
         // calculate island shares to burn
-        uint256 islandBurnShares = FullMath.mulDiv(
+        islandBurnShares = FullMath.mulDiv(
             islandSharesPerOwner[msg.sender],
             shares,
             balanceOf(msg.sender)
@@ -391,7 +394,6 @@ contract Burve is ERC20 {
             return 0;
         }
 
-        islandShares = islandBurnShares;
         islandSharesPerOwner[msg.sender] -= islandBurnShares;
         totalIslandShares -= islandBurnShares;
 
@@ -895,6 +897,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Calculate liquidity amount in given tokens.
+    /// @dev Calculated liq is rounded down.
     /// @param sqrtRatioX96 The current sqrt ratio of the pool.
     /// @param amount0 The amount of token 0.
     /// @param amount1 The amount of token 1.
