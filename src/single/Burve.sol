@@ -18,8 +18,8 @@ import {TransferHelper} from "../TransferHelper.sol";
 import {TickMath} from "./integrations/uniswap/TickMath.sol";
 import {TickRange} from "./TickRange.sol";
 
-/// @notice Burve contract focused on a single token pair.
-///         Where LP is split between multiple ranges of a pool.
+/// @notice A stableswap AMM for a pair of tokens that uses multiple concentrated Uni-V3 positions
+/// to replicate a super-set of stableswap math and other swap curves more efficiently than a numeric solution does.
 contract Burve is ERC20 {
     uint256 private constant X96_MASK = (1 << 96) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
