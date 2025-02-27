@@ -6,7 +6,7 @@ import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyG
 import {SafeCast} from "Commons/Math/Cast.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
 import {VertexId, newVertexId, Vertex} from "../Vertex.sol";
-import {VaultLib, VaultPointer} from "../VaultProxy.sol";
+import {VaultLib, VaultProxy} from "../VaultProxy.sol";
 import {Store} from "../Store.sol";
 import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
@@ -147,14 +147,14 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint256[] memory amounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
-            VaultPointer memory vPtr = VaultLib.get(v);
-            uint128 bal = vPtr.balance(cid, false);
+            VaultProxy memory vProxy = VaultLib.getProxy(v);
+            uint128 bal = vProxy.balance(cid, false);
             if (bal == 0) continue;
             // If there are tokens, we withdraw.
             uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
             amounts[i] = withdraw;
-            vPtr.withdraw(cid, withdraw);
-            vPtr.commit();
+            vProxy.withdraw(cid, withdraw);
+            vProxy.commit();
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
         }
@@ -172,8 +172,8 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint256[] memory withdrawnAmounts = new uint256[](n);
         for (uint8 i = 0; i < n; ++i) {
             VertexId v = newVertexId(i);
-            VaultPointer memory vPtr = VaultLib.get(v);
-            uint128 bal = vPtr.balance(cid, false);
+            VaultProxy memory vProxy = VaultLib.getProxy(v);
+            uint128 bal = vProxy.balance(cid, false);
             if (bal == 0) continue;
             // If there are tokens, we withdraw.
             uint256 withdraw = FullMath.mulX256(percentX256, bal, false);
@@ -192,12 +192,12 @@ contract LiqFacet is ReentrancyGuardTransient {
         address token,
         uint128 addAmount
     ) private returns (uint128 preBalance, uint128 postBalance) {
-        VaultPointer memory vPtr = VaultLib.get(v);
+        VaultProxy memory vProxy = VaultLib.getProxy(v);
         IAdjustor adj = Store.adjustor();
         // Since we're working with stables and LSTs we know. Nothing will go
         // over 128 bits or else money means nothing.
         preBalance = SafeCast.toUint128(
-            adj.toNominal(token, vPtr.balance(cid, true), true)
+            adj.toNominal(token, vProxy.balance(cid, true), true)
         );
         if (addAmount > 0) {
             // Get those tokens to this contract.
@@ -208,11 +208,11 @@ contract LiqFacet is ReentrancyGuardTransient {
                 addAmount
             );
             // Move to the vault.
-            vPtr.deposit(cid, addAmount);
+            vProxy.deposit(cid, addAmount);
             // Commit the deposit and refetch.
-            vPtr.refresh();
+            vProxy.refresh();
             postBalance = SafeCast.toUint128(
-                adj.toNominal(token, vPtr.balance(cid, false), false)
+                adj.toNominal(token, vProxy.balance(cid, false), false)
             );
         } else {
             postBalance = preBalance;
