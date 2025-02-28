@@ -128,7 +128,7 @@ contract AdjustmentTest is MultiSetupTest {
 
         // Balance is currently insufficient.
         uint160 sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertLt(sqrtPX96, 1 << 95); // So the price is less than 0.5!
+        assertLt(sqrtPX96, 1 << 95, "1"); // So the price is less than 0.5!
 
         // Adding some tokens to the vault will skew prices because of the adjustment.
         TransferHelper.safeTransfer(
@@ -137,6 +137,6 @@ contract AdjustmentTest is MultiSetupTest {
             100e6 - 100e5 + 10 // Due to openzeppelin's ERC4626 conversions, directly sending tokens loses some dust.
         );
         sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertEq(sqrtPX96, 1 << 96);
+        assertEq(sqrtPX96, 1 << 96, "2");
     }
 }

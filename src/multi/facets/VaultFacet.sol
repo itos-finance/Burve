@@ -20,6 +20,14 @@ contract VaultFacet {
     event VaultMigrated(address token, address fromVault, address toVault);
     event VaultVetoed(address token);
 
+    /// Query which vaults are in use for a token.
+    function viewVaults(
+        address token
+    ) external returns (address active, address backup) {
+        VertexId vid = newVertexId(token);
+        (active, backup) = VaultLib.getVaultAddresses(vid);
+    }
+
     /// Add a backup vault for a token.
     function addVault(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
@@ -64,11 +72,11 @@ contract VaultFacet {
     function transferBalance(
         address fromVault,
         address toVault,
-        ClosureId cid,
+        uint16 cid,
         uint256 amount
     ) external {
         AdminLib.validateOwner();
-        VaultLib.transfer(fromVault, toVault, cid, amount);
+        VaultLib.transfer(fromVault, toVault, ClosureId.wrap(cid), amount);
     }
 
     /// Swap the vault that new deposits go into from the active vault to the backup.

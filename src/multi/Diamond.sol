@@ -22,6 +22,7 @@ import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {EdgeFacet} from "./facets/EdgeFacet.sol";
 import {ViewFacet} from "./facets/ViewFacet.sol";
 import {LockFacet} from "./facets/LockFacet.sol";
+import {VaultFacet} from "./facets/VaultFacet.sol";
 import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 
 error FunctionNotFound(bytes4 _functionSelector);
@@ -31,7 +32,7 @@ contract SimplexDiamond is IDiamond {
         AdminLib.initOwner(msg.sender);
         Store.load().adjustor = IAdjustor(facets.adjustor);
 
-        FacetCut[] memory cuts = new FacetCut[](9);
+        FacetCut[] memory cuts = new FacetCut[](10);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -129,7 +130,6 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            // Add storage facet using LibDiamond directly since we're the owner
             bytes4[] memory selectors = new bytes4[](8);
             selectors[0] = ViewFacet.getEdge.selector;
             selectors[1] = ViewFacet.getVertex.selector;
@@ -148,7 +148,6 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            // Add storage facet using LibDiamond directly since we're the owner
             bytes4[] memory selectors = new bytes4[](7);
             selectors[0] = LockFacet.lock.selector;
             selectors[1] = LockFacet.unlock.selector;
@@ -160,6 +159,23 @@ contract SimplexDiamond is IDiamond {
 
             cuts[8] = IDiamond.FacetCut({
                 facetAddress: address(new LockFacet()),
+                action: IDiamond.FacetCutAction.Add,
+                functionSelectors: selectors
+            });
+        }
+
+        {
+            bytes4[] memory selectors = new bytes4[](7);
+            selectors[0] = VaultFacet.addVault.selector;
+            selectors[1] = VaultFacet.acceptVault.selector;
+            selectors[2] = VaultFacet.vetoVault.selector;
+            selectors[3] = VaultFacet.removeVault.selector;
+            selectors[4] = VaultFacet.transferBalance.selector;
+            selectors[5] = VaultFacet.hotSwap.selector;
+            selectors[6] = VaultFacet.viewVaults.selector;
+
+            cuts[9] = IDiamond.FacetCut({
+                facetAddress: facets.vaultFacet,
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
             });

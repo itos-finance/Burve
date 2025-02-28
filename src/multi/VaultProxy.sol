@@ -78,15 +78,9 @@ library VaultLib {
 
         VaultStorage storage vStore = Store.vaults();
         VertexId vid = vStore.usedBy[vault];
-        if (!vid.isNull()) revert VaultInUse(vault, vid);
+        if (vStore.vaults[vid] == vault) revert VaultInUse(vault, vid);
 
-        // If its not in use and doens't have tokens, we can remove it if there's a backup.
-        if (vStore.vaults[vid] == vault) {
-            // As the active vault we should check if there's a backup.
-            if (vStore.backups[vid] == address(0)) revert NoBackup(vid);
-            vStore.vaults[vid] = vStore.backups[vid];
-        }
-        // Delete the backup because we were the backup, or the backup was moved to the active above.
+        // We are not the active vault, so we're the backup and we have no tokens. Okay to remove.
         delete vStore.backups[vid];
 
         VaultType vType = vStore.vTypes[vault];
@@ -109,8 +103,10 @@ library VaultLib {
     ) internal {
         VaultPointer memory from = getVault(fromVault);
         from.withdraw(cid, amount);
+        from.commit();
         VaultPointer memory to = getVault(toVault);
         to.deposit(cid, amount);
+        to.commit();
     }
 
     /// Swap the active vault we deposit into.
@@ -129,6 +125,15 @@ library VaultLib {
     }
 
     /* Getters */
+
+    /// Get the active and backup addresses for a vault.
+    function getVaultAddresses(
+        VertexId vid
+    ) internal view returns (address active, address backup) {
+        VaultStorage storage vStore = Store.vaults();
+        active = vStore.vaults[vid];
+        backup = vStore.backups[vid];
+    }
 
     /// Fetch a VaultProxy for the vertex's active vaults.
     function getProxy(
@@ -186,6 +191,9 @@ library VaultProxyImpl {
     ) internal {
         // We effectively don't allow withdraws beyond uint128 due to the capping in balance.
         uint128 available = self.active.balance(cid, false);
+        uint256 withdrawable = self.active.withdrawable();
+        if (withdrawable < available) available = uint128(withdrawable);
+
         if (amount > available) {
             self.active.withdraw(cid, available);
             self.backup.withdraw(cid, amount - available);

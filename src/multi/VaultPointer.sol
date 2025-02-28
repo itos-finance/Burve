@@ -36,7 +36,7 @@ library VaultPointerImpl {
         ClosureId cid,
         uint256 amount
     ) internal {
-        if (isNull(self)) return;
+        if (isNull(self) || amount == 0) return;
 
         if (self.vType == VaultType.E4626) {
             getE4626(self).deposit(self.temp, cid, amount);
@@ -51,7 +51,7 @@ library VaultPointerImpl {
         ClosureId cid,
         uint256 amount
     ) internal {
-        if (isNull(self)) return;
+        if (isNull(self) || amount == 0) return;
 
         if (self.vType == VaultType.E4626) {
             getE4626(self).withdraw(self.temp, cid, amount);
