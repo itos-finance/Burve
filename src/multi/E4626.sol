@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {ClosureId} from "./Closure.sol";
 import {FullMath} from "../FullMath.sol";
-import {VaultTemp} from "./VaultProxy.sol";
+import {VaultTemp} from "./VaultPointer.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
@@ -42,6 +42,11 @@ library VaultE4626Impl {
     ) internal {
         self.token = IERC20(_token);
         self.vault = IERC4626(_vault);
+    }
+
+    function del(VaultE4626 storage self) internal {
+        self.token = IERC20(address(0));
+        self.vault = IERC4626(address(0));
     }
 
     // The first function called on vaultProxy creation to prep ourselves for other operations.
@@ -200,6 +205,21 @@ library VaultE4626Impl {
             )
             : FullMath.mulDiv(cidShares, totalAssets, self.totalShares);
         amount = min128(fullAmount);
+    }
+
+    /// Returns the total balance of everything.
+    function totalBalance(
+        VaultE4626 storage self,
+        VaultTemp memory temp,
+        bool roundUp
+    ) internal view returns (uint256 amount) {
+        if (self.totalShares == 0) return 0;
+        uint256 newlyAdding = FullMath.mulX128(
+            temp.vars[1],
+            temp.vars[3],
+            roundUp
+        );
+        amount = temp.vars[0] + newlyAdding - temp.vars[2];
     }
 
     /// Clamp an amount down to the largest uint128 value possible.

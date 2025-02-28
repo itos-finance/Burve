@@ -2,10 +2,8 @@
 pragma solidity ^0.8.27;
 
 import {TokenRegLib} from "./Token.sol";
-import {VaultLib, VaultType} from "./VaultProxy.sol";
-import {ClosureId, ClosureDist, ClosureDistImpl, newClosureDist} from "./Closure.sol";
-import {VaultPointer, VaultTemp} from "./VaultProxy.sol";
-import {console2} from "forge-std/console2.sol";
+import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
+import {ClosureId, ClosureDist, newClosureDist} from "./Closure.sol";
 
 type VertexId is uint16;
 function newVertexId(uint8 idx) pure returns (VertexId) {
@@ -19,6 +17,10 @@ function newVertexId(address token) view returns (VertexId) {
 library VertexIdImpl {
     function isEq(VertexId self, VertexId other) internal pure returns (bool) {
         return VertexId.unwrap(self) == VertexId.unwrap(other);
+    }
+
+    function isNull(VertexId self) internal pure returns (bool) {
+        return VertexId.unwrap(self) == 0;
     }
 }
 
@@ -59,7 +61,7 @@ library VertexImpl {
         VaultType vType
     ) internal {
         self.vid = newVertexId(token);
-        VaultLib.init(self.vid, token, vault, vType);
+        VaultLib.add(self.vid, token, vault, vType);
     }
 
     // Add this closure to the appropriate homsets for this vertex
@@ -91,7 +93,7 @@ library VertexImpl {
     ) internal returns (ClosureDist memory dist) {
         ClosureId[] storage homs = self.homs[other];
         // Once we have a vault pointer, no reentrancy is allowed.
-        VaultPointer memory vProxy = VaultLib.get(self.vid);
+        VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         dist = newClosureDist(homs);
 
         for (uint256 i = 0; i < homs.length; ++i) {
@@ -127,7 +129,7 @@ library VertexImpl {
         uint256 amount
     ) internal {
         // Once we have a vault pointer, no reentrancy is allowed.
-        VaultPointer memory vProxy = VaultLib.get(self.vid);
+        VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         ClosureId[] storage closures = dist.getClosures();
         for (uint256 i = 0; i < closures.length; ++i) {
             // The user deposited a fixed amount, we can't round up.
@@ -142,7 +144,7 @@ library VertexImpl {
         VertexId other,
         bool roundUp
     ) internal view returns (uint256 amount) {
-        VaultPointer memory vProxy = VaultLib.get(self.vid);
+        VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         ClosureId[] storage homs = self.homs[other];
         amount = vProxy.totalBalance(homs, roundUp);
         // Nothing to commit.

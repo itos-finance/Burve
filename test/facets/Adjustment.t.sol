@@ -139,6 +139,6 @@ contract AdjustmentTest is MultiSetupTest {
             100e6 - 100e5 + 10 // Due to openzeppelin's ERC4626 conversions, directly sending tokens loses some dust.
         );
         sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertEq(sqrtPX96, 1 << 96);
+        assertEq(sqrtPX96, 1 << 96, "2");
     }
 }
