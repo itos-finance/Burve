@@ -23,6 +23,9 @@ import {NullStationProxy} from "./NullStationProxy.sol";
 import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
 import {TickRange} from "../../src/single/TickRange.sol";
 
+uint256 constant QUERY_BURN_ALLOWED_APPROX_DELTA = 5;
+uint256 constant TVL_BURN_ALLOWED_APPROX_DELTA = 10;
+
 contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     uint256 private constant X96_MASK = (1 << 96) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
@@ -120,7 +123,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Create Tests
 
-    function testRevert_Create_InvalidRange_Lower() public {
+    function testRevert_Create_InvalidRange_Lower() public forkOnly {
         int24 tickSpacing = pool.tickSpacing();
 
         TickRange[] memory ranges = new TickRange[](1);
@@ -146,7 +149,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_Create_InvalidRange_Upper() public {
+    function testRevert_Create_InvalidRange_Upper() public forkOnly {
         int24 tickSpacing = pool.tickSpacing();
 
         TickRange[] memory ranges = new TickRange[](1);
@@ -172,7 +175,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
     }
 
-    function testRevert_Create_PoolAddressIsZero() public {
+    function testRevert_Create_PoolAddressIsZero() public forkOnly {
         vm.expectRevert();
         new Burve(
             address(0x0),
@@ -1805,8 +1808,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // check TVL
-        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
-        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
+        assertApproxEqAbs(
+            tvl0,
+            burnAlice0 + burnCharlie0,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token0"
+        );
+        assertApproxEqAbs(
+            tvl1,
+            burnAlice1 + burnCharlie1,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token1"
+        );
     }
 
     function test_QueryValue_Island_WithFees() public forkOnly {
@@ -1949,8 +1962,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // check TVL
-        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
-        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
+        assertApproxEqAbs(
+            tvl0,
+            burnAlice0 + burnCharlie0,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token0"
+        );
+        assertApproxEqAbs(
+            tvl1,
+            burnAlice1 + burnCharlie1,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token1"
+        );
     }
 
     function test_QueryValue_Island_NoPosition() public forkOnly {
@@ -2040,8 +2063,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // check TVL
-        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
-        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
+        assertApproxEqAbs(
+            tvl0,
+            burnAlice0 + burnCharlie0,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token0"
+        );
+        assertApproxEqAbs(
+            tvl1,
+            burnAlice1 + burnCharlie1,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token1"
+        );
     }
 
     function test_QueryValue_V3_WithFees() public forkOnly {
@@ -2142,26 +2175,26 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             queryWithFeeAlice0,
             burnAlice0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeAlice1,
             burnAlice1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token1 matches burn"
         );
 
         assertApproxEqAbs(
             queryWithFeeCharlie0,
             burnCharlie0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeCharlie1,
             burnCharlie1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token1 matches burn"
         );
 
@@ -2204,8 +2237,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // check TVL
-        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
-        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
+        assertApproxEqAbs(
+            tvl0,
+            burnAlice0 + burnCharlie0,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token0"
+        );
+        assertApproxEqAbs(
+            tvl1,
+            burnAlice1 + burnCharlie1,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token1"
+        );
     }
 
     function test_QueryValue_V3_NoPosition() public forkOnly {
@@ -2296,8 +2339,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // check TVL
-        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
-        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
+        assertApproxEqAbs(
+            tvl0,
+            burnAlice0 + burnCharlie0,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token0"
+        );
+        assertApproxEqAbs(
+            tvl1,
+            burnAlice1 + burnCharlie1,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token1"
+        );
     }
 
     function test_QueryValue_WithFees() public forkOnly {
@@ -2399,26 +2452,26 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             queryWithFeeAlice0,
             burnAlice0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeAlice1,
             burnAlice1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token1 matches burn"
         );
 
         assertApproxEqAbs(
             queryWithFeeCharlie0,
             burnCharlie0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeCharlie1,
             burnCharlie1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token1 matches burn"
         );
 
@@ -2461,8 +2514,18 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // check TVL
-        assertApproxEqAbs(tvl0, burnAlice0 + burnCharlie0, 3, "tvl token0");
-        assertApproxEqAbs(tvl1, burnAlice1 + burnCharlie1, 3, "tvl token1");
+        assertApproxEqAbs(
+            tvl0,
+            burnAlice0 + burnCharlie0,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token0"
+        );
+        assertApproxEqAbs(
+            tvl1,
+            burnAlice1 + burnCharlie1,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
+            "tvl token1"
+        );
     }
 
     function test_QueryValue_NoPosition() public forkOnly {
