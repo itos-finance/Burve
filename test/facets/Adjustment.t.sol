@@ -128,7 +128,9 @@ contract AdjustmentTest is MultiSetupTest {
 
         // Balance is currently insufficient.
         uint160 sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertLt(sqrtPX96, 1 << 95); // So the price is less than 0.5!
+        if (tokens[2] < tokens[0])
+            assertGt(sqrtPX96, 1 << 97); // More valuable, greater than 2.
+        else assertLt(sqrtPX96, 1 << 95); // The price is less than 0.5!
 
         // Adding some tokens to the vault will skew prices because of the adjustment.
         TransferHelper.safeTransfer(
