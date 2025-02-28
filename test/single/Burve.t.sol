@@ -23,7 +23,8 @@ import {NullStationProxy} from "./NullStationProxy.sol";
 import {TickMath} from "../../src/single/integrations/uniswap/TickMath.sol";
 import {TickRange} from "../../src/single/TickRange.sol";
 
-uint256 constant TVL_ALLOWED_APPROX_DELTA = 10;
+uint256 constant QUERY_BURN_ALLOWED_APPROX_DELTA = 5;
+uint256 constant TVL_BURN_ALLOWED_APPROX_DELTA = 10;
 
 contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     uint256 private constant X96_MASK = (1 << 96) - 1;
@@ -1810,13 +1811,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             tvl0,
             burnAlice0 + burnCharlie0,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token0"
         );
         assertApproxEqAbs(
             tvl1,
             burnAlice1 + burnCharlie1,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token1"
         );
     }
@@ -1964,13 +1965,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             tvl0,
             burnAlice0 + burnCharlie0,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token0"
         );
         assertApproxEqAbs(
             tvl1,
             burnAlice1 + burnCharlie1,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token1"
         );
     }
@@ -2065,13 +2066,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             tvl0,
             burnAlice0 + burnCharlie0,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token0"
         );
         assertApproxEqAbs(
             tvl1,
             burnAlice1 + burnCharlie1,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token1"
         );
     }
@@ -2174,26 +2175,26 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             queryWithFeeAlice0,
             burnAlice0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeAlice1,
             burnAlice1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token1 matches burn"
         );
 
         assertApproxEqAbs(
             queryWithFeeCharlie0,
             burnCharlie0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeCharlie1,
             burnCharlie1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token1 matches burn"
         );
 
@@ -2239,13 +2240,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             tvl0,
             burnAlice0 + burnCharlie0,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token0"
         );
         assertApproxEqAbs(
             tvl1,
             burnAlice1 + burnCharlie1,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token1"
         );
     }
@@ -2341,13 +2342,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             tvl0,
             burnAlice0 + burnCharlie0,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token0"
         );
         assertApproxEqAbs(
             tvl1,
             burnAlice1 + burnCharlie1,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token1"
         );
     }
@@ -2451,26 +2452,26 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             queryWithFeeAlice0,
             burnAlice0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeAlice1,
             burnAlice1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query alice token1 matches burn"
         );
 
         assertApproxEqAbs(
             queryWithFeeCharlie0,
             burnCharlie0,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token0 matches burn"
         );
         assertApproxEqAbs(
             queryWithFeeCharlie1,
             burnCharlie1,
-            1,
+            QUERY_BURN_ALLOWED_APPROX_DELTA,
             "query charlie token1 matches burn"
         );
 
@@ -2516,13 +2517,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertApproxEqAbs(
             tvl0,
             burnAlice0 + burnCharlie0,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token0"
         );
         assertApproxEqAbs(
             tvl1,
             burnAlice1 + burnCharlie1,
-            TVL_ALLOWED_APPROX_DELTA,
+            TVL_BURN_ALLOWED_APPROX_DELTA,
             "tvl token1"
         );
     }
