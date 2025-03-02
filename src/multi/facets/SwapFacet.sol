@@ -12,7 +12,6 @@ import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 import {VertexId, newVertexId} from "../Vertex.sol";
 import {ClosureDist} from "../Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
-import {console} from "forge-std/console.sol";
 
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal.
