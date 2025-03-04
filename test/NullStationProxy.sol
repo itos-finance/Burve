@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {IStationProxy} from "../src/IStationProxy.sol";
+import {IStationProxy} from "../src/single/IStationProxy.sol";
 import {TransferHelper} from "../src/TransferHelper.sol";
 
 contract NullStationProxy is IStationProxy {
