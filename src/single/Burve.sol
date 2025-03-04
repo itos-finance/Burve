@@ -415,6 +415,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Queries the token amounts in a user's position.
+    /// @dev As of now, this method is only used by off-chain queries where the minor errors are negligible. Do not use this where high-precision is required.
     /// @param owner The owner of the position.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
@@ -435,6 +436,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Queries the token amounts held by the contract. Ignoring leftover amounts.
+    /// @dev As of now, this method is only used by off-chain queries where the minor errors are negligible. Do not use this where high-precision is required.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
     function queryTVL() external view returns (uint256 query0, uint256 query1) {
