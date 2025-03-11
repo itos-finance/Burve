@@ -16,6 +16,12 @@ import {VaultType} from "../src/multi/VaultProxy.sol";
 import {BurveMultiLPToken} from "../src/multi/LPToken.sol";
 import {MockERC4626} from "../test/mocks/MockERC4626.sol";
 
+contract MockToken is ERC20 {
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
+        _mint(msg.sender, 1000000 * 10 ** decimals());
+    }
+}
+
 contract DeployBurve is Script {
     SimplexDiamond public diamond;
     LiqFacet public liqFacet;
@@ -27,11 +33,11 @@ contract DeployBurve is Script {
     address[] public tokens;
     address[] public vaults;
 
-    // Real tokens
-    ERC20 public honey;
-    ERC20 public dai;
-    ERC20 public mim;
-    ERC20 public mead;
+    // Mock tokens
+    MockToken public honey;
+    MockToken public dai;
+    MockToken public mim;
+    MockToken public mead;
 
     // Mock vaults
     MockERC4626 public mockHoneyVault;
@@ -51,19 +57,13 @@ contract DeployBurve is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
-        // Get token addresses from environment variables
-        address honeyAddress = vm.envAddress("HONEY_ADDRESS");
-        address daiAddress = vm.envAddress("DAI_ADDRESS");
-        address mimAddress = vm.envAddress("MIM_ADDRESS");
-        address meadAddress = vm.envAddress("MEAD_ADDRESS");
-
         vm.startBroadcast(deployerPrivateKey);
 
-        // Initialize token interfaces
-        honey = ERC20(honeyAddress);
-        dai = ERC20(daiAddress);
-        mim = ERC20(mimAddress);
-        mead = ERC20(meadAddress);
+        // Deploy mock tokens
+        honey = new MockToken("Honey Token", "HONEY");
+        dai = new MockToken("Dai Stablecoin", "DAI");
+        mim = new MockToken("Magic Internet Money", "MIM");
+        mead = new MockToken("Mead Token", "MEAD");
 
         // Deploy mock vaults
         mockHoneyVault = new MockERC4626(honey, "Honey Vault", "vHONEY");
@@ -90,11 +90,11 @@ contract DeployBurve is Script {
         tokens = new address[](4);
         vaults = new address[](4);
 
-        // Fill in token addresses with real tokens
-        tokens[0] = honeyAddress;
-        tokens[1] = daiAddress;
-        tokens[2] = mimAddress;
-        tokens[3] = meadAddress;
+        // Fill in token addresses with mock tokens
+        tokens[0] = address(honey);
+        tokens[1] = address(dai);
+        tokens[2] = address(mim);
+        tokens[3] = address(mead);
 
         // Fill in vault addresses with mock vaults
         vaults[0] = address(mockHoneyVault);

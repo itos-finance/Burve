@@ -16,6 +16,14 @@ anvil
 forge script script/utils/Deploy.s.sol: --rpc-url http://localhost:8545 --broadcast
 ```
 
+```bash
+forge script script/Env.s.sol:DeployBurve --rpc-url $FORK_URL --broadcast
+```
+
+```bash
+forge script script/utils/DeploySingleBurve.s.sol:DeploySingleBurve --rpc-url $FORK_URL --broadcast
+```
+
 ## Environment Variables
 
 The scripts utilize a `.env` file for configuration. Make sure to set the following environment variables in your `.env` file:

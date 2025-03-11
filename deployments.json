@@ -1,0 +1,8 @@
+{
+	"mainnet": {
+		"pool": "${POOL_ADDRESS}",
+		"island": "${ISLAND_ADDRESS}",
+		"stationProxy": "",
+		"burve": ""
+	}
+}
