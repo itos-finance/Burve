@@ -28,7 +28,7 @@ contract DeploySingleBurve is Script {
 
     // Token addresses
     address constant HONEY = 0x0E4aaF1351de4c0264C5c7056Ef3777b41BD8e03;
-    address constant WBERA = 0x7507c1dc16935B82698e4C63f2746A2fCf994dF8;
+    address constant USDC = 0x7507c1dc16935B82698e4C63f2746A2fCf994dF8; // Previously WBERA
 
     // Pool configuration
     int24 constant POOL_TICK_SPACING = 60;
@@ -52,39 +52,39 @@ contract DeploySingleBurve is Script {
 
         // Setup ranges for Burve
 
-        // TickRange[] memory ranges = new TickRange[](2);
-        // // Island range using the specific Bartio parameters
-        // ranges[0] = TickRange(ISLAND_LOWER_TICK, ISLAND_UPPER_TICK);
-        // // V3 range centered around current tick
-        // ranges[1] = TickRange(-107820, 58200);
+        TickRange[] memory ranges = new TickRange[](2);
+        // Island range using the specific Bartio parameters
+        ranges[0] = TickRange(ISLAND_LOWER_TICK, ISLAND_UPPER_TICK);
+        // V3 range centered around current tick
+        ranges[1] = TickRange(-107820, 58200);
 
-        // // Setup weights for ranges
-        // uint128[] memory weights = new uint128[](2);
-        // weights[0] = 2; // 66% weight to island
-        // weights[1] = 1; // 33% weight to v3 range
+        // Setup weights for ranges
+        uint128[] memory weights = new uint128[](2);
+        weights[0] = 2; // 66% weight to island
+        weights[1] = 1; // 33% weight to v3 range
 
-        // // Deploy Burve
-        // burve = new Burve(
-        //     POOL_ADDRESS,
-        //     ISLAND_ADDRESS,
-        //     address(stationProxy),
-        //     ranges,
-        //     weights
-        // );
+        // Deploy Burve
+        burve = new Burve(
+            POOL_ADDRESS,
+            ISLAND_ADDRESS,
+            address(stationProxy),
+            ranges,
+            weights
+        );
 
-        // // Log deployed addresses and configuration
-        // console2.log("Deployments:");
-        // console2.log("Pool:", POOL_ADDRESS);
-        // console2.log("Island:", ISLAND_ADDRESS);
-        // console2.log("StationProxy:", address(stationProxy));
-        // console2.log("Burve:", address(burve));
+        // Log deployed addresses and configuration
+        console2.log("Deployments:");
+        console2.log("Pool:", POOL_ADDRESS);
+        console2.log("Island:", ISLAND_ADDRESS);
+        console2.log("StationProxy:", address(stationProxy));
+        console2.log("Burve:", address(burve));
 
         // Write deployment addresses to JSON file
         string memory json = vm.readFile("script/deployments.json");
-        // json = json.serialize("bartio.pool", POOL_ADDRESS);
-        // json = json.serialize("bartio.island", ISLAND_ADDRESS);
+        json = json.serialize("bartio.pool", POOL_ADDRESS);
+        json = json.serialize("bartio.island", ISLAND_ADDRESS);
         json = json.serialize("bartio.stationProxy", address(stationProxy));
-        // json = json.serialize("bartio.burve", address(burve));
+        json = json.serialize("bartio.burve", address(burve));
         vm.writeFile("script/deployments.json", json);
 
         vm.stopBroadcast();

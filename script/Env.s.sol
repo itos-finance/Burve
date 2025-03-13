@@ -16,9 +16,35 @@ import {VaultType} from "../src/multi/VaultProxy.sol";
 import {BurveMultiLPToken} from "../src/multi/LPToken.sol";
 import {MockERC4626} from "../test/mocks/MockERC4626.sol";
 
+struct TokenConfig {
+    string name;
+    string symbol;
+    uint8 decimals;
+}
+
+struct TokenSet {
+    string name;
+    TokenConfig[] tokens;
+}
+
 contract MockToken is ERC20 {
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
-        _mint(msg.sender, 1000000 * 10 ** decimals());
+    uint8 private _decimals;
+
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint8 decimalsArg
+    ) ERC20(name, symbol) {
+        _decimals = decimalsArg;
+        _mint(msg.sender, 1000000 * 10 ** decimalsArg);
+    }
+
+    function mint(address receiver, uint256 amount) external {
+        _mint(receiver, amount);
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
     }
 }
 
@@ -29,21 +55,11 @@ contract DeployBurve is Script {
     SwapFacet public swapFacet;
     ViewFacet public viewFacet;
 
-    // Token addresses (to be filled in)
+    // Token addresses and vaults for current deployment
     address[] public tokens;
     address[] public vaults;
-
-    // Mock tokens
-    MockToken public honey;
-    MockToken public dai;
-    MockToken public mim;
-    MockToken public mead;
-
-    // Mock vaults
-    MockERC4626 public mockHoneyVault;
-    MockERC4626 public mockDaiVault;
-    MockERC4626 public mockMimVault;
-    MockERC4626 public mockMeadVault;
+    MockToken[] public mockTokens;
+    MockERC4626[] public mockVaults;
 
     // Mapping to store LP tokens for each closure ID
     mapping(uint16 => BurveMultiLPToken) public lpTokens;
@@ -54,22 +70,61 @@ contract DeployBurve is Script {
     bool[] internal used;
     address[] internal currentPartition;
 
-    function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+    function getTokenSets() internal pure returns (TokenSet[] memory) {
+        // USD Stablecoin Set
+        TokenConfig[] memory usdTokens = new TokenConfig[](4);
+        usdTokens[0] = TokenConfig("USD Circle", "USDC", 6);
+        usdTokens[1] = TokenConfig("Dai Stablecoin", "DAI", 18);
+        usdTokens[2] = TokenConfig("Magic Internet Money", "MIM", 18);
+        usdTokens[3] = TokenConfig("USD Tether", "USDT", 6);
 
-        vm.startBroadcast(deployerPrivateKey);
+        // BTC Set
+        TokenConfig[] memory btcTokens = new TokenConfig[](3);
+        btcTokens[0] = TokenConfig("Wrapped BTC", "WBTC", 18);
+        btcTokens[1] = TokenConfig("Uni BTC", "uniBTC", 18);
+        btcTokens[2] = TokenConfig("Lombard BTC", "LBTC", 18);
 
-        // Deploy mock tokens
-        honey = new MockToken("Honey Token", "HONEY");
-        dai = new MockToken("Dai Stablecoin", "DAI");
-        mim = new MockToken("Magic Internet Money", "MIM");
-        mead = new MockToken("Mead Token", "MEAD");
+        // ETH Set
+        TokenConfig[] memory ethTokens = new TokenConfig[](3);
+        ethTokens[0] = TokenConfig("Wrapped Ether", "WETH", 18);
+        ethTokens[1] = TokenConfig("Berachain ETH", "beraETH", 18);
+        ethTokens[2] = TokenConfig("KelpDAO Restaked ETH", "rsETH", 18);
 
-        // Deploy mock vaults
-        mockHoneyVault = new MockERC4626(honey, "Honey Vault", "vHONEY");
-        mockDaiVault = new MockERC4626(dai, "Dai Vault", "vDAI");
-        mockMimVault = new MockERC4626(mim, "MIM Vault", "vMIM");
-        mockMeadVault = new MockERC4626(mead, "Mead Vault", "vMEAD");
+        TokenSet[] memory sets = new TokenSet[](3);
+        sets[0] = TokenSet("USD", usdTokens);
+        sets[1] = TokenSet("BTC", btcTokens);
+        sets[2] = TokenSet("ETH", ethTokens);
+
+        return sets;
+    }
+
+    function deployTokenSet(TokenSet memory set) internal {
+        uint256 tokenCount = set.tokens.length;
+
+        // Reset arrays for new deployment
+        tokens = new address[](tokenCount);
+        vaults = new address[](tokenCount);
+        mockTokens = new MockToken[](tokenCount);
+        mockVaults = new MockERC4626[](tokenCount);
+
+        console2.log("\n=== Deploying", set.name, "Token Set ===");
+
+        // Deploy tokens and vaults
+        for (uint256 i = 0; i < tokenCount; i++) {
+            TokenConfig memory config = set.tokens[i];
+            mockTokens[i] = new MockToken(
+                config.name,
+                config.symbol,
+                config.decimals
+            );
+            mockVaults[i] = new MockERC4626(
+                mockTokens[i],
+                string.concat(config.symbol, " Vault"),
+                string.concat("v", config.symbol)
+            );
+            tokens[i] = address(mockTokens[i]);
+            vaults[i] = address(mockVaults[i]);
+        }
 
         // Deploy the diamond and facets
         BurveFacets memory burveFacets = InitLib.deployFacets();
@@ -81,29 +136,12 @@ contract DeployBurve is Script {
         swapFacet = SwapFacet(address(diamond));
         viewFacet = ViewFacet(address(diamond));
 
-        /// @dev Name the pool
-        simplexFacet.setName("stables");
-
+        // Configure the diamond
+        simplexFacet.setName(string.concat(set.name, "-Burve"));
         simplexFacet.setDefaultEdge(101, -46063, 46063, 3000, 200);
 
-        // Setup tokens and vaults arrays
-        tokens = new address[](4);
-        vaults = new address[](4);
-
-        // Fill in token addresses with mock tokens
-        tokens[0] = address(honey);
-        tokens[1] = address(dai);
-        tokens[2] = address(mim);
-        tokens[3] = address(mead);
-
-        // Fill in vault addresses with mock vaults
-        vaults[0] = address(mockHoneyVault);
-        vaults[1] = address(mockDaiVault);
-        vaults[2] = address(mockMimVault);
-        vaults[3] = address(mockMeadVault);
-
         // Add vertices for each token-vault pair
-        for (uint256 i = 0; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokenCount; i++) {
             simplexFacet.addVertex(tokens[i], vaults[i], VaultType.E4626);
         }
 
@@ -111,42 +149,38 @@ contract DeployBurve is Script {
         _setupEdges();
 
         // Initialize arrays for partition generation
-        used = new bool[](tokens.length);
-        currentPartition = new address[](2); // Start with pairs
+        used = new bool[](tokenCount);
+        currentPartition = new address[](2);
 
-        // Setup closures and LP tokens for all possible combinations
+        // Setup closures and LP tokens
         _setupClosuresAndLPTokens();
 
-        // Log deployed addresses
-        console2.log("Diamond deployed to:", address(diamond));
+        // Log deployments
+        console2.log("\nDeployments for", set.name, "Set:");
+        console2.log("Diamond:", address(diamond));
         console2.log("\nToken Addresses:");
-        console2.log("HONEY:", address(honey));
-        console2.log("DAI:", address(dai));
-        console2.log("MIM:", address(mim));
-        console2.log("MEAD:", address(mead));
-        console2.log("\nMock Vault Addresses:");
-        console2.log("HONEY Vault:", address(mockHoneyVault));
-        console2.log("DAI Vault:", address(mockDaiVault));
-        console2.log("MIM Vault:", address(mockMimVault));
-        console2.log("MEAD Vault:", address(mockMeadVault));
-        console2.log("\nLP Token Addresses:");
-        for (uint256 i = 0; i < closureIds.length; i++) {
-            uint16 closureId = closureIds[i];
+        for (uint256 i = 0; i < tokenCount; i++) {
+            console2.log(set.tokens[i].symbol, ":", tokens[i]);
             console2.log(
-                string.concat(
-                    "LP Token for closure ",
-                    vm.toString(closureId),
-                    " deployed to: ",
-                    vm.toString(address(lpTokens[closureId]))
-                )
+                string.concat(set.tokens[i].symbol, " Vault:"),
+                vaults[i]
             );
+        }
+    }
+
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+
+        TokenSet[] memory sets = getTokenSets();
+        for (uint256 i = 0; i < sets.length; i++) {
+            deployTokenSet(sets[i]);
         }
 
         vm.stopBroadcast();
     }
 
     function _setupEdges() internal {
-        // Create edges between all token pairs
         for (uint256 i = 0; i < tokens.length; i++) {
             for (uint256 j = i + 1; j < tokens.length; j++) {
                 _setupEdge(tokens[i], tokens[j]);
@@ -155,32 +189,27 @@ contract DeployBurve is Script {
     }
 
     function _setupEdge(address tokenA, address tokenB) internal {
-        EdgeFacet(address(diamond)).setEdge(
-            tokenA,
-            tokenB,
-            101, // amplitude
-            -46063, // lowTick
-            46063 // highTick
-        );
+        EdgeFacet(address(diamond)).setEdge(tokenA, tokenB, 101, -46063, 46063);
     }
 
     function _setupClosuresAndLPTokens() internal {
-        // Generate all possible 2-token partitions
         _generatePartitions(0, 0, 2);
 
-        // Generate all possible 3-token partitions
-        currentPartition = new address[](3);
-        for (uint256 i = 0; i < tokens.length; i++) {
-            used[i] = false;
+        if (tokens.length >= 3) {
+            currentPartition = new address[](3);
+            for (uint256 i = 0; i < tokens.length; i++) {
+                used[i] = false;
+            }
+            _generatePartitions(0, 0, 3);
         }
-        _generatePartitions(0, 0, 3);
 
-        // Generate all possible 4-token partitions
-        currentPartition = new address[](4);
-        for (uint256 i = 0; i < tokens.length; i++) {
-            used[i] = false;
+        if (tokens.length >= 4) {
+            currentPartition = new address[](4);
+            for (uint256 i = 0; i < tokens.length; i++) {
+                used[i] = false;
+            }
+            _generatePartitions(0, 0, 4);
         }
-        _generatePartitions(0, 0, 4);
     }
 
     function _generatePartitions(
@@ -189,12 +218,10 @@ contract DeployBurve is Script {
         uint256 targetSize
     ) internal {
         if (currentSize == targetSize) {
-            // We have a complete partition, create closure and LP token
             uint16 closureId = ClosureId.unwrap(
                 viewFacet.getClosureId(currentPartition)
             );
 
-            // Check if we already have this closure
             bool exists = false;
             for (uint256 i = 0; i < closureIds.length; i++) {
                 if (closureIds[i] == closureId) {
@@ -210,23 +237,10 @@ contract DeployBurve is Script {
                     address(diamond)
                 );
                 lpTokens[closureId] = lpToken;
-
-                // Print detailed information about the LP token
-                console2.log("----------------------------------------");
-                console2.log("New LP Token Created:");
-                console2.log("Address:", address(lpToken));
-                console2.log("Name:", lpToken.name());
-                console2.log("Symbol:", lpToken.symbol());
-                console2.log("Tokens in partition:");
-                for (uint256 i = 0; i < currentPartition.length; i++) {
-                    console2.log("  ", ERC20(currentPartition[i]).symbol());
-                }
-                console2.log("----------------------------------------");
             }
             return;
         }
 
-        // Try each unused token in this position
         for (uint256 i = start; i < tokens.length; i++) {
             if (!used[i]) {
                 used[i] = true;

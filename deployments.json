@@ -1,8 +1,59 @@
 {
-	"mainnet": {
-		"pool": "${POOL_ADDRESS}",
-		"island": "${ISLAND_ADDRESS}",
-		"stationProxy": "",
-		"burve": ""
+	"deployments": {
+		"usd": {
+			"diamond": "0xfc0084914a1bE29fFDc810631f4Dd3163EC19941",
+			"tokens": {
+				"USDC": {
+					"token": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE",
+					"vault": "0xC45013534484DA833B8f39a5e3E8DFbe74E79192"
+				},
+				"DAI": {
+					"token": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35",
+					"vault": "0xB5034E2c6E7969C2cC8BD801b11FAa21D4846cE6"
+				},
+				"MIM": {
+					"token": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2",
+					"vault": "0x37Caa7714dC4fE0F6C57Ac30f6655A4ACbb935c8"
+				},
+				"USDT": {
+					"token": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9",
+					"vault": "0xF241289b0dE2A866bb0CE001AB84016D182c5347"
+				}
+			}
+		},
+		"btc": {
+			"diamond": "0xd01B3fE5219D390c7B73E1bBbaA5ED8980a6FC9a",
+			"tokens": {
+				"WBTC": {
+					"token": "0x688a5D3B7EcAd835469408ddcDFE4Fee6e2d881D",
+					"vault": "0x868F60bd071f1352ABc336349a0d938e9b2Eb91E"
+				},
+				"uniBTC": {
+					"token": "0xdA92aE7D59e7Fb497BCf531Fb64B3d375Bb6Fd45",
+					"vault": "0x0002cdaC4E529049476672Ca2f1d4c4254ad941a"
+				},
+				"LBTC": {
+					"token": "0x2aB4cC8ffa918b0BBC4D3367C31998B00A47e23b",
+					"vault": "0x6A4B8bed47F2C67e1CFdb096d473442b5dbe3669"
+				}
+			}
+		},
+		"eth": {
+			"diamond": "0xF6CBc0e1410D9279ad63434a5FB4882aD131761d",
+			"tokens": {
+				"WETH": {
+					"token": "0x3908f22f5f4CBAf811BB60Da97fbc8322af78Ae0",
+					"vault": "0xFCf56B85f6c5eAEC5dd53b51C0035c2e1223F1dB"
+				},
+				"beraETH": {
+					"token": "0x32497a98a011b289AecD3e1791bF494138F444af",
+					"vault": "0x844ad502a8ECbc581083e1dA2E6B9e9165951a04"
+				},
+				"rsETH": {
+					"token": "0xc3A890d953f87e40291E93129C63f75Ff3F22DF2",
+					"vault": "0x68EB8FE54B1c4E26f202275a5b556Af462D43748"
+				}
+			}
+		}
 	}
 }
