@@ -66,8 +66,12 @@ contract Burve is ERC20 {
 
     /// Thrown if the given tick range does not match the pools tick spacing.
     error InvalidRange(int24 lower, int24 upper);
-    /// Thrown in the constructor if an island range is provided but no island.
-    error NoIsland();
+    /// Thrown if an island is provided without the island range at index 0,
+    /// if the island range at index 0 is provided without the island,
+    /// or if an island range is given at an index other than 0.
+    error InvalidIslandRange();
+    /// Thrown if no ranges are provided.
+    error NoRanges();
     /// Thrown when the provided island points to a pool that does not match the provided pool.
     error MismatchedIslandPool(address island, address pool);
     /// Thrown when the number of ranges and number of weights do not match.
@@ -130,7 +134,8 @@ contract Burve is ERC20 {
         island = IKodiakIsland(_island);
         stationProxy = IStationProxy(_stationProxy);
 
-        if (_island != address(0x0) && address(island.pool()) != _pool) {
+        bool hasIsland = (_island != address(0x0));
+        if (hasIsland && address(island.pool()) != _pool) {
             revert MismatchedIslandPool(_island, _pool);
         }
 
@@ -141,16 +146,27 @@ contract Burve is ERC20 {
             );
         }
 
-        int24 tickSpacing = pool.tickSpacing();
+        if (_ranges.length == 0) {
+            revert NoRanges();
+        }
 
-        // copy ranges to storage
-        for (uint256 i = 0; i < _ranges.length; ++i) {
-            TickRange memory range = _ranges[i];
+        uint256 rangeIndex = 0;
 
+        // copy optional island range to storage
+        if (hasIsland) {
+            TickRange memory range = _ranges[rangeIndex];
+            if (!range.isIsland()) revert InvalidIslandRange();
             ranges.push(range);
+            ++rangeIndex;
+        }
 
-            if (range.isIsland() && address(island) == address(0x0)) {
-                revert NoIsland();
+        // copy v3 ranges to storage
+        int24 tickSpacing = pool.tickSpacing();
+        while (rangeIndex < _ranges.length) {
+            TickRange memory range = _ranges[rangeIndex];
+
+            if (range.isIsland()) {
+                revert InvalidIslandRange();
             }
 
             if (
@@ -159,6 +175,9 @@ contract Burve is ERC20 {
             ) {
                 revert InvalidRange(range.lower, range.upper);
             }
+
+            ranges.push(range);
+            ++rangeIndex;
         }
 
         // compute total sum of weights
