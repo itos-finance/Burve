@@ -34,6 +34,17 @@ interface IStationProxy {
         address owner
     ) external;
 
+    /// The allowance of LP token the spender is allowed to transfer on behalf of the owner.
+    /// @param spender The spender
+    /// @param lpToken The LP token
+    /// @param owner The owner of the LP token
+    /// @return _allowance The amount of LP token the spender is allowed to transfer on behalf of the owner.
+    function allowance(
+        address spender,
+        address lpToken,
+        address owner
+    ) external view returns (uint256 _allowance);
+
     /// Moves existing deposits to a new station proxy.
     function migrate(IStationProxy newStationProxy) external;
 }

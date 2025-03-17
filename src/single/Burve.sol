@@ -643,6 +643,47 @@ contract Burve is ERC20 {
         info.distX96 = distX96;
     }
 
+    /* Internal Calls */
+
+    /// Override the erc20 update function to handle island share and lp token moves.
+    function _update(
+        address from,
+        address to,
+        uint256 value
+    ) internal virtual override {
+        // We handle mints and burns in their respective calls.
+        // We just want to handle transfers between two valid addresses.
+        if (
+            from != address(0) &&
+            to != address(0) &&
+            address(island) != address(0)
+        ) {
+            // Move the island shares that correspond to the LP tokens being moved.
+            uint256 islandTransfer = FullMath.mulDiv(
+                islandSharesPerOwner[from],
+                value,
+                balanceOf(from)
+            );
+
+            islandSharesPerOwner[from] -= islandTransfer;
+            // It doesn't matter if this is off by one because the user gets a percent of their island shares on burn.
+            islandSharesPerOwner[to] += islandTransfer;
+            // We withdraw from the station proxy so the burve earnings stop,
+            // but the current owner can collect their earnings so far.
+            stationProxy.withdrawLP(address(island), islandTransfer, from);
+
+            SafeERC20.forceApprove(
+                island,
+                address(stationProxy),
+                islandTransfer
+            );
+            stationProxy.depositLP(address(island), islandTransfer, to);
+            SafeERC20.forceApprove(island, address(stationProxy), 0);
+        }
+
+        super._update(from, to, value);
+    }
+
     /// @notice Collect fees and compound them for each v3 range.
     function compoundV3Ranges() internal {
         // collect fees
