@@ -103,29 +103,31 @@ library FeeLib {
 
         ) = pool.ticks(tickUpper);
 
-        if (tickCurrent < tickLower) {
-            feeGrowthInside0X128 =
-                lowerFeeGrowthOutside0X128 -
-                upperFeeGrowthOutside0X128;
-            feeGrowthInside1X128 =
-                lowerFeeGrowthOutside1X128 -
-                upperFeeGrowthOutside1X128;
-        } else if (tickCurrent < tickUpper) {
-            feeGrowthInside0X128 =
-                feeGrowthGlobal0X128 -
-                lowerFeeGrowthOutside0X128 -
-                upperFeeGrowthOutside0X128;
-            feeGrowthInside1X128 =
-                feeGrowthGlobal1X128 -
-                lowerFeeGrowthOutside1X128 -
-                upperFeeGrowthOutside1X128;
-        } else {
-            feeGrowthInside0X128 =
-                upperFeeGrowthOutside0X128 -
-                lowerFeeGrowthOutside0X128;
-            feeGrowthInside1X128 =
-                upperFeeGrowthOutside1X128 -
-                lowerFeeGrowthOutside1X128;
+        unchecked {
+            if (tickCurrent < tickLower) {
+                feeGrowthInside0X128 =
+                    lowerFeeGrowthOutside0X128 -
+                    upperFeeGrowthOutside0X128;
+                feeGrowthInside1X128 =
+                    lowerFeeGrowthOutside1X128 -
+                    upperFeeGrowthOutside1X128;
+            } else if (tickCurrent < tickUpper) {
+                feeGrowthInside0X128 =
+                    feeGrowthGlobal0X128 -
+                    lowerFeeGrowthOutside0X128 -
+                    upperFeeGrowthOutside0X128;
+                feeGrowthInside1X128 =
+                    feeGrowthGlobal1X128 -
+                    lowerFeeGrowthOutside1X128 -
+                    upperFeeGrowthOutside1X128;
+            } else {
+                feeGrowthInside0X128 =
+                    upperFeeGrowthOutside0X128 -
+                    lowerFeeGrowthOutside0X128;
+                feeGrowthInside1X128 =
+                    upperFeeGrowthOutside1X128 -
+                    lowerFeeGrowthOutside1X128;
+            }
         }
     }
 }
