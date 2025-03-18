@@ -191,8 +191,8 @@ library VaultProxyImpl {
     ) internal {
         // We effectively don't allow withdraws beyond uint128 due to the capping in balance.
         uint128 available = self.active.balance(cid, false);
-        uint256 withdrawable = self.active.withdrawable();
-        if (withdrawable < available) available = uint128(withdrawable);
+        uint256 maxWithdrawable = self.active.withdrawable();
+        if (maxWithdrawable < available) available = uint128(maxWithdrawable);
 
         if (amount > available) {
             self.active.withdraw(cid, available);
