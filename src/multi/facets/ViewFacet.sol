@@ -38,30 +38,6 @@ contract ViewFacet {
         return self.getPriceX128(balance0, balance1);
     }
 
-    function getVertex(
-        address token
-    )
-        external
-        view
-        returns (
-            VertexId vid,
-            ClosureId[] memory homs,
-            bool[] memory homSetFlags
-        )
-    {
-        Vertex storage v = Store.vertex(newVertexId(token));
-        vid = v.vid;
-
-        // We'll return the first connected vertex's homs and homSet for testing
-        // You can add more comprehensive vertex data access as needed
-        VertexId firstNeighbor = VertexId.wrap(1); // First possible vertex
-        homs = v.homs[firstNeighbor];
-        homSetFlags = new bool[](homs.length);
-        for (uint i = 0; i < homs.length; i++) {
-            homSetFlags[i] = v.homSet[firstNeighbor][homs[i]];
-        }
-    }
-
     function getAssetShares(
         address owner,
         ClosureId cid
