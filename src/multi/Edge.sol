@@ -57,8 +57,6 @@ using EdgeImpl for Edge global;
 library EdgeImpl {
     uint256 constant X224 = 1 << 224; // used in getInvPriceX128
 
-    error NoEdgeSettings(address token0, address token1);
-
     /* Admin function to set edge parameters */
 
     /// @dev This is simple because we recalculate the implied price every time.
