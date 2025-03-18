@@ -602,6 +602,7 @@ contract Burve is ERC20 {
                     range.upper,
                     false
                 );
+
             accumulatedFees0 += compoundedFees0;
             accumulatedFees1 += compoundedFees1;
 
@@ -618,6 +619,19 @@ contract Burve is ERC20 {
             );
             query0 += amount0;
             query1 += amount1;
+        }
+
+        // matches collected amount adjustment in collectAndCalcCompound
+        if (accumulatedFees0 > distX96.length) {
+            accumulatedFees0 -= distX96.length;
+        } else {
+            accumulatedFees0 = 0;
+        }
+
+        if (accumulatedFees1 > distX96.length) {
+            accumulatedFees1 -= distX96.length;
+        } else {
+            accumulatedFees1 = 0;
         }
 
         // calculate share of accumulated fees
@@ -770,6 +784,24 @@ contract Burve is ERC20 {
         }
         if (collected1 > type(uint192).max) {
             collected1 = uint256(type(uint192).max);
+        }
+
+        // when split into n ranges the amount of tokens required can be rounded up
+        // we need to make sure the collected amount allows for this rounding
+        if (collected0 > distX96.length) {
+            collected0 -= distX96.length;
+        } else {
+            collected0 = 0;
+        }
+
+        if (collected1 > distX96.length) {
+            collected1 -= distX96.length;
+        } else {
+            collected1 = 0;
+        }
+
+        if (collected0 == 0 && collected1 == 0) {
+            return 0;
         }
 
         // compute liq in collected amounts
