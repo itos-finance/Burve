@@ -33,7 +33,6 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     BurveExposedInternal public burveIsland; // island only
     BurveExposedInternal public burveV3; // v3 only
     BurveExposedInternal public burve; // island + v3
-    BurveExposedInternal public burveCompound; // island + v3 (mocked uni pool)
 
     IUniswapV3Pool pool;
     IERC20 token0;
@@ -1389,6 +1388,49 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             0,
             "token1 allowance"
         );
+    }
+
+    function test_CompoundV3Ranges_Multi() public forkOnly {
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+
+        TickRange memory range = TickRange(
+            clampedCurrentTick - (10 * tickSpacing),
+            clampedCurrentTick + (10 * tickSpacing)
+        );
+
+        TickRange[] memory compoundMultiRanges = new TickRange[](5);
+        compoundMultiRanges[0] = range;
+        compoundMultiRanges[1] = range;
+        compoundMultiRanges[2] = range;
+        compoundMultiRanges[3] = range;
+        compoundMultiRanges[4] = range;
+
+        uint128[] memory compoundMultiWeights = new uint128[](5);
+        compoundMultiWeights[0] = 1;
+        compoundMultiWeights[1] = 1;
+        compoundMultiWeights[2] = 1;
+        compoundMultiWeights[3] = 1;
+        compoundMultiWeights[4] = 1;
+
+        BurveExposedInternal burveCompoundMulti = new BurveExposedInternal(
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            address(0x0),
+            address(stationProxy),
+            compoundMultiRanges,
+            compoundMultiWeights
+        );
+
+        // tokens cannot be equally split between 5 ranges
+        uint256 collected0 = 204;
+        uint256 collected1 = 204;
+
+        // simulate collected amounts
+        deal(address(token0), address(burveCompoundMulti), collected0);
+        deal(address(token1), address(burveCompoundMulti), collected1);
+
+        // checking that compound does not revert
+        burveCompoundMulti.compoundV3RangesExposed();
     }
 
     function test_CompoundV3Ranges_CompoundedNominalLiqIsZero()
