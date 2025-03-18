@@ -33,9 +33,6 @@ abstract contract BaseScript is Script {
     mapping(string => MockERC20) public tokens;
     mapping(string => MockERC4626) public vaults;
 
-    // LP tokens mapping
-    mapping(uint16 => BurveMultiLPToken) public lpTokens;
-
     constructor() {
         deploymentType = "usd";
     }
@@ -124,5 +121,82 @@ abstract contract BaseScript is Script {
         MockERC20 token = tokens[tokenName];
         token.mint(to, amount);
         token.approve(address(diamond), amount);
+    }
+
+    // Helper function to get closureId from a list of token addresses
+    function _getClosureIdFromTokens(
+        address[] memory tokenAddresses
+    ) internal view returns (uint16) {
+        // Check if all tokens are part of the same closure
+        uint16 foundClosureId = 0;
+
+        // Use the default deployment closure ID as a starting point
+        uint16 totalClosures = 10; // Assume a reasonable maximum number of closures to check
+        uint16 startClosureId = _getDeploymentClosureId();
+
+        // First check the default closure ID for this deployment
+        bool allTokensInClosure = true;
+        for (uint j = 0; j < tokenAddresses.length; j++) {
+            if (
+                !viewFacet.isTokenInClosure(startClosureId, tokenAddresses[j])
+            ) {
+                allTokensInClosure = false;
+                break;
+            }
+        }
+
+        if (allTokensInClosure) {
+            return startClosureId;
+        }
+
+        // If the default didn't work, try other closures
+        for (uint16 i = 1; i <= totalClosures; i++) {
+            // Skip the already checked default closure
+            if (i == startClosureId) continue;
+
+            allTokensInClosure = true;
+
+            // Check if all provided tokens are in this closure
+            for (uint j = 0; j < tokenAddresses.length; j++) {
+                if (!viewFacet.isTokenInClosure(i, tokenAddresses[j])) {
+                    allTokensInClosure = false;
+                    break;
+                }
+            }
+
+            if (allTokensInClosure) {
+                // Found a closure that contains all the tokens
+                foundClosureId = i;
+                break;
+            }
+        }
+
+        // If we couldn't find a closure, use the default for the deployment
+        if (foundClosureId == 0) {
+            console2.log(
+                "Warning: No closure found containing all tokens. Using default for deployment."
+            );
+            foundClosureId = startClosureId;
+        }
+
+        return foundClosureId;
+    }
+
+    // Helper function to get closureId for a deployment
+    function _getDeploymentClosureId() internal view returns (uint16) {
+        // Return the closure ID based on the deployment type
+        if (keccak256(bytes(deploymentType)) == keccak256(bytes("usd"))) {
+            return 1; // Assuming closure ID 1 for USD pool
+        } else if (
+            keccak256(bytes(deploymentType)) == keccak256(bytes("eth"))
+        ) {
+            return 2; // Assuming closure ID 2 for ETH pool
+        } else if (
+            keccak256(bytes(deploymentType)) == keccak256(bytes("btc"))
+        ) {
+            return 3; // Assuming closure ID 3 for BTC pool
+        } else {
+            revert("Unknown deployment type");
+        }
     }
 }

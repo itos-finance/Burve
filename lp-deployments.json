@@ -1,0 +1,87 @@
+{
+  "lpTokens": {
+    "3": {
+      "address": "0x63558141DfCEE8DBe15621807f2be2749fB569fC",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"}
+      ]
+    },
+    "5": {
+      "address": "0x380DC6ff16d4aCDB9BEb87F6Ea25E067dD57CbC1",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"}
+      ]
+    },
+    "9": {
+      "address": "0x4184DeEaE6Fb1F551bD9aEc22D0B649a64018f13",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    },
+    "6": {
+      "address": "0x2E87d134631D5D789bDacda820ae394bDFFAcCEe",
+      "tokens": [
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"}
+      ]
+    },
+    "10": {
+      "address": "0xCe00Ad153F72D9aEA5BFD6Feca1A5cF589baf61D",
+      "tokens": [
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    },
+    "12": {
+      "address": "0xe147E821D8C5C575dd57c40e41D6aEb9A56562C6",
+      "tokens": [
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    },
+    "7": {
+      "address": "0xA4cf4313092330c363b07BDeAD8F9Bd41DC833D8",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"}
+      ]
+    },
+    "11": {
+      "address": "0xEf095BD8f1BBD549D32eC2916Fa65a837ec22c2D",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    },
+    "13": {
+      "address": "0x41D87F8F25e6343B47c5f26C4CDCe946E0b7320b",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    },
+    "14": {
+      "address": "0x9d22447AeFa06c0d5c4d54490205d64dB5917f79",
+      "tokens": [
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    },
+    "15": {
+      "address": "0x11692D9e7917d2923276a08BD4eD204B4CA693F1",
+      "tokens": [
+        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
+        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
+        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
+        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
+      ]
+    }
+  }
+}
