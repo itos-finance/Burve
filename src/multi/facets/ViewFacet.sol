@@ -9,8 +9,6 @@ import {VaultStorage} from "../VaultProxy.sol";
 import {SimplexStorage} from "./SimplexFacet.sol";
 import {ClosureId, newClosureId} from "../Closure.sol";
 import {TokenRegLib, TokenRegistry} from "../Token.sol";
-
-/// @notice Mock facet that exposes storage access functions for testing
 contract ViewFacet {
     function getClosureId(
         address[] memory tokens
