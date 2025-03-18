@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-// Open zeppelin IERC20 doesn't have decimals for some reason.
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+
+import {IERC20Metadata} from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IAdjustor} from "./IAdjustor.sol";
 import {FullMath} from "../../FullMath.sol";
 
@@ -216,8 +216,9 @@ contract DecimalAdjustor is IAdjustor {
     }
 
     /// Query the decimals for a given token and sanity check it.
+    /// We can't operate on an ERC20 token without the decimal selector.
     function getDecimals(address token) internal view returns (uint8 dec) {
-        dec = IERC20(token).decimals();
+        dec = IERC20Metadata(token).decimals();
         if (dec > MAX_DECIMAL) revert TooManyDecimals(dec);
     }
 
