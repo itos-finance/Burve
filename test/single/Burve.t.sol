@@ -225,6 +225,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     // Mint Tests
 
     function test_Mint_Island_SenderIsRecipient() public forkOnly {
+        // First give some deadshares so we can mint freely.
+        uint128 deadLiq = 100;
+        deadShareMint(address(burveIsland), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -253,20 +257,25 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         emit Burve.Mint(alice, alice, liq, mintShares);
 
         // mint
-        burveIsland.testMint(address(alice), liq, 0, type(uint128).max);
+        burveIsland.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(
+            burveIsland.totalNominalLiq(),
+            liq + deadLiq,
+            "total liq nominal"
+        );
 
         // check shares
-        assertEq(burveIsland.totalShares(), liq, "total shares");
+        assertEq(burveIsland.totalShares(), liq + deadLiq, "total shares");
 
         // check island shares
+        uint256 deadMints = FullMath.mulDiv(mintShares, deadLiq, liq);
         assertEq(
             burveIsland.totalIslandShares(),
-            mintShares,
+            mintShares + deadMints,
             "total island shares"
         );
 
@@ -283,7 +292,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            mintShares,
+            mintShares + deadMints,
             "station proxy island LP balance"
         );
 
@@ -292,6 +301,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_Island_SenderNotRecipient() public forkOnly {
+        // First mint deadshares so we can mint freely.
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burveIsland), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -320,20 +333,25 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         emit Burve.Mint(sender, alice, liq, mintShares);
 
         // mint
-        burveIsland.testMint(address(alice), liq, 0, type(uint128).max);
+        burveIsland.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(
+            burveIsland.totalNominalLiq(),
+            liq + deadLiq,
+            "total liq nominal"
+        );
 
         // check shares
-        assertEq(burveIsland.totalShares(), liq, "total shares");
+        assertEq(burveIsland.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
+        uint256 deadMints = FullMath.mulDiv(mintShares, deadLiq, liq);
         assertEq(
             burveIsland.totalIslandShares(),
-            mintShares,
+            mintShares + deadMints,
             "total island shares"
         );
 
@@ -350,7 +368,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            mintShares,
+            mintShares + deadMints,
             "station proxy island LP balance"
         );
 
@@ -359,6 +377,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_V3_SenderIsRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burveV3), deadLiq);
+
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -385,15 +406,15 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         emit Burve.Mint(alice, alice, liq, 0);
 
         // mint
-        burveV3.testMint(address(alice), liq, 0, type(uint128).max);
+        burveV3.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burveV3.totalShares(), liq, "total shares");
+        assertEq(burveV3.totalShares(), liq + deadShares, "total shares");
 
         // check pool token balances
         assertEq(token0.balanceOf(address(alice)), 0, "alice token0 balance");
@@ -404,6 +425,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_V3_SenderNotRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burveV3), deadLiq);
+
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -430,15 +454,15 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         emit Burve.Mint(sender, alice, liq, 0);
 
         // mint
-        burveV3.testMint(address(alice), liq, 0, type(uint128).max);
+        burveV3.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burveV3.totalShares(), liq, "total shares");
+        assertEq(burveV3.totalShares(), liq + deadShares, "total shares");
 
         // check pool token balances
         assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
@@ -449,6 +473,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_SenderIsRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burve), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -495,20 +522,21 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         emit Burve.Mint(alice, alice, liq, islandMintShares);
 
         // mint
-        burve.testMint(address(alice), liq, 0, type(uint128).max);
+        burve.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burve.totalShares(), liq, "total shares");
+        assertEq(burve.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
+        uint256 deadIslands = FullMath.mulDiv(islandMintShares, deadLiq, liq);
         assertEq(
             burve.totalIslandShares(),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "total island shares"
         );
 
@@ -525,7 +553,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "station proxy island LP balance"
         );
 
@@ -534,6 +562,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_SenderNotRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burve), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -580,20 +611,21 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         emit Burve.Mint(sender, alice, liq, islandMintShares);
 
         // mint
-        burve.testMint(address(alice), liq, 0, type(uint128).max);
+        burve.mint(address(alice), liq, 0, type(uint128).max);
 
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burve.totalShares(), liq, "total shares");
+        assertEq(burve.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
+        uint256 deadIslands = FullMath.mulDiv(islandMintShares, deadLiq, liq);
         assertEq(
             burve.totalIslandShares(),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "total island shares"
         );
 
@@ -610,7 +642,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "station proxy island LP balance"
         );
 
@@ -1313,6 +1345,616 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             )
         );
         burve.burn(100, lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96);
+    }
+
+    // LP Transfer Tests
+
+    function test_LP_Transfer_Island_Full() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveIsland), type(uint256).max);
+        token1.approve(address(burveIsland), type(uint256).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        uint256 totalIslandShares = burveIsland.islandSharesPerOwner(alice);
+        assertEq(
+            burveIsland.balanceOf(alice),
+            10_000,
+            "alice prior burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            0,
+            "charlie prior burve LP balance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            totalIslandShares,
+            "alice prior stationProxy allowance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            0,
+            "charlie prior stationProxy allowance"
+        );
+
+        // Transfer
+        vm.startPrank(alice);
+        burveIsland.transfer(charlie, 10_000);
+        vm.stopPrank();
+
+        // check Burve LP balances
+        assertEq(
+            burveIsland.balanceOf(alice),
+            0,
+            "alice post burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            10_000,
+            "charlie post burve LP balance"
+        );
+
+        // check island shares per owner
+        uint256 islandSharesAlice = burveIsland.islandSharesPerOwner(alice);
+        assertEq(islandSharesAlice, 0, "alice post island shares");
+
+        uint256 islandSharesCharlie = burveIsland.islandSharesPerOwner(charlie);
+        assertEq(
+            islandSharesCharlie,
+            totalIslandShares,
+            "charlie post island shares"
+        );
+
+        assertLe(
+            islandSharesAlice + islandSharesCharlie,
+            totalIslandShares,
+            "sum less than or equal total island shares"
+        );
+
+        // check allowances in station proxy
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            islandSharesAlice,
+            "alice post stationProxy allowance"
+        );
+
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            islandSharesCharlie,
+            "charlie post stationProxy allowance"
+        );
+
+        // check station proxy approvals
+        assertEq(
+            burveIsland.island().allowance(alice, address(stationProxy)),
+            0,
+            "alice post station proxy allowance"
+        );
+        assertEq(
+            burveIsland.island().allowance(charlie, address(stationProxy)),
+            0,
+            "charlie post station proxy allowance"
+        );
+    }
+
+    function test_LP_Transfer_Island_Partial() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveIsland), type(uint256).max);
+        token1.approve(address(burveIsland), type(uint256).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        uint256 totalIslandShares = burveIsland.islandSharesPerOwner(alice);
+        assertEq(
+            burveIsland.balanceOf(alice),
+            10_000,
+            "alice prior burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            0,
+            "charlie prior burve LP balance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            totalIslandShares,
+            "alice prior stationProxy allowance before"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            0,
+            "charlie prior stationProxy allowance"
+        );
+
+        // Transfer
+        vm.startPrank(alice);
+        burveIsland.transfer(charlie, 2_000);
+        vm.stopPrank();
+
+        // check Burve LP balances
+        assertEq(
+            burveIsland.balanceOf(alice),
+            8_000,
+            "alice post burve LP balance after"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            2_000,
+            "charlie post burve LP balance after"
+        );
+
+        // check island shares per owner
+        uint256 islandSharesAlice = burveIsland.islandSharesPerOwner(alice);
+        assertApproxEqAbs(
+            islandSharesAlice,
+            FullMath.mulDiv(totalIslandShares, 80, 100),
+            1,
+            "alice post island shares"
+        );
+
+        uint256 islandSharesCharlie = burveIsland.islandSharesPerOwner(charlie);
+        assertApproxEqAbs(
+            islandSharesCharlie,
+            FullMath.mulDiv(totalIslandShares, 20, 100),
+            1,
+            "charlie post island shares"
+        );
+
+        assertLe(
+            islandSharesAlice + islandSharesCharlie,
+            totalIslandShares,
+            "sum less than or equal total island shares"
+        );
+
+        // check allowances in station proxy
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            islandSharesAlice,
+            "alice post stationProxy allowance"
+        );
+
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            islandSharesCharlie,
+            "charlie post stationProxy allowance"
+        );
+
+        // check station proxy approvals
+        assertEq(
+            burveIsland.island().allowance(alice, address(stationProxy)),
+            0,
+            "alice post station proxy allowance"
+        );
+        assertEq(
+            burveIsland.island().allowance(charlie, address(stationProxy)),
+            0,
+            "charlie post station proxy allowance"
+        );
+    }
+
+    function test_LP_Transfer_From_Island_Full() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveIsland), type(uint256).max);
+        token1.approve(address(burveIsland), type(uint256).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        uint256 totalIslandShares = burveIsland.islandSharesPerOwner(alice);
+        assertEq(
+            burveIsland.balanceOf(alice),
+            10_000,
+            "alice prior burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            0,
+            "charlie prior burve LP balance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            totalIslandShares,
+            "alice prior stationProxy allowance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            0,
+            "charlie prior stationProxy allowance"
+        );
+
+        // Transfer from
+        vm.startPrank(alice);
+        burveIsland.approve(address(this), 10_000);
+        vm.stopPrank();
+
+        burveIsland.transferFrom(alice, charlie, 10_000);
+
+        // check Burve LP balances
+        assertEq(
+            burveIsland.balanceOf(alice),
+            0,
+            "alice post burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            10_000,
+            "charlie post burve LP balance"
+        );
+
+        // check island shares per owner
+        uint256 islandSharesAlice = burveIsland.islandSharesPerOwner(alice);
+        assertEq(islandSharesAlice, 0, "alice post island shares");
+
+        uint256 islandSharesCharlie = burveIsland.islandSharesPerOwner(charlie);
+        assertEq(
+            islandSharesCharlie,
+            totalIslandShares,
+            "charlie post island shares"
+        );
+
+        assertLe(
+            islandSharesAlice + islandSharesCharlie,
+            totalIslandShares,
+            "sum less than or equal total island shares"
+        );
+
+        // check allowances in station proxy
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            islandSharesAlice,
+            "alice post stationProxy allowance"
+        );
+
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            islandSharesCharlie,
+            "charlie post stationProxy allowance"
+        );
+
+        // check station proxy approvals
+        assertEq(
+            burveIsland.island().allowance(alice, address(stationProxy)),
+            0,
+            "alice post station proxy allowance"
+        );
+        assertEq(
+            burveIsland.island().allowance(charlie, address(stationProxy)),
+            0,
+            "charlie post station proxy allowance"
+        );
+    }
+
+    function test_LP_Transfer_From_Island_Partial() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveIsland), type(uint256).max);
+        token1.approve(address(burveIsland), type(uint256).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        uint256 totalIslandShares = burveIsland.islandSharesPerOwner(alice);
+        assertEq(
+            burveIsland.balanceOf(alice),
+            10_000,
+            "alice prior burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            0,
+            "charlie prior burve LP balance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            totalIslandShares,
+            "alice prior stationProxy allowance"
+        );
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            0,
+            "charlie prior stationProxy allowance"
+        );
+
+        // Transfer from
+        vm.startPrank(alice);
+        burveIsland.approve(address(this), 2_000);
+        vm.stopPrank();
+
+        burveIsland.transferFrom(alice, charlie, 2_000);
+
+        // check Burve LP balances
+        assertEq(
+            burveIsland.balanceOf(alice),
+            8_000,
+            "alice post burve LP balance"
+        );
+        assertEq(
+            burveIsland.balanceOf(charlie),
+            2_000,
+            "charlie post burve LP balance"
+        );
+
+        // check island shares per owner
+        uint256 islandSharesAlice = burveIsland.islandSharesPerOwner(alice);
+        assertApproxEqAbs(
+            islandSharesAlice,
+            FullMath.mulDiv(totalIslandShares, 80, 100),
+            1,
+            "alice post island shares"
+        );
+
+        uint256 islandSharesCharlie = burveIsland.islandSharesPerOwner(charlie);
+        assertApproxEqAbs(
+            islandSharesCharlie,
+            FullMath.mulDiv(totalIslandShares, 20, 100),
+            1,
+            "charlie post island shares"
+        );
+
+        assertLe(
+            islandSharesAlice + islandSharesCharlie,
+            totalIslandShares,
+            "sum less than or equal total island shares"
+        );
+
+        // check allowances in station proxy
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                alice
+            ),
+            islandSharesAlice,
+            "alice post stationProxy allowance"
+        );
+
+        assertEq(
+            stationProxy.allowance(
+                address(burveIsland),
+                address(burveIsland.island()),
+                charlie
+            ),
+            islandSharesCharlie,
+            "charlie post stationProxy allowance"
+        );
+
+        // check station proxy approvals
+        assertEq(
+            burveIsland.island().allowance(alice, address(stationProxy)),
+            0,
+            "alice post station proxy allowance"
+        );
+        assertEq(
+            burveIsland.island().allowance(charlie, address(stationProxy)),
+            0,
+            "charlie post station proxy allowance"
+        );
+    }
+
+    function test_LP_Transfer_V3_Full() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        assertEq(
+            burveV3.balanceOf(alice),
+            10_000,
+            "alice prior burve LP balance"
+        );
+        assertEq(
+            burveV3.balanceOf(charlie),
+            0,
+            "charlie prior burve LP balance"
+        );
+
+        // Transfer
+        vm.startPrank(alice);
+        burveV3.transfer(charlie, 10_000);
+        vm.stopPrank();
+
+        // check Burve LP balances
+        assertEq(burveV3.balanceOf(alice), 0, "alice post burve LP balance");
+        assertEq(
+            burveV3.balanceOf(charlie),
+            10_000,
+            "charlie post burve LP balance"
+        );
+    }
+
+    function test_LP_Transfer_V3_Partial() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        assertEq(burveV3.balanceOf(alice), 10_000, "alice burve LP balance");
+        assertEq(burveV3.balanceOf(charlie), 0, "charlie burve LP balance");
+
+        // Transfer
+        vm.startPrank(alice);
+        burveV3.transfer(charlie, 2_000);
+        vm.stopPrank();
+
+        // check Burve LP balances
+        assertEq(
+            burveV3.balanceOf(alice),
+            8_000,
+            "alice burve LP balance after"
+        );
+        assertEq(
+            burveV3.balanceOf(charlie),
+            2_000,
+            "charlie burve LP balance after"
+        );
+    }
+
+    function test_LP_Transfer_From_V3_Full() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        assertEq(
+            burveV3.balanceOf(alice),
+            10_000,
+            "alice prior burve LP balance"
+        );
+        assertEq(
+            burveV3.balanceOf(charlie),
+            0,
+            "charlie prior burve LP balance"
+        );
+
+        // Transfer
+        vm.startPrank(alice);
+        burveV3.approve(address(this), 10_000);
+        vm.stopPrank();
+
+        burveV3.transferFrom(alice, charlie, 10_000);
+
+        // check Burve LP balances
+        assertEq(burveV3.balanceOf(alice), 0, "alice post burve LP balance");
+        assertEq(
+            burveV3.balanceOf(charlie),
+            10_000,
+            "charlie post burve LP balance"
+        );
+    }
+
+    function test_LP_Transfer_From_V3_Partial() public forkOnly {
+        uint128 mintLiq = 10_000;
+
+        // Mint
+        deal(address(token0), address(sender), type(uint256).max);
+        deal(address(token1), address(sender), type(uint256).max);
+        vm.startPrank(sender);
+        token0.approve(address(burveV3), type(uint256).max);
+        token1.approve(address(burveV3), type(uint256).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
+        vm.stopPrank();
+
+        // verify assumptions
+        assertEq(burveV3.balanceOf(alice), 10_000, "alice burve LP balance");
+        assertEq(burveV3.balanceOf(charlie), 0, "alice burve LP balance");
+
+        // Transfer
+        vm.startPrank(alice);
+        burveV3.approve(address(this), 2_000);
+        vm.stopPrank();
+
+        burveV3.transferFrom(alice, charlie, 2_000);
+
+        // check Burve LP balances
+        assertEq(
+            burveV3.balanceOf(alice),
+            8_000,
+            "alice burve LP balance after"
+        );
+        assertEq(
+            burveV3.balanceOf(charlie),
+            2_000,
+            "charlie burve LP balance after"
+        );
     }
 
     // Compound Tests
@@ -2756,5 +3398,31 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             token0.transfer(address(pool), uint256(amount0Delta));
         if (amount1Delta > 0)
             token1.transfer(address(pool), uint256(amount1Delta));
+    }
+
+    function deadShareMint(
+        address _burve,
+        uint128 deadLiq
+    ) internal returns (uint256 deadShares) {
+        vm.startPrank(address(this));
+        uint256 b0 = token0.balanceOf(address(this));
+        uint256 b1 = token1.balanceOf(address(this));
+        uint256 a0 = token0.allowance(address(this), _burve);
+        uint256 a1 = token1.allowance(address(this), _burve);
+        deal(address(token0), address(this), type(uint256).max - b0);
+        deal(address(token1), address(this), type(uint256).max - b1);
+        token0.approve(_burve, type(uint256).max);
+        token1.approve(_burve, type(uint256).max);
+        deadShares = Burve(_burve).mint(_burve, deadLiq, 0, type(uint128).max);
+        // Undo allowances and mints.
+        uint256 nb0 = token0.balanceOf(address(this));
+        uint256 nb1 = token1.balanceOf(address(this));
+        if (nb0 > b0) token0.transfer(address(0xDEADBEEF), nb0 - b0);
+        else deal(address(token0), address(this), b0 - nb0);
+        if (nb1 > b1) token1.transfer(address(0xDEADBEEF), nb1 - b1);
+        else deal(address(token1), address(this), b1 - nb1);
+        token0.approve(_burve, a0);
+        token1.approve(_burve, a1);
+        vm.stopPrank();
     }
 }
