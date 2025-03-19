@@ -64,6 +64,9 @@ contract Burve is ERC20 {
         IStationProxy indexed from,
         IStationProxy indexed to
     );
+    /// Emitted during compound if calculated nominal liquidity is infinite for both tokens,
+    /// indicating a serious problem with the underlying pool or configuration of this contract.
+    event MalformedPool();
 
     /// Thrown if the given tick range does not match the pools tick spacing.
     error InvalidRange(int24 lower, int24 upper);
@@ -844,7 +847,6 @@ contract Burve is ERC20 {
     ///      computed liquidity is limited to a max of type(uint128).max.
     function collectAndCalcCompound()
         internal
-        view
         returns (uint128 mintNominalLiq)
     {
         // collected amounts on the contract from: fees, compounded leftovers, or tokens sent to the contract.
@@ -887,14 +889,23 @@ contract Burve is ERC20 {
 
         uint256 nominalLiq0 = amount0InUnitLiqX64 > 0
             ? (collected0 << 64) / amount0InUnitLiqX64
-            : 0;
+            : uint256(type(uint128).max);
         uint256 nominalLiq1 = amount1InUnitLiqX64 > 0
             ? (collected1 << 64) / amount1InUnitLiqX64
-            : 0;
+            : uint256(type(uint128).max);
 
         uint256 unsafeNominalLiq = nominalLiq0 < nominalLiq1
             ? nominalLiq0
             : nominalLiq1;
+
+        // We should never be able to compound infinite liquidity into both tokens at once, either
+        // 1) the contract was misconfigured and only consists of a single island or
+        // 2) there is something seriously broken with the underlying v3 pool
+        // In either case this event serves as a warning.
+        // We don't revert because that would block calls to mint / burn.
+        if (unsafeNominalLiq == uint256(type(uint128).max)) {
+            emit MalformedPool();
+        }
 
         // min calculated liquidity with the max allowed
         mintNominalLiq = unsafeNominalLiq > type(uint128).max
