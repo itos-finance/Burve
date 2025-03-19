@@ -37,6 +37,15 @@ contract NullStationProxy is IStationProxy {
     }
 
     /// @inheritdoc IStationProxy
+    function allowance(
+        address spender,
+        address lpToken,
+        address owner
+    ) external view returns (uint256 _allowance) {
+        _allowance = allowances[spender][lpToken][owner];
+    }
+
+    /// @inheritdoc IStationProxy
     function migrate(IStationProxy newStationProxy) external {
         // Do nothing.
     }
