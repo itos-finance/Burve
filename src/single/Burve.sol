@@ -452,6 +452,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Queries amounts in the island by simulating a burn.
+    /// @dev As of now, this method is only used by off-chain queries where the minor errors are negligible. Do not use this where high-precision is required.
     /// @param islandShares Island shares.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
@@ -532,6 +533,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Queries amounts in the v3 ranges by simulating burns.
+    /// @dev As of now, this method is only used by off-chain queries where the minor errors are negligible. Do not use this where high-precision is required.
     /// @param shares The amount of Burve LP token.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
