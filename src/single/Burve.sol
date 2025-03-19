@@ -178,7 +178,7 @@ contract Burve is ERC20 {
         }
 
         // Now that the pool is constructed, remember the first mint
-        // must be a minimum of 100 deadshares sent to address 0x0.
+        // must be a minimum of 100 deadshares sent to this contract.
     }
 
     /// @notice Allows the owner to migrate to a new station proxy.

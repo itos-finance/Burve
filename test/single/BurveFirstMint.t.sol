@@ -27,7 +27,7 @@ uint256 constant QUERY_BURN_ALLOWED_APPROX_DELTA = 5;
 uint256 constant TVL_BURN_ALLOWED_APPROX_DELTA = 10;
 
 // Same setup as BurveTest
-contract BurveMintTest is ForkableTest, IUniswapV3SwapCallback {
+contract BurveFirstMintTest is ForkableTest, IUniswapV3SwapCallback {
     uint256 private constant X96_MASK = (1 << 96) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
 
