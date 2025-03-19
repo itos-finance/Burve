@@ -341,6 +341,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     // Mint Tests
 
     function test_Mint_Island_SenderIsRecipient() public forkOnly {
+        // First give some deadshares so we can mint freely.
+        uint128 deadLiq = 100;
+        deadShareMint(address(burveIsland), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -374,15 +378,20 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(
+            burveIsland.totalNominalLiq(),
+            liq + deadLiq,
+            "total liq nominal"
+        );
 
         // check shares
-        assertEq(burveIsland.totalShares(), liq, "total shares");
+        assertEq(burveIsland.totalShares(), liq + deadLiq, "total shares");
 
         // check island shares
+        uint256 deadMints = FullMath.mulDiv(mintShares, deadLiq, liq);
         assertEq(
             burveIsland.totalIslandShares(),
-            mintShares,
+            mintShares + deadMints,
             "total island shares"
         );
 
@@ -399,7 +408,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            mintShares,
+            mintShares + deadMints,
             "station proxy island LP balance"
         );
 
@@ -408,6 +417,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_Island_SenderNotRecipient() public forkOnly {
+        // First mint deadshares so we can mint freely.
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burveIsland), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
 
@@ -441,15 +454,20 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveIsland.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(
+            burveIsland.totalNominalLiq(),
+            liq + deadLiq,
+            "total liq nominal"
+        );
 
         // check shares
-        assertEq(burveIsland.totalShares(), liq, "total shares");
+        assertEq(burveIsland.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
+        uint256 deadMints = FullMath.mulDiv(mintShares, deadLiq, liq);
         assertEq(
             burveIsland.totalIslandShares(),
-            mintShares,
+            mintShares + deadMints,
             "total island shares"
         );
 
@@ -466,7 +484,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            mintShares,
+            mintShares + deadMints,
             "station proxy island LP balance"
         );
 
@@ -475,6 +493,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_V3_SenderIsRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burveV3), deadLiq);
+
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -506,10 +527,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burveV3.totalShares(), liq, "total shares");
+        assertEq(burveV3.totalShares(), liq + deadShares, "total shares");
 
         // check pool token balances
         assertEq(token0.balanceOf(address(alice)), 0, "alice token0 balance");
@@ -520,6 +541,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_V3_SenderNotRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burveV3), deadLiq);
+
         uint128 liq = 10_000;
 
         // calc v3 mint
@@ -551,10 +575,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // check liq
-        assertEq(burveV3.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burveV3.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burveV3.totalShares(), liq, "total shares");
+        assertEq(burveV3.totalShares(), liq + deadShares, "total shares");
 
         // check pool token balances
         assertEq(token0.balanceOf(address(sender)), 0, "sender token0 balance");
@@ -565,6 +589,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_SenderIsRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burve), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -616,15 +643,16 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burve.totalShares(), liq, "total shares");
+        assertEq(burve.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
+        uint256 deadIslands = FullMath.mulDiv(islandMintShares, deadLiq, liq);
         assertEq(
             burve.totalIslandShares(),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "total island shares"
         );
 
@@ -641,7 +669,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "station proxy island LP balance"
         );
 
@@ -650,6 +678,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     }
 
     function test_Mint_SenderNotRecipient() public forkOnly {
+        uint128 deadLiq = 100;
+        uint256 deadShares = deadShareMint(address(burve), deadLiq);
+
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
 
@@ -701,15 +732,16 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.stopPrank();
 
         // check liq
-        assertEq(burve.totalNominalLiq(), liq, "total liq nominal");
+        assertEq(burve.totalNominalLiq(), liq + deadLiq, "total liq nominal");
 
         // check shares
-        assertEq(burve.totalShares(), liq, "total shares");
+        assertEq(burve.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
+        uint256 deadIslands = FullMath.mulDiv(islandMintShares, deadLiq, liq);
         assertEq(
             burve.totalIslandShares(),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "total island shares"
         );
 
@@ -726,7 +758,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            islandMintShares,
+            islandMintShares + deadIslands,
             "station proxy island LP balance"
         );
 
@@ -746,7 +778,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token1.approve(address(burve), type(uint256).max);
 
         // 1st mint
-        burve.mint(address(alice), 1000, 0, type(uint128).max);
+        burve.testMint(address(alice), 1000, 0, type(uint128).max);
 
         // check 1st mint
         assertEq(burve.totalNominalLiq(), 1000, "total liq nominal 1st mint");
@@ -758,7 +790,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // 2nd mint (lower amount)
-        burve.mint(address(alice), 500, 0, type(uint128).max);
+        burve.testMint(address(alice), 500, 0, type(uint128).max);
 
         // check 2nd mint
         assertEq(burve.totalNominalLiq(), 1500, "total liq nominal 2nd mint");
@@ -770,7 +802,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         );
 
         // 3rd mint (higher amount)
-        burve.mint(address(alice), 3000, 0, type(uint128).max);
+        burve.testMint(address(alice), 3000, 0, type(uint128).max);
 
         // check 3rd mint
         assertEq(burve.totalNominalLiq(), 4500, "total liq nominal 3rd mint");
@@ -860,7 +892,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
                 upperSqrtPriceLimitX96
             )
         );
-        burve.mint(
+        burve.testMint(
             address(alice),
             100,
             lowerSqrtPriceLimitX96,
@@ -880,7 +912,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
                 upperSqrtPriceLimitX96
             )
         );
-        burve.mint(
+        burve.testMint(
             address(alice),
             100,
             lowerSqrtPriceLimitX96,
@@ -899,7 +931,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // Burn
@@ -980,7 +1012,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // Burn
@@ -1078,7 +1110,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // Burn
@@ -1138,7 +1170,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // Burn
@@ -1205,7 +1237,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
-        burve.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burve.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // Burn
@@ -1299,7 +1331,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
-        burve.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burve.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // Burn
@@ -1442,7 +1474,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -1553,7 +1585,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -1670,7 +1702,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -1783,7 +1815,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -1902,7 +1934,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -1940,7 +1972,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -1974,7 +2006,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -2014,7 +2046,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), mintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), mintLiq, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -2409,7 +2441,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
 
-        burveV3.mint(address(alice), 100_000_000_000, 0, type(uint128).max);
+        burveV3.testMint(address(alice), 100_000_000_000, 0, type(uint128).max);
 
         vm.stopPrank();
 
@@ -2517,8 +2549,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
 
-        burveIsland.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        burveIsland.mint(
+        burveIsland.testMint(
+            address(alice),
+            aliceMintLiq,
+            0,
+            type(uint128).max
+        );
+        burveIsland.testMint(
             address(charlie),
             charlieMintLiq,
             0,
@@ -2604,8 +2641,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
 
-        burveIsland.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        burveIsland.mint(
+        burveIsland.testMint(
+            address(alice),
+            aliceMintLiq,
+            0,
+            type(uint128).max
+        );
+        burveIsland.testMint(
             address(charlie),
             charlieMintLiq,
             0,
@@ -2752,7 +2794,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), 10_000, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), 10_000, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -2779,8 +2821,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
 
-        burveV3.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        burveV3.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burveV3.testMint(
+            address(charlie),
+            charlieMintLiq,
+            0,
+            type(uint128).max
+        );
 
         vm.stopPrank();
 
@@ -2859,8 +2906,13 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
 
-        burveV3.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        burveV3.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+        burveV3.testMint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burveV3.testMint(
+            address(charlie),
+            charlieMintLiq,
+            0,
+            type(uint128).max
+        );
 
         vm.stopPrank();
 
@@ -3027,7 +3079,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), 10_000, 0, type(uint128).max);
+        burveV3.testMint(address(alice), 10_000, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -3055,8 +3107,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
 
-        burve.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        burve.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+        burve.testMint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burve.testMint(address(charlie), charlieMintLiq, 0, type(uint128).max);
 
         vm.stopPrank();
 
@@ -3135,8 +3187,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
 
-        burve.mint(address(alice), aliceMintLiq, 0, type(uint128).max);
-        burve.mint(address(charlie), charlieMintLiq, 0, type(uint128).max);
+        burve.testMint(address(alice), aliceMintLiq, 0, type(uint128).max);
+        burve.testMint(address(charlie), charlieMintLiq, 0, type(uint128).max);
 
         vm.stopPrank();
 
@@ -3304,7 +3356,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
-        burve.mint(address(alice), 100_000_000_000, 0, type(uint128).max);
+        burve.testMint(address(alice), 100_000_000_000, 0, type(uint128).max);
         vm.stopPrank();
 
         // verify assumptions
@@ -3337,8 +3389,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveIsland), type(uint256).max);
         token1.approve(address(burveIsland), type(uint256).max);
-        burveIsland.mint(address(alice), 1000, 0, type(uint128).max);
-        burveIsland.mint(address(alice), 400, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), 1000, 0, type(uint128).max);
+        burveIsland.testMint(address(alice), 400, 0, type(uint128).max);
         vm.stopPrank();
 
         // Get Info
@@ -3372,8 +3424,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burveV3), type(uint256).max);
         token1.approve(address(burveV3), type(uint256).max);
-        burveV3.mint(address(alice), 1000, 0, type(uint128).max);
-        burveV3.mint(address(alice), 400, 0, type(uint128).max);
+        burveV3.testMint(address(alice), 1000, 0, type(uint128).max);
+        burveV3.testMint(address(alice), 400, 0, type(uint128).max);
         vm.stopPrank();
 
         // Get Info
@@ -3407,8 +3459,8 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         vm.startPrank(sender);
         token0.approve(address(burve), type(uint256).max);
         token1.approve(address(burve), type(uint256).max);
-        burve.mint(address(alice), 1000, 0, type(uint128).max);
-        burve.mint(address(alice), 400, 0, type(uint128).max);
+        burve.testMint(address(alice), 1000, 0, type(uint128).max);
+        burve.testMint(address(alice), 400, 0, type(uint128).max);
         vm.stopPrank();
 
         // Get Info
@@ -3505,5 +3557,31 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             token0.transfer(address(pool), uint256(amount0Delta));
         if (amount1Delta > 0)
             token1.transfer(address(pool), uint256(amount1Delta));
+    }
+
+    function deadShareMint(
+        address _burve,
+        uint128 deadLiq
+    ) internal returns (uint256 deadShares) {
+        vm.startPrank(address(this));
+        uint256 b0 = token0.balanceOf(address(this));
+        uint256 b1 = token1.balanceOf(address(this));
+        uint256 a0 = token0.allowance(address(this), _burve);
+        uint256 a1 = token1.allowance(address(this), _burve);
+        deal(address(token0), address(this), type(uint256).max - b0);
+        deal(address(token1), address(this), type(uint256).max - b1);
+        token0.approve(_burve, type(uint256).max);
+        token1.approve(_burve, type(uint256).max);
+        deadShares = Burve(_burve).mint(_burve, deadLiq, 0, type(uint128).max);
+        // Undo allowances and mints.
+        uint256 nb0 = token0.balanceOf(address(this));
+        uint256 nb1 = token1.balanceOf(address(this));
+        if (nb0 > b0) token0.transfer(address(0xDEADBEEF), nb0 - b0);
+        else deal(address(token0), address(this), b0 - nb0);
+        if (nb1 > b1) token1.transfer(address(0xDEADBEEF), nb1 - b1);
+        else deal(address(token1), address(this), b1 - nb1);
+        token0.approve(_burve, a0);
+        token1.approve(_burve, a1);
+        vm.stopPrank();
     }
 }

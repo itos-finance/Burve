@@ -23,6 +23,7 @@ import {TickRange} from "./TickRange.sol";
 contract Burve is ERC20 {
     uint256 private constant X96_MASK = (1 << 96) - 1;
     uint256 private constant UNIT_NOMINAL_LIQ_X64 = 1 << 64;
+    uint256 private constant MIN_DEAD_SHARES = 100;
 
     /// The v3 pool.
     IUniswapV3Pool public pool;
@@ -93,6 +94,10 @@ contract Burve is ERC20 {
     );
     /// Thrown if trying to migrate to the same station proxy.
     error MigrateToSameStationProxy();
+    /// Thrown when the first mint is insufficient.
+    error InsecureFirstMintAmount(uint256 shares);
+    /// Thrown when the first mint is not deadshares.
+    error InsecureFirstMintRecipient(address recipient);
 
     /// Modifier used to ensure the price of the pool is within the accepted lower and upper limits. When minting / burning.
     modifier withinSqrtPX96Limits(
@@ -190,6 +195,9 @@ contract Burve is ERC20 {
         for (uint256 i = 0; i < _weights.length; ++i) {
             distX96.push((_weights[i] << 96) / sum);
         }
+
+        // Now that the pool is constructed, remember the first mint
+        // must be a minimum of 100 deadshares sent to this contract.
     }
 
     /// @notice Allows the owner to migrate to a new station proxy.
@@ -218,8 +226,9 @@ contract Burve is ERC20 {
         uint160 lowerSqrtPriceLimitX96,
         uint160 upperSqrtPriceLimitX96
     )
-        external
+        public
         withinSqrtPX96Limits(lowerSqrtPriceLimitX96, upperSqrtPriceLimitX96)
+        returns (uint256 shares)
     {
         // compound v3 ranges
         compoundV3Ranges();
@@ -252,9 +261,13 @@ contract Burve is ERC20 {
         }
 
         // calculate shares to mint
-        uint256 shares;
         if (totalShares == 0) {
+            // If this is the first mint, it has to be dead shares, burned by giving it to this contract.
             shares = mintNominalLiq;
+            if (shares < MIN_DEAD_SHARES)
+                revert InsecureFirstMintAmount(shares);
+            if (recipient != address(this))
+                revert InsecureFirstMintRecipient(recipient);
         } else {
             shares = FullMath.mulDiv(
                 mintNominalLiq,
