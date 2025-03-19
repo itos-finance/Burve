@@ -161,6 +161,30 @@ contract LiqFacetTest is Test {
         vm.stopPrank();
     }
 
+    function testImpreciseCID() public {
+        vm.startPrank(alice);
+
+        uint128[] memory amounts = new uint128[](2);
+        amounts[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        amounts[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        // With only two vertices there's no problem adding liquidity but there will be unused bits.
+        vm.expectRevert(
+            abi.encodeWithSelector(LiqFacet.ImpreciseCID.selector, 0x8)
+        );
+        uint256 shares = liqFacet.addLiq(alice, 0xb, amounts);
+    }
+
+    function testSingleBitCID() public {
+        vm.startPrank(alice);
+
+        uint128[] memory amounts = new uint128[](2);
+        amounts[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
+        vm.expectRevert(
+            abi.encodeWithSelector(LiqFacet.SingleBitCID.selector, 0x2)
+        );
+        uint256 shares = liqFacet.addLiq(alice, 0x2, amounts);
+    }
+
     function testInitialLiquidityProvision() public {
         uint256 amount0 = INITIAL_LIQUIDITY_AMOUNT;
         uint256 amount1 = INITIAL_LIQUIDITY_AMOUNT;

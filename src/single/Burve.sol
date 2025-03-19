@@ -67,8 +67,12 @@ contract Burve is ERC20 {
 
     /// Thrown if the given tick range does not match the pools tick spacing.
     error InvalidRange(int24 lower, int24 upper);
-    /// Thrown in the constructor if an island range is provided but no island.
-    error NoIsland();
+    /// Thrown if an island is provided without the island range at index 0,
+    /// if the island range at index 0 is provided without the island,
+    /// or if an island range is given at an index other than 0.
+    error InvalidIslandRange();
+    /// Thrown if no ranges are provided.
+    error NoRanges();
     /// Thrown when the provided island points to a pool that does not match the provided pool.
     error MismatchedIslandPool(address island, address pool);
     /// Thrown when the number of ranges and number of weights do not match.
@@ -135,7 +139,8 @@ contract Burve is ERC20 {
         island = IKodiakIsland(_island);
         stationProxy = IStationProxy(_stationProxy);
 
-        if (_island != address(0x0) && address(island.pool()) != _pool) {
+        bool hasIsland = (_island != address(0x0));
+        if (hasIsland && address(island.pool()) != _pool) {
             revert MismatchedIslandPool(_island, _pool);
         }
 
@@ -146,16 +151,27 @@ contract Burve is ERC20 {
             );
         }
 
-        int24 tickSpacing = pool.tickSpacing();
+        if (_ranges.length == 0) {
+            revert NoRanges();
+        }
 
-        // copy ranges to storage
-        for (uint256 i = 0; i < _ranges.length; ++i) {
-            TickRange memory range = _ranges[i];
+        uint256 rangeIndex = 0;
 
+        // copy optional island range to storage
+        if (hasIsland) {
+            TickRange memory range = _ranges[rangeIndex];
+            if (!range.isIsland()) revert InvalidIslandRange();
             ranges.push(range);
+            ++rangeIndex;
+        }
 
-            if (range.isIsland() && address(island) == address(0x0)) {
-                revert NoIsland();
+        // copy v3 ranges to storage
+        int24 tickSpacing = pool.tickSpacing();
+        while (rangeIndex < _ranges.length) {
+            TickRange memory range = _ranges[rangeIndex];
+
+            if (range.isIsland()) {
+                revert InvalidIslandRange();
             }
 
             if (
@@ -164,6 +180,9 @@ contract Burve is ERC20 {
             ) {
                 revert InvalidRange(range.lower, range.upper);
             }
+
+            ranges.push(range);
+            ++rangeIndex;
         }
 
         // compute total sum of weights
@@ -465,6 +484,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Queries amounts in the island by simulating a burn.
+    /// @dev As of now, this method is only used by off-chain queries where the minor errors are negligible. Do not use this where high-precision is required.
     /// @param islandShares Island shares.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
@@ -545,6 +565,7 @@ contract Burve is ERC20 {
     }
 
     /// @notice Queries amounts in the v3 ranges by simulating burns.
+    /// @dev As of now, this method is only used by off-chain queries where the minor errors are negligible. Do not use this where high-precision is required.
     /// @param shares The amount of Burve LP token.
     /// @return query0 The amount of token 0.
     /// @return query1 The amount of token 1.
@@ -615,6 +636,7 @@ contract Burve is ERC20 {
                     range.upper,
                     false
                 );
+
             accumulatedFees0 += compoundedFees0;
             accumulatedFees1 += compoundedFees1;
 
@@ -631,6 +653,19 @@ contract Burve is ERC20 {
             );
             query0 += amount0;
             query1 += amount1;
+        }
+
+        // matches collected amount adjustment in collectAndCalcCompound
+        if (accumulatedFees0 > distX96.length) {
+            accumulatedFees0 -= distX96.length;
+        } else {
+            accumulatedFees0 = 0;
+        }
+
+        if (accumulatedFees1 > distX96.length) {
+            accumulatedFees1 -= distX96.length;
+        } else {
+            accumulatedFees1 = 0;
         }
 
         // calculate share of accumulated fees
@@ -654,6 +689,47 @@ contract Burve is ERC20 {
         info.totalShares = totalShares;
         info.ranges = ranges;
         info.distX96 = distX96;
+    }
+
+    /* Internal Calls */
+
+    /// Override the erc20 update function to handle island share and lp token moves.
+    function _update(
+        address from,
+        address to,
+        uint256 value
+    ) internal virtual override {
+        // We handle mints and burns in their respective calls.
+        // We just want to handle transfers between two valid addresses.
+        if (
+            from != address(0) &&
+            to != address(0) &&
+            address(island) != address(0)
+        ) {
+            // Move the island shares that correspond to the LP tokens being moved.
+            uint256 islandTransfer = FullMath.mulDiv(
+                islandSharesPerOwner[from],
+                value,
+                balanceOf(from)
+            );
+
+            islandSharesPerOwner[from] -= islandTransfer;
+            // It doesn't matter if this is off by one because the user gets a percent of their island shares on burn.
+            islandSharesPerOwner[to] += islandTransfer;
+            // We withdraw from the station proxy so the burve earnings stop,
+            // but the current owner can collect their earnings so far.
+            stationProxy.withdrawLP(address(island), islandTransfer, from);
+
+            SafeERC20.forceApprove(
+                island,
+                address(stationProxy),
+                islandTransfer
+            );
+            stationProxy.depositLP(address(island), islandTransfer, to);
+            SafeERC20.forceApprove(island, address(stationProxy), 0);
+        }
+
+        super._update(from, to, value);
     }
 
     /// @notice Collect fees and compound them for each v3 range.
@@ -783,6 +859,24 @@ contract Burve is ERC20 {
         }
         if (collected1 > type(uint192).max) {
             collected1 = uint256(type(uint192).max);
+        }
+
+        // when split into n ranges the amount of tokens required can be rounded up
+        // we need to make sure the collected amount allows for this rounding
+        if (collected0 > distX96.length) {
+            collected0 -= distX96.length;
+        } else {
+            collected0 = 0;
+        }
+
+        if (collected1 > distX96.length) {
+            collected1 -= distX96.length;
+        } else {
+            collected1 = 0;
+        }
+
+        if (collected0 == 0 && collected1 == 0) {
+            return 0;
         }
 
         // compute liq in collected amounts

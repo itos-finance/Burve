@@ -33,7 +33,6 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     BurveExposedInternal public burveIsland; // island only
     BurveExposedInternal public burveV3; // v3 only
     BurveExposedInternal public burve; // island + v3
-    BurveExposedInternal public burveCompound; // island + v3 (mocked uni pool)
 
     IUniswapV3Pool pool;
     IERC20 token0;
@@ -123,6 +122,123 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     // Create Tests
 
+    function test_Create() public view forkOnly {
+        assertEq(
+            address(burve.pool()),
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            "pool"
+        );
+        assertEq(address(burve.token0()), pool.token0(), "token0");
+        assertEq(address(burve.token1()), pool.token1(), "token1");
+        assertEq(
+            address(burve.island()),
+            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            "island"
+        );
+        assertEq(
+            address(burve.stationProxy()),
+            address(stationProxy),
+            "station proxy"
+        );
+
+        (int24 lower, int24 upper) = burve.ranges(0);
+        assertEq(lower, 0, "island range lower");
+        assertEq(upper, 0, "island range upper");
+
+        (lower, upper) = burve.ranges(1);
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+        int24 rangeWidth = 100 * tickSpacing;
+        assertEq(lower, clampedCurrentTick - rangeWidth, "v3 range lower");
+        assertEq(upper, clampedCurrentTick + rangeWidth, "v3 range upper");
+
+        assertEq(burve.distX96(0), (3 << 96) / 4, "island distX96");
+        assertEq(burve.distX96(1), (1 << 96) / 4, "v3 distX96");
+    }
+
+    function testRevert_Create_NoRanges() public forkOnly {
+        vm.expectRevert(Burve.NoRanges.selector);
+
+        new Burve(
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            address(stationProxy),
+            new TickRange[](0),
+            new uint128[](0)
+        );
+    }
+
+    function testRevert_Create_Island_NoIslandRangeAtIndexZero()
+        public
+        forkOnly
+    {
+        int24 tickSpacing = pool.tickSpacing();
+
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(tickSpacing, tickSpacing * 2);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 1;
+
+        vm.expectRevert(Burve.InvalidIslandRange.selector);
+
+        new Burve(
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            address(stationProxy),
+            ranges,
+            weights
+        );
+    }
+
+    function testRevert_Create_NoIsland_IslandRangeAtIndexZero()
+        public
+        forkOnly
+    {
+        int24 tickSpacing = pool.tickSpacing();
+
+        TickRange[] memory ranges = new TickRange[](1);
+        ranges[0] = TickRange(0, 0);
+
+        uint128[] memory weights = new uint128[](1);
+        weights[0] = 1;
+
+        vm.expectRevert(Burve.InvalidIslandRange.selector);
+
+        new Burve(
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            address(0x0),
+            address(stationProxy),
+            ranges,
+            weights
+        );
+    }
+
+    function testRevert_Create_Island_IslandRangeAtIndexOtherThanZero()
+        public
+        forkOnly
+    {
+        int24 tickSpacing = pool.tickSpacing();
+
+        TickRange[] memory ranges = new TickRange[](2);
+        ranges[0] = TickRange(0, 0);
+        ranges[1] = TickRange(0, 0);
+
+        uint128[] memory weights = new uint128[](2);
+        weights[0] = 2;
+        weights[1] = 2;
+
+        vm.expectRevert(Burve.InvalidIslandRange.selector);
+
+        new Burve(
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            address(stationProxy),
+            ranges,
+            weights
+        );
+    }
+
     function testRevert_Create_InvalidRange_Lower() public forkOnly {
         int24 tickSpacing = pool.tickSpacing();
 
@@ -142,7 +258,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         new Burve(
             Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
-            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            address(0x0),
             address(stationProxy),
             ranges,
             weights
@@ -168,7 +284,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         new Burve(
             Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
-            Mainnet.KODIAK_WBERA_HONEY_ISLAND,
+            address(0x0),
             address(stationProxy),
             ranges,
             weights
@@ -2031,6 +2147,49 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
             0,
             "token1 allowance"
         );
+    }
+
+    function test_CompoundV3Ranges_Multi() public forkOnly {
+        int24 tickSpacing = pool.tickSpacing();
+        int24 clampedCurrentTick = getClampedCurrentTick();
+
+        TickRange memory range = TickRange(
+            clampedCurrentTick - (10 * tickSpacing),
+            clampedCurrentTick + (10 * tickSpacing)
+        );
+
+        TickRange[] memory compoundMultiRanges = new TickRange[](5);
+        compoundMultiRanges[0] = range;
+        compoundMultiRanges[1] = range;
+        compoundMultiRanges[2] = range;
+        compoundMultiRanges[3] = range;
+        compoundMultiRanges[4] = range;
+
+        uint128[] memory compoundMultiWeights = new uint128[](5);
+        compoundMultiWeights[0] = 1;
+        compoundMultiWeights[1] = 1;
+        compoundMultiWeights[2] = 1;
+        compoundMultiWeights[3] = 1;
+        compoundMultiWeights[4] = 1;
+
+        BurveExposedInternal burveCompoundMulti = new BurveExposedInternal(
+            Mainnet.KODIAK_WBERA_HONEY_POOL_V3,
+            address(0x0),
+            address(stationProxy),
+            compoundMultiRanges,
+            compoundMultiWeights
+        );
+
+        // tokens cannot be equally split between 5 ranges
+        uint256 collected0 = 204;
+        uint256 collected1 = 204;
+
+        // simulate collected amounts
+        deal(address(token0), address(burveCompoundMulti), collected0);
+        deal(address(token1), address(burveCompoundMulti), collected1);
+
+        // checking that compound does not revert
+        burveCompoundMulti.compoundV3RangesExposed();
     }
 
     function test_CompoundV3Ranges_CompoundedNominalLiqIsZero()

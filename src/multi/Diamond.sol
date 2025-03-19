@@ -100,7 +100,7 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory simplexSelectors = new bytes4[](9);
+            bytes4[] memory simplexSelectors = new bytes4[](10);
             simplexSelectors[0] = SimplexFacet.getVertexId.selector;
             simplexSelectors[1] = SimplexFacet.addVertex.selector;
             simplexSelectors[2] = SimplexFacet.getTokens.selector;
@@ -110,6 +110,7 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[6] = SimplexFacet.setDefaultEdge.selector;
             simplexSelectors[7] = SimplexFacet.setName.selector;
             simplexSelectors[8] = SimplexFacet.getName.selector;
+            simplexSelectors[9] = SimplexFacet.setAdjustor.selector;
             cuts[5] = FacetCut({
                 facetAddress: facets.simplexFacet,
                 action: FacetCutAction.Add,
@@ -130,15 +131,14 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory selectors = new bytes4[](8);
+            bytes4[] memory selectors = new bytes4[](7);
             selectors[0] = ViewFacet.getEdge.selector;
-            selectors[1] = ViewFacet.getVertex.selector;
-            selectors[2] = ViewFacet.getAssetShares.selector;
-            selectors[3] = ViewFacet.getDefaultEdge.selector;
-            selectors[4] = ViewFacet.getClosureId.selector;
-            selectors[5] = ViewFacet.getPriceX128.selector;
-            selectors[6] = ViewFacet.getTokenIndex.selector;
-            selectors[7] = ViewFacet.isTokenInClosure.selector;
+            selectors[1] = ViewFacet.getAssetShares.selector;
+            selectors[2] = ViewFacet.getDefaultEdge.selector;
+            selectors[3] = ViewFacet.getClosureId.selector;
+            selectors[4] = ViewFacet.getPriceX128.selector;
+            selectors[5] = ViewFacet.getTokenIndex.selector;
+            selectors[6] = ViewFacet.isTokenInClosure.selector;
 
             cuts[7] = IDiamond.FacetCut({
                 facetAddress: address(new ViewFacet()),

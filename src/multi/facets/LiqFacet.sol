@@ -26,6 +26,8 @@ contract LiqFacet is ReentrancyGuardTransient {
     error DeMinimisDeposit();
     error VertexLockedInCID(VertexId);
     error IncorrectAddAmountsList(uint256 tokensGiven, uint256 numTokens);
+    error ImpreciseCID(uint16 excessBits);
+    error SingleBitCID(uint16 singleBit);
 
     /// @notice Emitted when liquidity is added to a closure
     /// @param recipient The address that received the LP shares
@@ -56,6 +58,10 @@ contract LiqFacet is ReentrancyGuardTransient {
         uint16 _closureId,
         uint128[] calldata amounts
     ) external nonReentrant returns (uint256 shares) {
+        // You need at least two tokens.
+        if ((_closureId & (_closureId - 1)) == 0)
+            revert SingleBitCID(_closureId);
+
         ClosureId cid = ClosureId.wrap(_closureId);
         uint256 n = TokenRegLib.numVertices();
         TokenRegistry storage tokenReg = Store.tokenRegistry();
@@ -76,6 +82,8 @@ contract LiqFacet is ReentrancyGuardTransient {
                 vert.ensureClosure(cid);
                 // We can't add to any CIDs that have a locked vertex.
                 if (vert.isLocked()) revert VertexLockedInCID(v);
+                // Let's mark that we've visited it.
+                _closureId ^= uint16(1 << i);
                 uint128 addAmount = amounts[i];
                 address token = tokenReg.tokens[i];
                 // Get the balances.
@@ -96,6 +104,10 @@ contract LiqFacet is ReentrancyGuardTransient {
                 }
             }
         }
+
+        // If after walking through the vertices, the closure has excess bits, the user has a malformed cid
+        // that can cause accounting issues when new vertices are added.
+        if (_closureId != 0) revert ImpreciseCID(_closureId);
 
         // We can ONLY use the price AFTER adding the token balance or else someone can exploit the
         // old price by doing a huge swap before to increase the value of their deposit.
@@ -131,7 +143,7 @@ contract LiqFacet is ReentrancyGuardTransient {
         shares = AssetLib.add(recipient, cid, depositValue, initialValue);
         if (shares == 0) revert DeMinimisDeposit();
 
-        emit AddLiquidity(recipient, _closureId, amounts, shares);
+        emit AddLiquidity(recipient, ClosureId.unwrap(cid), amounts, shares);
     }
 
     /// @dev This can entirely be done in real amounts.
@@ -158,7 +170,6 @@ contract LiqFacet is ReentrancyGuardTransient {
             address token = tokenReg.tokens[i];
             TransferHelper.safeTransfer(token, recipient, withdraw);
         }
-
         emit RemoveLiquidity(recipient, _closureId, amounts, shares);
     }
 

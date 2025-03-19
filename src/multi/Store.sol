@@ -26,6 +26,8 @@ library Store {
     bytes32 public constant MULTI_STORAGE_POSITION =
         keccak256("multi.diamond.storage.20250113");
 
+    error NoEdgeSettings(address token0, address token1);
+
     function load() internal pure returns (Storage storage s) {
         bytes32 position = MULTI_STORAGE_POSITION;
         assembly {
@@ -53,6 +55,8 @@ library Store {
         _edge = rawEdge(token0, token1);
         if (_edge.amplitude == 0) {
             _edge = load().simplex.defaultEdge;
+            // If the default edge is also unset, then we revert.
+            if (_edge.amplitude == 0) revert NoEdgeSettings(token0, token1);
         }
     }
 
