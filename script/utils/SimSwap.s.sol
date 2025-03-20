@@ -15,8 +15,8 @@ contract SimSwap is BaseScript {
 
     function run() external {
         // Get configuration from environment or use defaults
-        string memory inTokenName = vm.envOr("IN_TOKEN", string("USDC"));
-        string memory outTokenName = vm.envOr("OUT_TOKEN", string("USDT"));
+        string memory inTokenName = vm.envOr("IN_TOKEN", string("USDT"));
+        string memory outTokenName = vm.envOr("OUT_TOKEN", string("DAI"));
         int256 amountSpecified = int256(vm.envOr("AMOUNT", uint256(1000000))); // Default 1 USDC
 
         // Optional: Allow overriding the deployment type

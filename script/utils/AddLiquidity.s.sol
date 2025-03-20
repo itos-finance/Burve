@@ -6,7 +6,7 @@ import "./BaseScript.sol";
 contract AddLiquidity is BaseScript {
     function run() external {
         // Get configuration
-        uint256 amount = vm.envOr("AMOUNT", uint256(1000000)); // Default 1 USDC/USDT/DAI
+        uint256 amount = vm.envOr("AMOUNT", uint256(100_000_000)); // Default 1 USDC/USDT/DAI
         address recipient = vm.envOr("RECIPIENT", _getSender());
 
         // Start broadcasting
@@ -26,10 +26,18 @@ contract AddLiquidity is BaseScript {
         uint8 mimIndex = viewFacet.getTokenIndex(address(tokens["MIM"]));
 
         // Set amounts for each token
-        amounts[usdcIndex] = uint128(amount);
-        amounts[usdtIndex] = uint128(amount);
-        amounts[daiIndex] = uint128(amount);
-        amounts[mimIndex] = uint128(amount);
+        amounts[usdcIndex] = uint128(
+            amount * 10 ** uint256(tokens["USDC"].decimals())
+        );
+        amounts[usdtIndex] = uint128(
+            amount * 10 ** uint256(tokens["USDT"].decimals())
+        );
+        amounts[daiIndex] = uint128(
+            amount * 10 ** uint256(tokens["DAI"].decimals())
+        );
+        amounts[mimIndex] = uint128(
+            amount * 10 ** uint256(tokens["MIM"].decimals())
+        );
 
         // Mint and approve tokens
         _mintAndApproveByName(
