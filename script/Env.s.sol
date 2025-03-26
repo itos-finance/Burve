@@ -70,6 +70,15 @@ contract DeployBurve is Script {
     bool[] internal used;
     address[] internal currentPartition;
 
+    // File path for deployed addresses
+    string constant ADDRESSES_FILE = "deployments.json";
+
+    function setUp() public {
+        // clear existing file
+        // vm.removeFile(ADDRESSES_FILE);
+        vm.writeFile(ADDRESSES_FILE, "{}");
+    }
+
     function getTokenSets() internal pure returns (TokenSet[] memory) {
         // USD Stablecoin Set
         TokenConfig[] memory usdTokens = new TokenConfig[](4);
@@ -98,7 +107,7 @@ contract DeployBurve is Script {
         return sets;
     }
 
-    function deployTokenSet(TokenSet memory set) internal {
+    function deployTokenSet(TokenSet memory set) internal returns (string memory) {
         uint256 tokenCount = set.tokens.length;
 
         // Reset arrays for new deployment
@@ -152,33 +161,50 @@ contract DeployBurve is Script {
         used = new bool[](tokenCount);
         currentPartition = new address[](2);
 
-        // Setup closures and LP tokens
-        // TODO: remove we do this in the DeployLpTokens.s.sol
-        // _setupClosuresAndLPTokens();
-
         // Log deployments
         console2.log("\nDeployments for", set.name, "Set:");
         console2.log("Diamond:", address(diamond));
         console2.log("\nToken Addresses:");
+
+        string memory setData = string.concat(set.name, "set");
+        vm.serializeAddress(setData, "diamond", address(diamond));
+
+        string memory allTokenData = string.concat(set.name, "tokens");
+        string memory allTokenJson;
+
         for (uint256 i = 0; i < tokenCount; i++) {
             console2.log(set.tokens[i].symbol, ":", tokens[i]);
             console2.log(
                 string.concat(set.tokens[i].symbol, " Vault:"),
                 vaults[i]
             );
+
+            string memory tokenData = "tokendata";
+            vm.serializeAddress(tokenData, "token", tokens[i]);
+            tokenData = vm.serializeAddress(tokenData, "vault", vaults[i]);
+
+            allTokenJson = vm.serializeString(allTokenData, set.tokens[i].symbol, tokenData);
         }
+
+        return vm.serializeString(setData, "tokens", allTokenJson);
     }
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
+        string memory json;
+        string memory finalJson;
+
         TokenSet[] memory sets = getTokenSets();
         for (uint256 i = 0; i < sets.length; i++) {
-            deployTokenSet(sets[i]);
+            string memory setJson = deployTokenSet(sets[i]);
+            finalJson = vm.serializeString(json, sets[i].name, setJson);
         }
 
         vm.stopBroadcast();
+
+        vm.writeJson(finalJson, ADDRESSES_FILE);
     }
 
     function _setupEdges() internal {
@@ -191,64 +217,5 @@ contract DeployBurve is Script {
 
     function _setupEdge(address tokenA, address tokenB) internal {
         EdgeFacet(address(diamond)).setEdge(tokenA, tokenB, 101, -46063, 46063);
-    }
-
-    function _setupClosuresAndLPTokens() internal {
-        _generatePartitions(0, 0, 2);
-
-        if (tokens.length >= 3) {
-            currentPartition = new address[](3);
-            for (uint256 i = 0; i < tokens.length; i++) {
-                used[i] = false;
-            }
-            _generatePartitions(0, 0, 3);
-        }
-
-        if (tokens.length >= 4) {
-            currentPartition = new address[](4);
-            for (uint256 i = 0; i < tokens.length; i++) {
-                used[i] = false;
-            }
-            _generatePartitions(0, 0, 4);
-        }
-    }
-
-    function _generatePartitions(
-        uint256 start,
-        uint256 currentSize,
-        uint256 targetSize
-    ) internal {
-        if (currentSize == targetSize) {
-            uint16 closureId = ClosureId.unwrap(
-                viewFacet.getClosureId(currentPartition)
-            );
-
-            bool exists = false;
-            for (uint256 i = 0; i < closureIds.length; i++) {
-                if (closureIds[i] == closureId) {
-                    exists = true;
-                    break;
-                }
-            }
-
-            if (!exists) {
-                closureIds.push(closureId);
-                BurveMultiLPToken lpToken = new BurveMultiLPToken(
-                    ClosureId.wrap(closureId),
-                    address(diamond)
-                );
-                lpTokens[closureId] = lpToken;
-            }
-            return;
-        }
-
-        for (uint256 i = start; i < tokens.length; i++) {
-            if (!used[i]) {
-                used[i] = true;
-                currentPartition[currentSize] = tokens[i];
-                _generatePartitions(i + 1, currentSize + 1, targetSize);
-                used[i] = false;
-            }
-        }
     }
 }

@@ -1,59 +1,57 @@
 {
-	"deployments": {
-		"usd": {
-			"diamond": "0xfc0084914a1bE29fFDc810631f4Dd3163EC19941",
-			"tokens": {
-				"USDC": {
-					"token": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE",
-					"vault": "0xC45013534484DA833B8f39a5e3E8DFbe74E79192"
-				},
-				"DAI": {
-					"token": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35",
-					"vault": "0xB5034E2c6E7969C2cC8BD801b11FAa21D4846cE6"
-				},
-				"MIM": {
-					"token": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2",
-					"vault": "0x37Caa7714dC4fE0F6C57Ac30f6655A4ACbb935c8"
-				},
-				"USDT": {
-					"token": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9",
-					"vault": "0xF241289b0dE2A866bb0CE001AB84016D182c5347"
-				}
-			}
-		},
-		"btc": {
-			"diamond": "0xd01B3fE5219D390c7B73E1bBbaA5ED8980a6FC9a",
-			"tokens": {
-				"WBTC": {
-					"token": "0x688a5D3B7EcAd835469408ddcDFE4Fee6e2d881D",
-					"vault": "0x868F60bd071f1352ABc336349a0d938e9b2Eb91E"
-				},
-				"uniBTC": {
-					"token": "0xdA92aE7D59e7Fb497BCf531Fb64B3d375Bb6Fd45",
-					"vault": "0x0002cdaC4E529049476672Ca2f1d4c4254ad941a"
-				},
-				"LBTC": {
-					"token": "0x2aB4cC8ffa918b0BBC4D3367C31998B00A47e23b",
-					"vault": "0x6A4B8bed47F2C67e1CFdb096d473442b5dbe3669"
-				}
-			}
-		},
-		"eth": {
-			"diamond": "0xF6CBc0e1410D9279ad63434a5FB4882aD131761d",
-			"tokens": {
-				"WETH": {
-					"token": "0x3908f22f5f4CBAf811BB60Da97fbc8322af78Ae0",
-					"vault": "0xFCf56B85f6c5eAEC5dd53b51C0035c2e1223F1dB"
-				},
-				"beraETH": {
-					"token": "0x32497a98a011b289AecD3e1791bF494138F444af",
-					"vault": "0x844ad502a8ECbc581083e1dA2E6B9e9165951a04"
-				},
-				"rsETH": {
-					"token": "0xc3A890d953f87e40291E93129C63f75Ff3F22DF2",
-					"vault": "0x68EB8FE54B1c4E26f202275a5b556Af462D43748"
-				}
-			}
-		}
-	}
+  "BTC": {
+    "diamond": "0x3153eDfaBE7608A97d0Cb02929917FE90cE2CB87",
+    "tokens": {
+      "LBTC": {
+        "token": "0x8406DE314Ce609Ff8228193b2535f13527917803",
+        "vault": "0x7711d80d7B485d4ce1651284Dd9b8e19142F3748"
+      },
+      "WBTC": {
+        "token": "0xeA503D963ecFF34BfFd3C3E8a2Ee3C25839deA7B",
+        "vault": "0x1c2fb12ECCA5EDB9ac8dA583cAa865E7C893a7ef"
+      },
+      "uniBTC": {
+        "token": "0x42E5a852Aa5cd4284227796Bc5d2461189A65b8a",
+        "vault": "0x1D3b68fBD686e06Fbda1cb6cAF0C8DA558FCC3A0"
+      }
+    }
+  },
+  "ETH": {
+    "diamond": "0x8EB5A8B9732022F20ab4d3128DDf3a50a6dAa7A2",
+    "tokens": {
+      "WETH": {
+        "token": "0x07bf260a44CEADfad215cc8e20c5b0398D25b1FA",
+        "vault": "0xDb2f554A333D189ed59eA36020a83F7d6De14328"
+      },
+      "beraETH": {
+        "token": "0x94A44de106112A761B69dFBEB1ac6cfdD1B80304",
+        "vault": "0x47330D2fe6F75899597C14d615003Ef561B01B14"
+      },
+      "rsETH": {
+        "token": "0xCD75Ddf910A204d36Fc2f86e776f9d7B97A34817",
+        "vault": "0xEe170eFF1BCeA1f7a46F46634fa40d590AAa5200"
+      }
+    }
+  },
+  "USD": {
+    "diamond": "0x8233369E29653b70E50E93d1276a50B8f2122a01",
+    "tokens": {
+      "DAI": {
+        "token": "0x76C9284988B979f750BC504173ADc08E00c04398",
+        "vault": "0x2F94C3189edA0e357B23048aEc736F323Ac431f6"
+      },
+      "MIM": {
+        "token": "0x9118EA4a52C6c7873729c8d8702cCd85E573f9E9",
+        "vault": "0x1A223F93131cD7d898c28Ee0B905C39Db474FA08"
+      },
+      "USDC": {
+        "token": "0x58d0d610674C69F27B7519a6e2746E8b814548DE",
+        "vault": "0xEd3AAE51d33138ef67555AE0925A38E77Df5B7e0"
+      },
+      "USDT": {
+        "token": "0x77e6Bd5c1988d8d766698F9CeEa5C24559b999f8",
+        "vault": "0x7314AEeC874A25A1131F49dA9679D05f8d931175"
+      }
+    }
+  }
 }
