@@ -45,9 +45,9 @@ contract DeployLPTokens is Script {
         string memory json = vm.readFile(path);
 
         // Parse each set
-        _parseSet("usd", json, ".deployments.usd");
-        _parseSet("btc", json, ".deployments.btc");
-        _parseSet("eth", json, ".deployments.eth");
+        _parseSet("usd", json, ".usd");
+        _parseSet("btc", json, ".btc");
+        _parseSet("eth", json, ".eth");
     }
 
     function _getSymbols(
@@ -55,22 +55,22 @@ contract DeployLPTokens is Script {
     ) internal pure returns (string[] memory) {
         if (keccak256(bytes(setName)) == keccak256(bytes("usd"))) {
             string[] memory symbols = new string[](4);
-            symbols[0] = "USDC";
-            symbols[1] = "DAI";
-            symbols[2] = "MIM";
-            symbols[3] = "USDT";
+            symbols[0] = "usdc";
+            symbols[1] = "dai";
+            symbols[2] = "mim";
+            symbols[3] = "usdt";
             return symbols;
         } else if (keccak256(bytes(setName)) == keccak256(bytes("btc"))) {
             string[] memory symbols = new string[](3);
-            symbols[0] = "WBTC";
-            symbols[1] = "uniBTC";
-            symbols[2] = "LBTC";
+            symbols[0] = "wbtc";
+            symbols[1] = "unibtc";
+            symbols[2] = "lbtc";
             return symbols;
         } else if (keccak256(bytes(setName)) == keccak256(bytes("eth"))) {
             string[] memory symbols = new string[](3);
-            symbols[0] = "WETH";
-            symbols[1] = "beraETH";
-            symbols[2] = "rsETH";
+            symbols[0] = "weth";
+            symbols[1] = "beraeth";
+            symbols[2] = "rseth";
             return symbols;
         }
         revert("Unknown set name");
