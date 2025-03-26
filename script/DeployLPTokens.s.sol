@@ -113,9 +113,11 @@ contract DeployLPTokens is Script {
             }
         }
 
+        console2.log("DONE DEPLOYING");
+
         // Write deployments to file
-        string memory outputJson = _generateDeploymentsJson();
-        vm.writeFile("lp-deployments.json", outputJson);
+        // string memory outputJson = _generateDeploymentsJson();
+        // vm.writeFile("lp-deployments.json", outputJson);
 
         vm.stopBroadcast();
     }
@@ -173,6 +175,22 @@ contract DeployLPTokens is Script {
     }
 
     function _generateDeploymentsJson() internal view returns (string memory) {
+        for (uint i = 0; i < deployments.length; i++) {
+            LPDeployment memory deployment = deployments[i];
+            console2.log(
+                "LP Token for closure",
+                deployment.closureId,
+                ":",
+                deployment.lpToken
+            );
+            console2.log("Tokens:");
+            for (uint j = 0; j < deployment.tokens.length; j++) {
+                console2.log("  ", deployment.tokens[j]);
+            }
+        }
+
+        console2.log("okay");
+
         string memory json = '{"lpTokens":{';
 
         for (uint i = 0; i < setNames.length; i++) {
