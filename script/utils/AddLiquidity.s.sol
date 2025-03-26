@@ -25,6 +25,11 @@ contract AddLiquidity is BaseScript {
         uint8 daiIndex = viewFacet.getTokenIndex(address(tokens["DAI"]));
         uint8 mimIndex = viewFacet.getTokenIndex(address(tokens["MIM"]));
 
+        console2.log("usdcIndex", usdcIndex);
+        console2.log("usdtIndex", usdtIndex);
+        console2.log("daiIndex", daiIndex);
+        console2.log("mimIndex", mimIndex);
+
         // Set amounts for each token
         amounts[usdcIndex] = uint128(
             amount * 10 ** uint256(tokens["USDC"].decimals())

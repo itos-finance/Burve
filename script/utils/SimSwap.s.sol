@@ -16,7 +16,7 @@ contract SimSwap is BaseScript {
     function run() external {
         // Get configuration from environment or use defaults
         string memory inTokenName = vm.envOr("IN_TOKEN", string("USDT"));
-        string memory outTokenName = vm.envOr("OUT_TOKEN", string("DAI"));
+        string memory outTokenName = vm.envOr("OUT_TOKEN", string("MIM"));
         int256 amountSpecified = int256(vm.envOr("AMOUNT", uint256(1000000))); // Default 1 USDC
 
         // Optional: Allow overriding the deployment type
@@ -51,12 +51,7 @@ contract SimSwap is BaseScript {
             uint256 amountIn,
             uint256 amountOut,
             uint160 finalSqrtPriceX96
-        ) = swapFacet.simSwap(
-                inToken,
-                outToken,
-                amountSpecified,
-                sqrtPriceLimitX96
-            );
+        ) = swapFacet.simSwap(inToken, outToken, 1_000_000, sqrtPriceLimitX96);
 
         console2.log("\nSimulated Swap Results:");
         console2.log("Amount In:", amountIn);

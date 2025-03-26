@@ -112,6 +112,16 @@ abstract contract BaseScript is Script {
         MockERC20(token).approve(address(diamond), amount);
     }
 
+    function _mintAndApproveLpToken(
+        address token,
+        address to,
+        address lpToken,
+        uint256 amount
+    ) internal {
+        MockERC20(token).mint(to, amount);
+        MockERC20(token).approve(address(lpToken), amount);
+    }
+
     // Helper function to mint tokens by name and approve spending
     function _mintAndApproveByName(
         string memory tokenName,

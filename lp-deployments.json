@@ -1,87 +1,220 @@
 {
-  "lpTokens": {
-    "3": {
-      "address": "0x63558141DfCEE8DBe15621807f2be2749fB569fC",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"}
-      ]
-    },
-    "5": {
-      "address": "0x380DC6ff16d4aCDB9BEb87F6Ea25E067dD57CbC1",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"}
-      ]
-    },
-    "9": {
-      "address": "0x4184DeEaE6Fb1F551bD9aEc22D0B649a64018f13",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    },
-    "6": {
-      "address": "0x2E87d134631D5D789bDacda820ae394bDFFAcCEe",
-      "tokens": [
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"}
-      ]
-    },
-    "10": {
-      "address": "0xCe00Ad153F72D9aEA5BFD6Feca1A5cF589baf61D",
-      "tokens": [
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    },
-    "12": {
-      "address": "0xe147E821D8C5C575dd57c40e41D6aEb9A56562C6",
-      "tokens": [
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    },
-    "7": {
-      "address": "0xA4cf4313092330c363b07BDeAD8F9Bd41DC833D8",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"}
-      ]
-    },
-    "11": {
-      "address": "0xEf095BD8f1BBD549D32eC2916Fa65a837ec22c2D",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    },
-    "13": {
-      "address": "0x41D87F8F25e6343B47c5f26C4CDCe946E0b7320b",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    },
-    "14": {
-      "address": "0x9d22447AeFa06c0d5c4d54490205d64dB5917f79",
-      "tokens": [
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    },
-    "15": {
-      "address": "0x11692D9e7917d2923276a08BD4eD204B4CA693F1",
-      "tokens": [
-        {"symbol": "USDC", "address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"},
-        {"symbol": "DAI", "address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"},
-        {"symbol": "MIM", "address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"},
-        {"symbol": "USDT", "address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"}
-      ]
-    }
-  }
+	"lpTokens": {
+		"usd": {
+			"closure_3": {
+				"closureId": 3,
+				"lpToken": "0xcB4A0596326511678780AD77a37F8A19d2A4675d",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "DAI",
+						"address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"
+					}
+				]
+			},
+			"closure_5": {
+				"closureId": 5,
+				"lpToken": "0x067d73c5BDa531B1422B268B02bD1c9151F69dE8",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "MIM",
+						"address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"
+					}
+				]
+			},
+			"closure_9": {
+				"closureId": 9,
+				"lpToken": "0x5630bfA28B4efd43D97918D816e2773F5B33BfA1",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "USDT",
+						"address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"
+					}
+				]
+			},
+			"closure_7": {
+				"closureId": 7,
+				"lpToken": "0x2A1C35B3a304538c84354b0626220ff8B40871C8",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "DAI",
+						"address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"
+					},
+					{
+						"symbol": "MIM",
+						"address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"
+					}
+				]
+			},
+			"closure_11": {
+				"closureId": 11,
+				"lpToken": "0x469d8bA01F81b445B550F7a9aAbb98977Ca5A5b5",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "DAI",
+						"address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"
+					},
+					{
+						"symbol": "USDT",
+						"address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"
+					}
+				]
+			},
+			"closure_13": {
+				"closureId": 13,
+				"lpToken": "0x7F59Eb5Cc9395B3a1154C94e4e0cfBba86661c09",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "MIM",
+						"address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"
+					},
+					{
+						"symbol": "USDT",
+						"address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"
+					}
+				]
+			},
+			"closure_15": {
+				"closureId": 15,
+				"lpToken": "0x21a1aB7637a700496ab9A08D9D058DFa96F19fb4",
+				"tokens": [
+					{
+						"symbol": "USDC",
+						"address": "0xA3d89c95A9F68C7C3406252c4d17DE807b9724DE"
+					},
+					{
+						"symbol": "DAI",
+						"address": "0x1cC289a15689dfe93c6597796c26402d2B8CBd35"
+					},
+					{
+						"symbol": "MIM",
+						"address": "0x6355f287647EB315cd44Bf805Ac078d59023a6A2"
+					},
+					{
+						"symbol": "USDT",
+						"address": "0xcF0BD28E79C6BEb7A5e54Ddda9C6d021b178eDe9"
+					}
+				]
+			}
+		},
+		"btc": {
+			"closure_3": {
+				"closureId": 3,
+				"lpToken": "0xA68c74B6F195C60fAbf81249EB3b16b0c1Da7067",
+				"tokens": [
+					{
+						"symbol": "WBTC",
+						"address": "0x688a5D3B7EcAd835469408ddcDFE4Fee6e2d881D"
+					},
+					{
+						"symbol": "uniBTC",
+						"address": "0xdA92aE7D59e7Fb497BCf531Fb64B3d375Bb6Fd45"
+					}
+				]
+			},
+			"closure_5": {
+				"closureId": 5,
+				"lpToken": "0xd0BFf69D50A6b4f7C7fD143ddbcd5fA16456a34a",
+				"tokens": [
+					{
+						"symbol": "WBTC",
+						"address": "0x688a5D3B7EcAd835469408ddcDFE4Fee6e2d881D"
+					},
+					{
+						"symbol": "LBTC",
+						"address": "0x2aB4cC8ffa918b0BBC4D3367C31998B00A47e23b"
+					}
+				]
+			},
+			"closure_7": {
+				"closureId": 7,
+				"lpToken": "0x872254D1E7E6a64380e6172c37f0AA242dcB9A4c",
+				"tokens": [
+					{
+						"symbol": "WBTC",
+						"address": "0x688a5D3B7EcAd835469408ddcDFE4Fee6e2d881D"
+					},
+					{
+						"symbol": "uniBTC",
+						"address": "0xdA92aE7D59e7Fb497BCf531Fb64B3d375Bb6Fd45"
+					},
+					{
+						"symbol": "LBTC",
+						"address": "0x2aB4cC8ffa918b0BBC4D3367C31998B00A47e23b"
+					}
+				]
+			}
+		},
+		"eth": {
+			"closure_3": {
+				"closureId": 3,
+				"lpToken": "0xaD638946D66aed2831dbD19CeEf064718205a1A4",
+				"tokens": [
+					{
+						"symbol": "WETH",
+						"address": "0x3908f22f5f4CBAf811BB60Da97fbc8322af78Ae0"
+					},
+					{
+						"symbol": "beraETH",
+						"address": "0x32497a98a011b289AecD3e1791bF494138F444af"
+					}
+				]
+			},
+			"closure_5": {
+				"closureId": 5,
+				"lpToken": "0x018ef2a44fd48CA761EB424df4203FC801b1D0A3",
+				"tokens": [
+					{
+						"symbol": "WETH",
+						"address": "0x3908f22f5f4CBAf811BB60Da97fbc8322af78Ae0"
+					},
+					{
+						"symbol": "rsETH",
+						"address": "0xc3A890d953f87e40291E93129C63f75Ff3F22DF2"
+					}
+				]
+			},
+			"closure_7": {
+				"closureId": 7,
+				"lpToken": "0x85Ee1Ed57fE1C32Fa6B4Af0d99c9FCCBFCa107fB",
+				"tokens": [
+					{
+						"symbol": "WETH",
+						"address": "0x3908f22f5f4CBAf811BB60Da97fbc8322af78Ae0"
+					},
+					{
+						"symbol": "beraETH",
+						"address": "0x32497a98a011b289AecD3e1791bF494138F444af"
+					},
+					{
+						"symbol": "rsETH",
+						"address": "0xc3A890d953f87e40291E93129C63f75Ff3F22DF2"
+					}
+				]
+			}
+		}
+	}
 }

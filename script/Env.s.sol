@@ -153,7 +153,8 @@ contract DeployBurve is Script {
         currentPartition = new address[](2);
 
         // Setup closures and LP tokens
-        _setupClosuresAndLPTokens();
+        // TODO: remove we do this in the DeployLpTokens.s.sol
+        // _setupClosuresAndLPTokens();
 
         // Log deployments
         console2.log("\nDeployments for", set.name, "Set:");
