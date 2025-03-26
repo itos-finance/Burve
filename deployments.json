@@ -1,56 +1,140 @@
 {
   "btc": {
-    "diamond": "0x52C7a9DDC1fE319a98Bd193b758Eaa4735738dDB",
+    "diamond": "0x49A60936D52A63d9069DD667B8c84E4274d0A0B6",
     "tokens": {
+      "apebtc": {
+        "token": "0x51c2E51BB6C404C52fDeFA58a97C9A0279F0326e",
+        "vault": "0xF24BA5049F16d4897ff15661a9669d15CF5A98Aa"
+      },
+      "berabtc": {
+        "token": "0x62822bFD0B059A918f8eC5b8f0d4691E45347f1b",
+        "vault": "0x9CFbee56C9Ae7DacD1c6ac040eCcE04c803E12D8"
+      },
+      "gmbtc": {
+        "token": "0xdc162849bD2c2B0dfF9e47ABf3Cd00734117EFCA",
+        "vault": "0xeF919280728e2f78fe04F5813134616Fa276Dd12"
+      },
+      "goldbtc": {
+        "token": "0xc54dD0Ce0Ae243Ace013172fEedbf8B0DfBaa35d",
+        "vault": "0x047450C8c591b5E6Dc0A827378a0aabd9FD041f9"
+      },
+      "hyperbtc": {
+        "token": "0xE22F9f2122885512C919dbaE13Ec0beb7F21F8b3",
+        "vault": "0xa4b6Fa80b31d641bB3f48C234d6B809801AddA78"
+      },
+      "infbtc": {
+        "token": "0x0B2D194E826815AD3D4d7DF0D83c4a12972A5F66",
+        "vault": "0x9DA1A18AbC19387073683BD9f49c75455bd90c10"
+      },
+      "lambobtc": {
+        "token": "0x9Fe8bf017C062CAe35638c67EB985Ce216753403",
+        "vault": "0x4c0fAB4fc764E565eBd8D2742351FAdB11256Bf5"
+      },
       "lbtc": {
-        "token": "0xc993301287f7E7f7C0EB28c4616534CcAbA348BA",
-        "vault": "0xeAd4C2cc3c9c44be601373460BEe3c331FaFfe96"
+        "token": "0xDD012934aa02fb1865199E023499fd2D0044A4eb",
+        "vault": "0x1C71E359F6460d69449fb35397e61f6b6ef085Fa"
+      },
+      "mcbtc": {
+        "token": "0x26957b0D829E8E53C29D1b1f9c279A1c16fA6F59",
+        "vault": "0xcB51723766223872427F49A1ec0aD4d57b667821"
+      },
+      "moonbtc": {
+        "token": "0x198e48AfAF7b7eb1e6CcFbb14458A83FFc618967",
+        "vault": "0x3DAcbF0F199e804EB6572C62a5fBFCA6C92992A5"
+      },
+      "solarbtc": {
+        "token": "0xE47E83CA6Be588834f4d6108d092590b7Bd61463",
+        "vault": "0x279947e1a7748Af67Ed416f963d7e0f88071Cf98"
       },
       "unibtc": {
-        "token": "0x1F8B0Ab82C79bDBB02AbB87F6681a464CF24D50A",
-        "vault": "0x7AaBb13928E9382eE4b4148b9618039aBBcA7945"
+        "token": "0x06D470CE7306A5A707b1036DbacB0270B624e91e",
+        "vault": "0xCf8355dF541e43bBB8E2a4c442942Eecd0aA1810"
+      },
+      "upbtc": {
+        "token": "0x0291359b7F09FEd7B7194e212300224d4D56a29a",
+        "vault": "0xAD33aA3F0464b647e91bc026e2A4Daa0C40048d1"
       },
       "wbtc": {
-        "token": "0x5bF8D07D696c2bde7478aaeE57F3e6475203EeD9",
-        "vault": "0x4Af9f320fE64C09a59572B6F687B308278367D61"
+        "token": "0x463B9a38Dad23bafB8E2BF32F5AE31f5fEc5A8C5",
+        "vault": "0x8bc1fCDaA75F381bE2d2a828Fd78aAa37414Bea2"
       }
     }
   },
   "eth": {
-    "diamond": "0x5d67Aa374909D7Fadf88389ba4f635469f1c12BF",
+    "diamond": "0xc2258181942Df4e8D79F8384A8f9C1b1117919B3",
     "tokens": {
+      "apeeth": {
+        "token": "0x831a721007308E45e66496Ea78203d35c5AcD309",
+        "vault": "0x3A81ced09917adE002F269bD96014716bACC1BE2"
+      },
       "beraeth": {
-        "token": "0x53A16c7b5fB15E3786B068Eb199023394Cc15C5b",
-        "vault": "0xc12a6C5db256d292aab034c4E5c4f6BBe4c0afAC"
+        "token": "0x17B43460aAA42Dd72C26A10B5038Ac2cB2278E49",
+        "vault": "0x45010cBB952279B49c3Db5f6C73606f510667229"
+      },
+      "gmeth": {
+        "token": "0x894c963d57D46793ea0d710C816a1804f5A2e272",
+        "vault": "0x3F818dd9F2F132061408Dd817EC89f271a02c2F0"
+      },
+      "mooneth": {
+        "token": "0xEccbcC570d29BE87e6badcabAea07C9fB6204E75",
+        "vault": "0xC11E32173729c5AbF46D6AdC0acb5b66174ea379"
       },
       "rseth": {
-        "token": "0xCFA293D910719f8C1ddDD0CA5dDd3D6Cbf681833",
-        "vault": "0x5564efCae4bbf9eBd388a4Bf56688E51913c84D4"
+        "token": "0x750FE23C38E54e7653e4e712Bb90410b5FAAA54A",
+        "vault": "0xd2893E6ea6C53DB468829fb2cdfb5451a62F1F3b"
+      },
+      "shadoweth": {
+        "token": "0x8013Dd64084e9c9122567563AA86981F4C20576B",
+        "vault": "0xcd34D0833406Bff8073e18AAFa3DC34EE48Df9BA"
+      },
+      "spaceeth": {
+        "token": "0xB83c5F00c01f1662dcc3A1370553f7eCD574Ed88",
+        "vault": "0x4054765d35be9b4b27C4A1db3B269ae40f0541Ad"
+      },
+      "suneth": {
+        "token": "0x47Ec97bFC4E57937087cA8B44B60DeEC860d31a4",
+        "vault": "0xFdc146E92D892F326CB9a1A480f58fc30a766c98"
+      },
+      "warpeth": {
+        "token": "0x12087c013f6269A90F113F8935f51C713a09b173",
+        "vault": "0x8a8fA8b26B8D2743ECd3c687cCDB345061D70540"
       },
       "weth": {
-        "token": "0x5416adf327242B7224413Dcd6E454FfcB5C1e73C",
-        "vault": "0x73c1A1437920ECFEC6Ac079d717CB75c0B0e9086"
+        "token": "0x76E0923B735Cbf86B69e7B8fE558886f3840Ff1d",
+        "vault": "0x4E7Addbe8CAbe070bA1F8066Cf17A368A5dEa9A9"
       }
     }
   },
   "usd": {
-    "diamond": "0x50a2DBf1c98A23f7430baC7abe71A4fD673213c1",
+    "diamond": "0xa98b9f2D8426DF201F4732947635C52841b04a25",
     "tokens": {
+      "atusd": {
+        "token": "0xA68a91FCf064aE09f06D198503EDa896d0F04459",
+        "vault": "0x2B3323Dba63a4a1Ed0a4B02d0B3fD5C901760881"
+      },
       "dai": {
-        "token": "0x23De02D83eb0D192CDc5fd578C284A2b2722cafF",
-        "vault": "0x30da3b78B86e8842cB1386F199D4D6e7ae8Fca58"
+        "token": "0xDCc1fAB7b7B33dCe9b7748B7572F07fac59B0956",
+        "vault": "0xE97166C46816d48B2aFFCfFf704B962E88fd0abE"
       },
       "mim": {
-        "token": "0xF153B9A9e7C294875776a579AC91422d5fFdA9fE",
-        "vault": "0xcDcfC7BA941ABe3BdAA541aDEC5D24C867F3f816"
+        "token": "0xC5123B98c3A0aa1a4F9390BCf76f7B9D775a5687",
+        "vault": "0x511930A41fae024714948b700764394CB759B72f"
+      },
+      "usda": {
+        "token": "0x54c53FB74C17a2a1B28377C2C2b11D0351367eE0",
+        "vault": "0xa6Ca882f693f7c613cE1bAe28B91A06eaAcA8DD9"
       },
       "usdc": {
-        "token": "0x92A50F3B3E88C81310AD48cEB46e1F6C332C850e",
-        "vault": "0x7eb918Ff18Aa8F20e319d3479CB46833a58a32Cb"
+        "token": "0x3fb8D607A42B3c4536a7ffB8786639BfBd5cd9c0",
+        "vault": "0x0740BFEeAEb3c8a7b8718A4F3B20618568cDF621"
       },
-      "usdt": {
-        "token": "0xC8C2FD7cB1EF6c9aB35B2Bf5cD594523A10C2C1C",
-        "vault": "0x3179588E9774bC6ee1B4AF8Db55Fb8e1500649C1"
+      "usds": {
+        "token": "0x59Bb4180cEAf9160BE93d4bA3172D67f983FfC62",
+        "vault": "0x1f871a3fe5956F642CfF1671eEe7a886E4986a2d"
+      },
+      "usdw": {
+        "token": "0x9D7b35BFA6e230A198B37220f83B63882Eae0680",
+        "vault": "0x8DA6b6Dd929deed2237eBE41e0AABF4862d0b93A"
       }
     }
   }

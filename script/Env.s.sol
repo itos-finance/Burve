@@ -73,31 +73,46 @@ contract DeployBurve is Script {
     // File path for deployed addresses
     string constant ADDRESSES_FILE = "deployments.json";
 
-    function setUp() public {
-        // clear existing file
-        // vm.removeFile(ADDRESSES_FILE);
-        vm.writeFile(ADDRESSES_FILE, "{}");
-    }
-
     function getTokenSets() internal pure returns (TokenSet[] memory) {
         // USD Stablecoin Set
-        TokenConfig[] memory usdTokens = new TokenConfig[](4);
+        TokenConfig[] memory usdTokens = new TokenConfig[](7);
         usdTokens[0] = TokenConfig("USD Circle", "USDC", 6);
         usdTokens[1] = TokenConfig("Dai Stablecoin", "DAI", 18);
         usdTokens[2] = TokenConfig("Magic Internet Money", "MIM", 18);
-        usdTokens[3] = TokenConfig("USD Tether", "USDT", 6);
+        usdTokens[3] = TokenConfig("Aqua USD", "USDA", 6);
+        usdTokens[4] = TokenConfig("Sea USD", "USDS", 6);
+        usdTokens[5] = TokenConfig("Atlantis USD", "atUSD", 6);
+        usdTokens[6] = TokenConfig("Wave USD", "USDW", 6);
 
         // BTC Set
-        TokenConfig[] memory btcTokens = new TokenConfig[](3);
+        TokenConfig[] memory btcTokens = new TokenConfig[](14);
         btcTokens[0] = TokenConfig("Wrapped BTC", "WBTC", 18);
         btcTokens[1] = TokenConfig("Uni BTC", "uniBTC", 18);
         btcTokens[2] = TokenConfig("Lombard BTC", "LBTC", 18);
+        btcTokens[3] = TokenConfig("Ape BTC", "apeBTC", 18);
+        btcTokens[4] = TokenConfig("Gold BTC", "goldBTC", 18);
+        btcTokens[5] = TokenConfig("Hyper BTC", "hyperBTC", 18);
+        btcTokens[6] = TokenConfig("Infinite BTC", "infBTC", 18);
+        btcTokens[7] = TokenConfig("Berachain BTC", "beraBTC", 18);
+        btcTokens[8] = TokenConfig("Good Morning BTC", "gmBTC", 18);
+        btcTokens[9] = TokenConfig("Moon BTC", "moonBTC", 18);
+        btcTokens[10] = TokenConfig("Lambo BTC", "lamboBTC", 18);
+        btcTokens[11] = TokenConfig("Mc BTC", "McBTC", 18);
+        btcTokens[12] = TokenConfig("Up BTC", "upBTC", 18);
+        btcTokens[13] = TokenConfig("Solar BTC", "solarBTC", 18);
 
         // ETH Set
-        TokenConfig[] memory ethTokens = new TokenConfig[](3);
+        TokenConfig[] memory ethTokens = new TokenConfig[](10);
         ethTokens[0] = TokenConfig("Wrapped Ether", "WETH", 18);
         ethTokens[1] = TokenConfig("Berachain ETH", "beraETH", 18);
         ethTokens[2] = TokenConfig("KelpDAO Restaked ETH", "rsETH", 18);
+        ethTokens[3] = TokenConfig("Good Morning ETH", "gmETH", 18);
+        ethTokens[4] = TokenConfig("Ape ETH", "apeETH", 18);
+        ethTokens[5] = TokenConfig("Moon ETH", "moonETH", 18);
+        ethTokens[6] = TokenConfig("Sun ETH", "sunETH", 18);
+        ethTokens[7] = TokenConfig("Space ETH", "spaceETH", 18);
+        ethTokens[8] = TokenConfig("Shadow ETH", "shadowETH", 18);
+        ethTokens[9] = TokenConfig("Warp ETH", "warpETH", 18);
 
         TokenSet[] memory sets = new TokenSet[](3);
         sets[0] = TokenSet("USD", usdTokens);
@@ -171,6 +186,8 @@ contract DeployBurve is Script {
 
         string memory allTokenData = string.concat(set.name, "tokens");
         string memory allTokenJson;
+
+        string[] memory tokenData;
 
         for (uint256 i = 0; i < tokenCount; i++) {
             console2.log(vm.toLowercase(set.tokens[i].symbol), ":", tokens[i]);
