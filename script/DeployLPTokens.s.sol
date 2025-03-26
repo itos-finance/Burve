@@ -13,14 +13,14 @@ contract DeployLPTokens is Script {
 
     // Struct to hold token data from deployments.json
     struct TokenData {
+        string symbol;
         address token;
         address vault;
     }
 
     struct SetData {
         address diamond;
-        mapping(string => TokenData) tokens;
-        string[] tokenSymbols;
+        TokenData[] tokenData;
     }
 
     // Mapping to store token sets
@@ -63,30 +63,8 @@ contract DeployLPTokens is Script {
 
         // Get tokens data
         string memory tokensPath = string.concat(path, ".tokens");
-        string[] memory symbols = vm.parseJsonKeys(json, tokensPath);
-
-        for (uint i = 0; i < symbols.length; i++) {
-            string memory symbol = symbols[i];
-            sets[setName].tokenSymbols.push(symbol);
-
-            string memory tokenPath = string.concat(
-                tokensPath,
-                ".",
-                symbol,
-                ".token"
-            );
-            string memory vaultPath = string.concat(
-                tokensPath,
-                ".",
-                symbol,
-                ".vault"
-            );
-
-            address token = json.readAddress(tokenPath);
-            address vault = json.readAddress(vaultPath);
-
-            sets[setName].tokens[symbol] = TokenData(token, vault);
-        }
+        bytes memory tokensData = vm.parseJson(json, tokensPath);
+        sets[setName].tokenData = abi.decode(tokensData, (TokenData[]));
     }
 
     function run() public {
@@ -100,13 +78,12 @@ contract DeployLPTokens is Script {
 
             console2.log("\nTokens in", setName, "set:");
             console2.log("Diamond:", set.diamond);
-            for (uint j = 0; j < set.tokenSymbols.length; j++) {
-                string memory symbol = set.tokenSymbols[j];
-                TokenData memory tokenData = set.tokens[symbol];
+            for (uint j = 0; j < set.tokenData.length; j++) {
+                TokenData memory tokenData = set.tokenData[j];
                 console2.log(
                     string.concat(
                         "  ",
-                        symbol,
+                        tokenData.symbol,
                         ": token=",
                         vm.toString(tokenData.token),
                         ", vault=",
@@ -125,7 +102,7 @@ contract DeployLPTokens is Script {
             console2.log("Diamond:", set.diamond);
 
             // Setup arrays for combinations
-            uint256 numTokens = set.tokenSymbols.length;
+            uint256 numTokens = set.tokenData.length;
             used = new bool[](numTokens);
 
             // Deploy LP tokens for all combinations of 2 or more tokens
@@ -178,11 +155,11 @@ contract DeployLPTokens is Script {
         }
 
         SetData storage set = sets[setName];
-        for (uint256 i = start; i < set.tokenSymbols.length; i++) {
+        for (uint256 i = start; i < set.tokenData.length; i++) {
             if (!used[i]) {
                 used[i] = true;
                 currentPartition[currentSize] = set
-                    .tokens[set.tokenSymbols[i]]
+                    .tokenData[i]
                     .token;
                 _generatePartitions(
                     setName,
@@ -211,9 +188,7 @@ contract DeployLPTokens is Script {
                 for (uint k = 0; k < deployment.tokens.length; k++) {
                     if (
                         deployment.tokens[k] ==
-                        sets[setNames[i]]
-                            .tokens[sets[setNames[i]].tokenSymbols[0]]
-                            .token
+                        sets[setNames[i]].tokenData[0].token
                     ) {
                         belongsToSet = true;
                         break;
@@ -244,15 +219,13 @@ contract DeployLPTokens is Script {
                         string memory symbol = "";
                         for (
                             uint l = 0;
-                            l < sets[setNames[i]].tokenSymbols.length;
+                            l < sets[setNames[i]].tokenData.length;
                             l++
                         ) {
                             if (
-                                sets[setNames[i]]
-                                    .tokens[sets[setNames[i]].tokenSymbols[l]]
-                                    .token == deployment.tokens[k]
+                                sets[setNames[i]].tokenData[l].token == deployment.tokens[k]
                             ) {
-                                symbol = sets[setNames[i]].tokenSymbols[l];
+                                symbol = sets[setNames[i]].tokenData[l].symbol;
                                 break;
                             }
                         }

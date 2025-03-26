@@ -185,9 +185,8 @@ contract DeployBurve is Script {
         vm.serializeAddress(setData, "diamond", address(diamond));
 
         string memory allTokenData = string.concat(set.name, "tokens");
-        string memory allTokenJson;
 
-        string[] memory tokenData;
+        string[] memory allTokenJson = new string[](tokenCount);
 
         for (uint256 i = 0; i < tokenCount; i++) {
             console2.log(vm.toLowercase(set.tokens[i].symbol), ":", tokens[i]);
@@ -197,10 +196,9 @@ contract DeployBurve is Script {
             );
 
             string memory tokenData = "tokendata";
+            vm.serializeString(tokenData, "symbol", vm.toLowercase(set.tokens[i].symbol));
             vm.serializeAddress(tokenData, "token", tokens[i]);
-            tokenData = vm.serializeAddress(tokenData, "vault", vaults[i]);
-
-            allTokenJson = vm.serializeString(allTokenData, vm.toLowercase(set.tokens[i].symbol), tokenData);
+            allTokenJson[i] = vm.serializeAddress(tokenData, "vault", vaults[i]);
         }
 
         return vm.serializeString(setData, "tokens", allTokenJson);
