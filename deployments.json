@@ -1,56 +1,56 @@
 {
-  "BTC": {
-    "diamond": "0x3153eDfaBE7608A97d0Cb02929917FE90cE2CB87",
+  "btc": {
+    "diamond": "0x52C7a9DDC1fE319a98Bd193b758Eaa4735738dDB",
     "tokens": {
-      "LBTC": {
-        "token": "0x8406DE314Ce609Ff8228193b2535f13527917803",
-        "vault": "0x7711d80d7B485d4ce1651284Dd9b8e19142F3748"
+      "lbtc": {
+        "token": "0xc993301287f7E7f7C0EB28c4616534CcAbA348BA",
+        "vault": "0xeAd4C2cc3c9c44be601373460BEe3c331FaFfe96"
       },
-      "WBTC": {
-        "token": "0xeA503D963ecFF34BfFd3C3E8a2Ee3C25839deA7B",
-        "vault": "0x1c2fb12ECCA5EDB9ac8dA583cAa865E7C893a7ef"
+      "unibtc": {
+        "token": "0x1F8B0Ab82C79bDBB02AbB87F6681a464CF24D50A",
+        "vault": "0x7AaBb13928E9382eE4b4148b9618039aBBcA7945"
       },
-      "uniBTC": {
-        "token": "0x42E5a852Aa5cd4284227796Bc5d2461189A65b8a",
-        "vault": "0x1D3b68fBD686e06Fbda1cb6cAF0C8DA558FCC3A0"
+      "wbtc": {
+        "token": "0x5bF8D07D696c2bde7478aaeE57F3e6475203EeD9",
+        "vault": "0x4Af9f320fE64C09a59572B6F687B308278367D61"
       }
     }
   },
-  "ETH": {
-    "diamond": "0x8EB5A8B9732022F20ab4d3128DDf3a50a6dAa7A2",
+  "eth": {
+    "diamond": "0x5d67Aa374909D7Fadf88389ba4f635469f1c12BF",
     "tokens": {
-      "WETH": {
-        "token": "0x07bf260a44CEADfad215cc8e20c5b0398D25b1FA",
-        "vault": "0xDb2f554A333D189ed59eA36020a83F7d6De14328"
+      "beraeth": {
+        "token": "0x53A16c7b5fB15E3786B068Eb199023394Cc15C5b",
+        "vault": "0xc12a6C5db256d292aab034c4E5c4f6BBe4c0afAC"
       },
-      "beraETH": {
-        "token": "0x94A44de106112A761B69dFBEB1ac6cfdD1B80304",
-        "vault": "0x47330D2fe6F75899597C14d615003Ef561B01B14"
+      "rseth": {
+        "token": "0xCFA293D910719f8C1ddDD0CA5dDd3D6Cbf681833",
+        "vault": "0x5564efCae4bbf9eBd388a4Bf56688E51913c84D4"
       },
-      "rsETH": {
-        "token": "0xCD75Ddf910A204d36Fc2f86e776f9d7B97A34817",
-        "vault": "0xEe170eFF1BCeA1f7a46F46634fa40d590AAa5200"
+      "weth": {
+        "token": "0x5416adf327242B7224413Dcd6E454FfcB5C1e73C",
+        "vault": "0x73c1A1437920ECFEC6Ac079d717CB75c0B0e9086"
       }
     }
   },
-  "USD": {
-    "diamond": "0x8233369E29653b70E50E93d1276a50B8f2122a01",
+  "usd": {
+    "diamond": "0x50a2DBf1c98A23f7430baC7abe71A4fD673213c1",
     "tokens": {
-      "DAI": {
-        "token": "0x76C9284988B979f750BC504173ADc08E00c04398",
-        "vault": "0x2F94C3189edA0e357B23048aEc736F323Ac431f6"
+      "dai": {
+        "token": "0x23De02D83eb0D192CDc5fd578C284A2b2722cafF",
+        "vault": "0x30da3b78B86e8842cB1386F199D4D6e7ae8Fca58"
       },
-      "MIM": {
-        "token": "0x9118EA4a52C6c7873729c8d8702cCd85E573f9E9",
-        "vault": "0x1A223F93131cD7d898c28Ee0B905C39Db474FA08"
+      "mim": {
+        "token": "0xF153B9A9e7C294875776a579AC91422d5fFdA9fE",
+        "vault": "0xcDcfC7BA941ABe3BdAA541aDEC5D24C867F3f816"
       },
-      "USDC": {
-        "token": "0x58d0d610674C69F27B7519a6e2746E8b814548DE",
-        "vault": "0xEd3AAE51d33138ef67555AE0925A38E77Df5B7e0"
+      "usdc": {
+        "token": "0x92A50F3B3E88C81310AD48cEB46e1F6C332C850e",
+        "vault": "0x7eb918Ff18Aa8F20e319d3479CB46833a58a32Cb"
       },
-      "USDT": {
-        "token": "0x77e6Bd5c1988d8d766698F9CeEa5C24559b999f8",
-        "vault": "0x7314AEeC874A25A1131F49dA9679D05f8d931175"
+      "usdt": {
+        "token": "0xC8C2FD7cB1EF6c9aB35B2Bf5cD594523A10C2C1C",
+        "vault": "0x3179588E9774bC6ee1B4AF8Db55Fb8e1500649C1"
       }
     }
   }
