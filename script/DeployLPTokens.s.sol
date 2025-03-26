@@ -50,32 +50,6 @@ contract DeployLPTokens is Script {
         _parseSet("eth", json, ".eth");
     }
 
-    function _getSymbols(
-        string memory setName
-    ) internal pure returns (string[] memory) {
-        if (keccak256(bytes(setName)) == keccak256(bytes("usd"))) {
-            string[] memory symbols = new string[](4);
-            symbols[0] = "usdc";
-            symbols[1] = "dai";
-            symbols[2] = "mim";
-            symbols[3] = "usdt";
-            return symbols;
-        } else if (keccak256(bytes(setName)) == keccak256(bytes("btc"))) {
-            string[] memory symbols = new string[](3);
-            symbols[0] = "wbtc";
-            symbols[1] = "unibtc";
-            symbols[2] = "lbtc";
-            return symbols;
-        } else if (keccak256(bytes(setName)) == keccak256(bytes("eth"))) {
-            string[] memory symbols = new string[](3);
-            symbols[0] = "weth";
-            symbols[1] = "beraeth";
-            symbols[2] = "rseth";
-            return symbols;
-        }
-        revert("Unknown set name");
-    }
-
     function _parseSet(
         string memory setName,
         string memory json,
@@ -89,7 +63,7 @@ contract DeployLPTokens is Script {
 
         // Get tokens data
         string memory tokensPath = string.concat(path, ".tokens");
-        string[] memory symbols = _getSymbols(setName);
+        string[] memory symbols = vm.parseJsonKeys(json, tokensPath);
 
         for (uint i = 0; i < symbols.length; i++) {
             string memory symbol = symbols[i];
