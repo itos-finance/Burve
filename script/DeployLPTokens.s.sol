@@ -50,6 +50,7 @@ contract DeployLPTokens is Script {
         _parseSet("usd", json, ".usd");
         _parseSet("btc", json, ".btc");
         _parseSet("eth", json, ".eth");
+        _parseSet("bgt", json, ".bgt");
     }
 
     function _parseSet(

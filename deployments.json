@@ -1,51 +1,171 @@
 {
+  "bgt": {
+    "diamond": "0x04Cd8B3e384e7bBB01109bc8b6708fCAeD5e9eB0",
+    "tokens": [
+      {
+        "symbol": "wbera",
+        "token": "0xFdc146E92D892F326CB9a1A480f58fc30a766c98",
+        "vault": "0xB83c5F00c01f1662dcc3A1370553f7eCD574Ed88"
+      },
+      {
+        "symbol": "ibgt",
+        "token": "0x4054765d35be9b4b27C4A1db3B269ae40f0541Ad",
+        "vault": "0x8013Dd64084e9c9122567563AA86981F4C20576B"
+      },
+      {
+        "symbol": "stbgt",
+        "token": "0xcd34D0833406Bff8073e18AAFa3DC34EE48Df9BA",
+        "vault": "0x12087c013f6269A90F113F8935f51C713a09b173"
+      }
+    ]
+  },
   "btc": {
-    "diamond": "0xfC47d03bd4C8a7E62A62f29000ceBa4D84142343",
+    "diamond": "0x9DA1A18AbC19387073683BD9f49c75455bd90c10",
     "tokens": [
       {
         "symbol": "wbtc",
-        "token": "0xFBc00Fa47a7d3bbE3e82B5Aa560B47008c1bD64c",
-        "vault": "0x240A60DC5e0B9013Cb8CF39aa6f9dDd8f25E40D2"
+        "token": "0xB6b46DfD045134249e8DaC98a188e0C23B56A0b8",
+        "vault": "0xdFE97385B11cAb514D8890C161534Acb129c03dF"
       },
       {
         "symbol": "unibtc",
-        "token": "0x3aD2306eDfBe72ce013cdb6b429212d9CdDE4F96",
-        "vault": "0xb69FC79100eDd058f9c96c0a13C80124aC1a7D77"
+        "token": "0xDFDBd5A2c3cE928482bd6D6e0b1C0e8F27A51265",
+        "vault": "0x7cf858d767d00942Ac1d7ADc3D7fDdA6BE980f18"
       },
       {
         "symbol": "lbtc",
-        "token": "0xfDD930c22708c7572278cf74D64f3721Eedc18Ad",
-        "vault": "0x757Fd23a0fDF9F9d2786f62f96f02Db4D096d10A"
+        "token": "0x5837440Bb467C30288289D5Cd42a4aB75b156384",
+        "vault": "0x4Aa87B609FbbDD914e8120e74F77FCcf978953dF"
+      },
+      {
+        "symbol": "apebtc",
+        "token": "0xAB46585f82eFF31F9b9C290b3464A43a626f5EE6",
+        "vault": "0x42d3570A90b9439F94eE552B46b93854a747b64F"
+      },
+      {
+        "symbol": "goldbtc",
+        "token": "0xeBee79f8d9bbFD9c4EAcf98C0548810378B8e5d3",
+        "vault": "0x224d544641969f228d81a4F7635AE92A18EC995c"
+      },
+      {
+        "symbol": "hyperbtc",
+        "token": "0x0877B2fDc29C11C5210B69dd60887d47DED819F7",
+        "vault": "0x76F1a8278Fb5714e2771feE4F038cdBd42C330e6"
+      },
+      {
+        "symbol": "infbtc",
+        "token": "0x463B9a38Dad23bafB8E2BF32F5AE31f5fEc5A8C5",
+        "vault": "0x8bc1fCDaA75F381bE2d2a828Fd78aAa37414Bea2"
+      },
+      {
+        "symbol": "berabtc",
+        "token": "0x06D470CE7306A5A707b1036DbacB0270B624e91e",
+        "vault": "0xCf8355dF541e43bBB8E2a4c442942Eecd0aA1810"
+      },
+      {
+        "symbol": "gmbtc",
+        "token": "0xDD012934aa02fb1865199E023499fd2D0044A4eb",
+        "vault": "0x1C71E359F6460d69449fb35397e61f6b6ef085Fa"
+      },
+      {
+        "symbol": "moonbtc",
+        "token": "0x51c2E51BB6C404C52fDeFA58a97C9A0279F0326e",
+        "vault": "0xF24BA5049F16d4897ff15661a9669d15CF5A98Aa"
       }
     ]
   },
   "eth": {
-    "diamond": "0xcfbD78F3D57B620ddEff73F193dD5Bf595a730db",
+    "diamond": "0xb82A4926BCbE123Cf5b585Ac0844DC53703c62B9",
     "tokens": [
       {
         "symbol": "weth",
-        "token": "0xD604C06206f6DeDd82d42F90D1F5bB34a2E7c5dd",
-        "vault": "0x132F7D9033b28B08cbc520e1cfD83c6dA3abfA36"
+        "token": "0xBdbEA2C43Adaf5eC1F4AFCe4c6cBe59AB29FF7Bb",
+        "vault": "0x4EE7c7970a92132F757A1F6dC5e6FCff51E17A21"
       },
       {
         "symbol": "beraeth",
-        "token": "0xB719422a0A484025c1A22a8dEEaFC67E81F43CfD",
-        "vault": "0xA199e7ab96BF9DF52C52eb7BAb5572789a726d33"
+        "token": "0xd5b82A25b664eec7cfc7EEE580Acfa99Cc753897",
+        "vault": "0x039Cb3CDe633f3FeA8b3DC0D0a7E762C400a0126"
+      },
+      {
+        "symbol": "rseth",
+        "token": "0xBB30BAD16a2bb8E90D67E101f59Fc569c0c90b4a",
+        "vault": "0xA32565d1FB34552fE5187bF3609BbD1922989CDC"
+      },
+      {
+        "symbol": "gmeth",
+        "token": "0x816C1209974fFac86Cf3639bA11ED299E587754B",
+        "vault": "0x45A755B058492558351f188e4362F0546Bc3d140"
+      },
+      {
+        "symbol": "apeeth",
+        "token": "0x229e614Bc82229b423921Efdc4C6E498D7876BC1",
+        "vault": "0xbb32B12BE8eAa6d159308386563B6490bb4A5DB0"
+      },
+      {
+        "symbol": "mooneth",
+        "token": "0x23DADb9D745703fb8085d431883a7D3A2b55D274",
+        "vault": "0x0905E3Ed4f4322F2ed7d1FC45Ede7773B4C2ef89"
+      },
+      {
+        "symbol": "suneth",
+        "token": "0x62Dd46d2a01A202a66d4eC6947fe88c5ac309232",
+        "vault": "0xf2e1D9e3845b9321381877F7886f941A9539d739"
+      },
+      {
+        "symbol": "spaceeth",
+        "token": "0xCd55135cC103D7568056a828100D96603380DDbE",
+        "vault": "0x221d0A359a46427063fFBEbD606E96aD22f91404"
+      },
+      {
+        "symbol": "shadoweth",
+        "token": "0x9E809Dc9a86ceB90e5C7BF4f39c7ccABe659B6Ae",
+        "vault": "0xdDc7203b76f2D1bc710954a62fC7D862186DA952"
+      },
+      {
+        "symbol": "warpeth",
+        "token": "0x42dD9CC51674411fE3d9A7620F1a25696C6A59e2",
+        "vault": "0xdC1f0d1C670aE7360ab69491B4D873DEc982ab55"
       }
     ]
   },
   "usd": {
-    "diamond": "0x88D3CAaD49fC2e8E38C812c5f4ACdd0a8B065F66",
+    "diamond": "0xa6Ca882f693f7c613cE1bAe28B91A06eaAcA8DD9",
     "tokens": [
       {
         "symbol": "usdc",
-        "token": "0x9cC87998ba85D81e017E6B7662aC00eE2Ab8fe13",
-        "vault": "0xB1fC11F03b084FfF8daE95fA08e8D69ad2547Ec1"
+        "token": "0x06fAddefDE8Dd5d4C6FAACe68b400754d960cb75",
+        "vault": "0xf334cC3649C999aA6E0ca85001db97c0aaC4A0f4"
       },
       {
         "symbol": "dai",
-        "token": "0x453439300B6C5C645737324b990f2d51137027bC",
-        "vault": "0x7306a649B451AE08781108445425Bd4E8AcF1E00"
+        "token": "0x21432F2F86d056D1F4Ee99eC81758042C9588D03",
+        "vault": "0x85f93384BAd10d7751Fcc3bBD8F8710db3190700"
+      },
+      {
+        "symbol": "mim",
+        "token": "0xb2961fd4214D19af644a7d80e02488e579444a6E",
+        "vault": "0x1bA8781Ca57ce21Be27a0aE424097daC91C19175"
+      },
+      {
+        "symbol": "usda",
+        "token": "0xa73860deb1c33dE92Bf63B3f2075173F4D794dE0",
+        "vault": "0x7Af7475Abe02a2e9CD03B0dc50EA534F84194e09"
+      },
+      {
+        "symbol": "usds",
+        "token": "0x17975FB494576ae89D627F904Ec723B87c7C35c8",
+        "vault": "0x1C9f974DF781C6EB3764F21Fe961ba38305213df"
+      },
+      {
+        "symbol": "atusd",
+        "token": "0xC138B397Be84Ec53E2654eEf1D0D63355E459791",
+        "vault": "0xa513902CE47191a5D4b63deFBa4f337347C512BE"
+      },
+      {
+        "symbol": "usdw",
+        "token": "0x3fb8D607A42B3c4536a7ffB8786639BfBd5cd9c0",
+        "vault": "0x0740BFEeAEb3c8a7b8718A4F3B20618568cDF621"
       }
     ]
   }
