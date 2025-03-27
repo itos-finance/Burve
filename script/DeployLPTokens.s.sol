@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
@@ -37,7 +38,8 @@ contract DeployLPTokens is Script {
         address lpToken;
         address[] tokens;
     }
-    LPDeployment[] public deployments;
+
+    mapping(string setName => LPDeployment[] deployments) public setDeployments;
 
     function setUp() public {
         string memory root = vm.projectRoot();
@@ -113,11 +115,9 @@ contract DeployLPTokens is Script {
             }
         }
 
-        console2.log("DONE DEPLOYING");
-
         // Write deployments to file
-        // string memory outputJson = _generateDeploymentsJson();
-        // vm.writeFile("lp-deployments.json", outputJson);
+        string memory outputJson = _generateDeploymentsJson();
+        vm.writeFile("lp-deployments.json", outputJson);
 
         vm.stopBroadcast();
     }
@@ -147,7 +147,7 @@ contract DeployLPTokens is Script {
             for (uint i = 0; i < currentPartition.length; i++) {
                 tokensCopy[i] = currentPartition[i];
             }
-            deployments.push(
+            setDeployments[setName].push(
                 LPDeployment(closureId, address(lpToken), tokensCopy)
             );
 
@@ -160,9 +160,7 @@ contract DeployLPTokens is Script {
         for (uint256 i = start; i < set.tokenData.length; i++) {
             if (!used[i]) {
                 used[i] = true;
-                currentPartition[currentSize] = set
-                    .tokenData[i]
-                    .token;
+                currentPartition[currentSize] = set.tokenData[i].token;
                 _generatePartitions(
                     setName,
                     i + 1,
@@ -174,99 +172,56 @@ contract DeployLPTokens is Script {
         }
     }
 
-    function _generateDeploymentsJson() internal view returns (string memory) {
-        for (uint i = 0; i < deployments.length; i++) {
-            LPDeployment memory deployment = deployments[i];
-            console2.log(
-                "LP Token for closure",
-                deployment.closureId,
-                ":",
-                deployment.lpToken
-            );
-            console2.log("Tokens:");
-            for (uint j = 0; j < deployment.tokens.length; j++) {
-                console2.log("  ", deployment.tokens[j]);
-            }
-        }
+    function _generateDeploymentsJson() internal returns (string memory) {
+        string memory json;
+        string memory finalJson;
 
-        console2.log("okay");
+        for (uint i = 0; i < setNames.length; ++i) {
+            string memory setName = setNames[i];
+            LPDeployment[] memory deployments = setDeployments[setName];
 
-        string memory json = '{"lpTokens":{';
-
-        for (uint i = 0; i < setNames.length; i++) {
-            if (i > 0) json = string.concat(json, ",");
-            json = string.concat(json, '"', setNames[i], '":{');
-
-            uint deploymentCount = 0;
-            for (uint j = 0; j < deployments.length; j++) {
+            string[] memory deploymentsJson = new string[](deployments.length);
+            for (uint j = 0; j < deployments.length; ++j) {
                 LPDeployment memory deployment = deployments[j];
 
-                // Check if this deployment belongs to current set
-                bool belongsToSet = false;
-                for (uint k = 0; k < deployment.tokens.length; k++) {
-                    if (
-                        deployment.tokens[k] ==
-                        sets[setNames[i]].tokenData[0].token
-                    ) {
-                        belongsToSet = true;
-                        break;
-                    }
-                }
-
-                if (belongsToSet) {
-                    if (deploymentCount > 0) json = string.concat(json, ",");
-                    json = string.concat(
-                        json,
-                        '"closure_',
-                        vm.toString(deployment.closureId),
-                        '":{',
-                        '"closureId":',
-                        vm.toString(deployment.closureId),
-                        ",",
-                        '"lpToken":"',
-                        vm.toString(deployment.lpToken),
-                        '",',
-                        '"tokens":['
+                string[] memory tokensJson = new string[](
+                    deployment.tokens.length
+                );
+                for (uint k = 0; k < deployment.tokens.length; ++k) {
+                    string memory tokenData = "tokendata";
+                    vm.serializeAddress(
+                        tokenData,
+                        "address",
+                        deployment.tokens[k]
                     );
-
-                    // Add token details
-                    for (uint k = 0; k < deployment.tokens.length; k++) {
-                        if (k > 0) json = string.concat(json, ",");
-
-                        // Find the symbol for this token
-                        string memory symbol = "";
-                        for (
-                            uint l = 0;
-                            l < sets[setNames[i]].tokenData.length;
-                            l++
-                        ) {
-                            if (
-                                sets[setNames[i]].tokenData[l].token == deployment.tokens[k]
-                            ) {
-                                symbol = sets[setNames[i]].tokenData[l].symbol;
-                                break;
-                            }
-                        }
-
-                        json = string.concat(
-                            json,
-                            '{"symbol":"',
-                            symbol,
-                            '","address":"',
-                            vm.toString(deployment.tokens[k]),
-                            '"}'
-                        );
-                    }
-
-                    json = string.concat(json, "]", "}");
-                    deploymentCount++;
+                    tokensJson[k] = vm.serializeString(
+                        tokenData,
+                        "symbol",
+                        vm.toLowercase(IERC20(deployment.tokens[k]).symbol())
+                    );
                 }
+
+                string memory deploymentData = "deploymentData";
+                vm.serializeUint(
+                    deploymentData,
+                    "closureId",
+                    deployment.closureId
+                );
+                vm.serializeAddress(
+                    deploymentData,
+                    "lpToken",
+                    deployment.lpToken
+                );
+                deploymentsJson[j] = vm.serializeString(
+                    deploymentData,
+                    "tokens",
+                    tokensJson
+                );
             }
 
-            json = string.concat(json, "}");
+            finalJson = vm.serializeString(json, setName, deploymentsJson);
         }
 
-        json = string.concat(json, "}}");
-        return json;
+        return finalJson;
     }
 }
