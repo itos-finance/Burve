@@ -93,26 +93,21 @@ contract DeployBurve is Script {
         btcTokens[4] = TokenConfig("Gold BTC", "goldBTC", 18);
         btcTokens[5] = TokenConfig("Hyper BTC", "hyperBTC", 18);
         btcTokens[6] = TokenConfig("Infinite BTC", "infBTC", 18);
-        btcTokens[7] = TokenConfig("Berachain BTC", "beraBTC", 18);
+        btcTokens[7] = TokenConfig("Up BTC", "upBTC", 18);
         btcTokens[8] = TokenConfig("Good Morning BTC", "gmBTC", 18);
-        btcTokens[9] = TokenConfig("Moon BTC", "moonBTC", 18);
-        // btcTokens[10] = TokenConfig("Lambo BTC", "lamboBTC", 18);
-        // btcTokens[11] = TokenConfig("Mc BTC", "McBTC", 18);
-        // btcTokens[12] = TokenConfig("Up BTC", "upBTC", 18);
-        // btcTokens[13] = TokenConfig("Solar BTC", "solarBTC", 18)
+        btcTokens[9] = TokenConfig("Mc BTC", "McBTC", 18);
 
         // ETH Set
-        TokenConfig[] memory ethTokens = new TokenConfig[](10);
+        TokenConfig[] memory ethTokens = new TokenConfig[](9);
         ethTokens[0] = TokenConfig("Wrapped Ether", "WETH", 18);
-        ethTokens[1] = TokenConfig("Berachain ETH", "beraETH", 18);
-        ethTokens[2] = TokenConfig("KelpDAO Restaked ETH", "rsETH", 18);
-        ethTokens[3] = TokenConfig("Good Morning ETH", "gmETH", 18);
-        ethTokens[4] = TokenConfig("Ape ETH", "apeETH", 18);
-        ethTokens[5] = TokenConfig("Moon ETH", "moonETH", 18);
-        ethTokens[6] = TokenConfig("Sun ETH", "sunETH", 18);
-        ethTokens[7] = TokenConfig("Space ETH", "spaceETH", 18);
-        ethTokens[8] = TokenConfig("Shadow ETH", "shadowETH", 18);
-        ethTokens[9] = TokenConfig("Warp ETH", "warpETH", 18);
+        ethTokens[1] = TokenConfig("KelpDAO Restaked ETH", "rsETH", 18);
+        ethTokens[2] = TokenConfig("Good Morning ETH", "gmETH", 18);
+        ethTokens[3] = TokenConfig("Ape ETH", "apeETH", 18);
+        ethTokens[4] = TokenConfig("Moon ETH", "moonETH", 18);
+        ethTokens[5] = TokenConfig("Sun ETH", "sunETH", 18);
+        ethTokens[6] = TokenConfig("Space ETH", "spaceETH", 18);
+        ethTokens[7] = TokenConfig("Shadow ETH", "shadowETH", 18);
+        ethTokens[8] = TokenConfig("Warp ETH", "warpETH", 18);
 
         // BGT Set
         TokenConfig[] memory bgtTokens = new TokenConfig[](3);
