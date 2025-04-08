@@ -33,6 +33,14 @@ interface IAdjustor {
         bool roundUp
     ) external view returns (int256 real);
 
+    /// If an adjustment will be queried often, someone can call this to cache the result for cheaper views.
+    function cacheAdjustment(address token) external;
+
+    /*
+    NOT PART OF THE INTERFACE BUT COULD BE USEFUL IN THE FUTURE IF MORE ACCURACY IS NEEDED.
+    FOR NOW, IT IS REDUNDANT GIVEN WE CAN DIVIDE ADJUSTMENTS AND TAKE THE SQRT WITHOUT SIGNIFICANT IMPRECISION.
+
+
     /// Query the multiplicative factor for converting the real-valued square root ratio of two token values to
     /// a nominal value.
     function nominalSqrtRatioX128(
@@ -49,9 +57,7 @@ interface IAdjustor {
         bool roundUp
     ) external view returns (uint256 ratioX128);
 
-    /// If an adjustment will be queried often, someone can call this to cache the result for cheaper views.
-    function cacheAdjustment(address token) external;
-
     /// If a ratio will be queried often, someone can call this to cache the result for cheaper views.
     function cacheRatio(address numToken, address denomToken) external;
+    */
 }

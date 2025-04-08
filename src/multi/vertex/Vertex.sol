@@ -1,17 +1,33 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {TokenRegLib} from "./Token.sol";
+import {TokenRegLib, MAX_TOKENS} from "./Token.sol";
 import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
 import {ClosureId, ClosureDist, newClosureDist} from "./Closure.sol";
 
 type VertexId is uint16;
-function newVertexId(uint8 idx) pure returns (VertexId) {
-    // We sanitize the idx beforehand for efficiency reasons.
-    return VertexId.wrap(uint16(1 << idx));
-}
-function newVertexId(address token) view returns (VertexId) {
-    return newVertexId(TokenRegLib.getIdx(token));
+
+library VertexLib {
+    function newId(uint8 idx) internal pure returns (VertexId) {
+        return VertexId.wrap(uint16(1 << idx));
+    }
+
+    function newId(address token) internal view returns (VertexId) {
+        return newId(TokenRegLib.getIdx(token));
+    }
+
+    function maxId() internal pure returns (VertexId) {
+        return newId(MAX_TOKENS);
+    }
+
+    function minId() internal pure returns (VertexId) {
+        return newId(0);
+    }
+
+    function newIter() internal pure returns (VertexIter memory vit) {
+        vit.vid = minId();
+        vit.idx = 0;
+    }
 }
 
 library VertexIdImpl {
@@ -21,6 +37,28 @@ library VertexIdImpl {
 
     function isNull(VertexId self) internal pure returns (bool) {
         return VertexId.unwrap(self) == 0;
+    }
+
+    function inc(VertexId self) internal pure returns (VertexId) {
+        return VertexId.wrap(VertexId.unwrap(self) << 1);
+    }
+}
+
+struct VertexIter {
+    VertexId vid;
+    uint8 idx;
+}
+
+using VertexIterImpl for VertexIter global;
+
+library VertexIterImpl {
+    function inc(VertexIter memory self) internal {
+        self.vid = self.vid.inc();
+        self.idx += 1;
+    }
+
+    function stop(VertexIter memory self) internal returns (bool) {
+        return self.idx == MAX_TOKENS;
     }
 }
 
