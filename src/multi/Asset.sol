@@ -1,57 +1,165 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ClosureId} from "./Closure.sol";
+import {ClosureId} from "./closure/Id.sol";
 import {Store} from "./Store.sol";
 import {FullMath} from "../FullMath.sol";
 
-struct AssetStorage {
-    mapping(ClosureId => uint256) totalShares;
-    mapping(address => mapping(ClosureId => uint256)) shares;
+/*
+    Users can have value balances in each cid, but those values are deposited into
+    Assets so that they can earn fees.
+    Each CID can only have one asset and so when adding/removing/extracting/redeeming value
+    users have to specify which CID.
+ */
+
+struct Asset {
+    uint256 value;
+    uint256 bgtValue; // Value - bgtValue is the non-bgt value.
+    // Checkpoints from our Closure.
+    uint256[MAX_TOKENS] earningsPerValueX128Check;
+    uint256[MAX_TOKENS] unexchangedPerBgtValueX128Check;
+    uint256 bgtPerValueX128Check;
+    // When we modify value, we need to collect fees but we don't automatically withdraw them.
+    // Instead they reside here until the user actually wants to collect fees earned.
+    uint256[MAX_TOKENS] collectedBalances; // Again, these are shares in the reserve.
+    uint256 bgtBalance;
 }
 
-/// Bookkeeping for Closure ownership.
-library AssetLib {
-    /// Add more shares to a user's closure allocation.
+struct AssetBook {
+    mapping(address => mapping(ClosureId => Asset)) assets;
+}
+
+using AssetBookImpl for AssetBook global;
+
+library AssetBookImpl {
+    /// Add value to a cid. If the cid already has value, the fees earned will be collected!
     function add(
-        address owner,
+        AssetBook self,
+        address recipient,
         ClosureId cid,
-        uint256 num,
-        uint256 denom
-    ) internal returns (uint256 shares) {
-        AssetStorage storage assets = Store.assets();
-        uint256 total = assets.totalShares[cid];
-        if (total == 0) {
-            shares = num;
-        } else {
-            shares = FullMath.mulDiv(num, total, denom);
+        uint256 value,
+        uint256 bgtValue
+    ) internal {
+        collect(self, recipient, cid);
+        Asset storage a = self.asset[recipient][cid];
+        a.value += value;
+        a.bgtValue += bgtValue;
+    }
+
+    /// Query the value held by a user in a given cid and the fees acccrued so far.
+    function query(
+        AssetBook self,
+        address recipient,
+        ClosureId cid
+    )
+        internal
+        view
+        returns (
+            uint256 value,
+            uint256 bgtValue,
+            uint256[MAX_TOKENS] memory feeBalances,
+            uint256 bgtBalance
+        )
+    {
+        Asset storage a = self.assets[recipient][cid];
+        value = a.value;
+        bgtValue = a.bgtValue;
+        /* Get total fee balances */
+        (
+            uint256[MAX_TOKENS] storage epvX128,
+            uint256[MAX_TOKENS] storage unepbvX128,
+            uint256 bpvX128
+        ) = Store.closure(cid).check();
+
+        uint256 nonBgtValue = a.value - a.bgtValue;
+        for (uint8 = 0; i < MAX_TOKENS; ++i) {
+            // Fees
+            feeBalances[i] =
+                a.collectedBalances[i] +
+                FullMath.mulX128(
+                    (epvX128[i] - a.earningsPerValueX128Check[i]),
+                    nonBgtValue,
+                    false
+                ) +
+                FullMath.mulX128(
+                    (unepbvX128[i] - a.unexchangedPerBgtValueX128Check[i]),
+                    a.bgtValue,
+                    false
+                );
         }
-        assets.shares[owner][cid] += shares;
-        assets.totalShares[cid] += shares;
+        bgtBalance =
+            a.bgtBalance +
+            FullMath.mulX128(
+                bpvX128 - a.bgtPerValueX128Check,
+                a.bgtValue,
+                false
+            );
     }
 
-    /// Remove shares from a user's closure allocation.
+    /// Remove value from this cid.
     function remove(
-        address owner,
+        AssetBook self,
+        address recipient,
         ClosureId cid,
-        uint256 shares
-    ) internal returns (uint256 percentX256) {
-        AssetStorage storage assets = Store.assets();
-        percentX256 = viewPercentX256(cid, shares);
-        assets.shares[owner][cid] -= shares; // Will error on underflow.
-        assets.totalShares[cid] -= shares;
+        uint256 value, // Total
+        uint256 bgtValue // BGT specific
+    ) internal {
+        collect(self, recipient, cid);
+        Asset storage a = self.asset[recipient][cid];
+        a.value -= value;
+        a.bgtValue -= bgtValue;
     }
 
-    function viewPercentX256(
-        ClosureId cid,
-        uint256 shares
-    ) internal view returns (uint256 percentX256) {
-        AssetStorage storage assets = Store.assets();
-        uint256 total = assets.totalShares[cid];
-        if (shares == total) {
-            percentX256 = type(uint256).max;
-        } else {
-            percentX256 = FullMath.mulDivX256(shares, total);
+    /// Push all the currently earned fees into the collected balances.
+    /// @dev We basically always collect fees first whenever we interact with an asset.
+    function collect(
+        AssetBook self,
+        address recipient,
+        ClosureId cid
+    ) internal {
+        (
+            uint256[MAX_TOKENS] storage epvX128,
+            uint256[MAX_TOKENS] storage unepbvX128,
+            uint256 bpvX128
+        ) = Store.closure(cid).check();
+        Asset storage a = self.assets[recipient][cid];
+        uint256 nonBgtValue = a.value - a.bgtValue;
+        for (uint8 = 0; i < MAX_TOKENS; ++i) {
+            // Fees
+            a.collectedBalances[i] +=
+                FullMath.mulX128(
+                    (epvX128[i] - a.earningsPerValueX128Check[i]),
+                    nonBgtValue,
+                    false
+                ) +
+                FullMath.mulX128(
+                    (unepbvX128[i] - a.unexchangedPerBgtValueX128Check[i]),
+                    a.bgtValue,
+                    false
+                );
+            a.earningsPerValueX128Check[i] = epvX128[i];
+            a.unexchangedPerBgtValueX128Check[i] = unepbvX128[i];
+        }
+        a.bgtBalance += FullMath.mulX128(
+            bpvX128 - a.bgtPerValueX128Check,
+            a.bgtValue,
+            false
+        );
+        a.bgtPerValueX128Check = bpvX128;
+    }
+
+    /// Does not collect any fees earned, but simply returns the fee balances collected (as shares in reserve)
+    /// and resets the current collected balances to 0.
+    /// @dev Used by facets to collect fees earned. These amounts should be withdraw from the reserve.
+    function claimFees(
+        AssetBook self,
+        address recipient,
+        ClosureId cid
+    ) internal returns (uint256[MAX_TOKENS] memory feeBalances) {
+        Asset storage a = self.assets[recipient][cid];
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            feeBalances[i] = a.collectedBalances[i];
+            a.collectedBalances[i] = 0;
         }
     }
 }

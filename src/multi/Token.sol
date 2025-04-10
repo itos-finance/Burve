@@ -52,4 +52,8 @@ library TokenRegLib {
             (tokenReg.tokens.length == 0 || tokenReg.tokens[0] != token)
         ) revert TokenNotFound(token);
     }
+
+    function getToken(uint8 idx) internal view returns (address token) {
+        return Store.tokenRegistry().tokens[idx];
+    }
 }

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {VertexId} from "./Vertex.sol";
+import {VertexId} from "./Id.sol";
 import {VaultPointer, VaultType} from "./VaultPointer.sol";
 import {VaultE4626} from "./E4626.sol";
-import {Store} from "./Store.sol";
-import {ClosureId} from "./Closure.sol";
+import {Store} from "../Store.sol";
+import {ClosureId} from "../closure/Id.sol";
 
 // Holds overall vault information.
 struct VaultStorage {

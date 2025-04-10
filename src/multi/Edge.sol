@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {MAX_TOKENS} from "./Token.sol";
 import {VertexId} from "./vertex/Vertex.sol";
 
 /*
@@ -9,67 +10,42 @@ import {VertexId} from "./vertex/Vertex.sol";
 struct Edge {
     /* Swap info */
     uint256 baseFeeX128; // The flat fee we charge on all swaps.
-    // These control the slippage inherent in a swap.
-    mapping(VertexId => ValueCurve) curves;
+    uint256 protocolFeeX128; //
+    uint256[MAX_TOKENS] esX128; // The scale factor we use to boost capital efficiency.
+    /*
+    The value equation we use for each token (balance x) is:
+    v(x) = (e + 2) * t - ((e + 1)t)^2 / (x + e*t)
+    e - The capital efficiency factor. Sets our price range this would support.
+    t - The target balance of the token. The minimum slippage occurs when x = t.
+    The value matches the token balance at equilibrium (t = x) and the price is 1 then.
+    */
 }
-
-// Our fee structure is a bonding curve described by
-// ((scale + 1) * target_value) ^ (2^pow) / ((n - 1) * (x + scale * target_value)^(2^pow - 1))
-// where x is the balance of the given token, and changes in the output of this equation
-// is the change in the value of the deposited token balance.
-struct ValueCurve {
-    uint128 scale;
-    uint8 pow2;
-}
-
-using ValueCurveImpl for ValueCurve global;
-
-library ValueCurveImpl
 
 using EdgeImpl for Edge global;
 
 library EdgeImpl {
-    uint256 constant X224 = 1 << 224; // used in getInvPriceX128
+    error MisconfiguredFees();
 
-    /* Admin function to set edge parameters */
+    // Admin function to set edge's swap concentration.
+    function setE(Edge storage self, uint8 idx, uint256 eX128) internal {
+        // There's no real sanitiy check for this because all non-negative values are potentially valid.
+        self.esX128[idx] = eX128;
+    }
 
-    /// @dev This is simple because we recalculate the implied price every time.
-    /// Just be sure to set the ticks such that the price diagram commutes.
-    function setRange(
+    function setFees(
         Edge storage self,
-        uint128 amplitude,
-        int24 lowTick,
-        int24 highTick
+        uint256 baseX128,
+        uint256 protocolX128
     ) internal {
-        self.lowTick = lowTick;
-        require(lowTick >= MIN_NARROW_TICK, "ERL");
-        self.highTick = highTick;
-        require(highTick < MAX_NARROW_TICK, "ERH");
-        self.amplitude = amplitude; // Liq in narrow range is (amplitude + 1) * wideLiq
-        require(amplitude < MAX_AMP, "ERA");
-        /* compute cache values */
-        self.lowSqrtPriceX96 = TickMath.getSqrtRatioAtTick(lowTick);
-        self.highSqrtPriceX96 = TickMath.getSqrtRatioAtTick(highTick);
-        self.invLowSqrtPriceX96 = TickMath.getSqrtRatioAtTick(-lowTick);
-        self.invHighSqrtPriceX96 = TickMath.getSqrtRatioAtTick(-highTick);
-        uint160 invDelta = self.invLowSqrtPriceX96 - self.invHighSqrtPriceX96;
-        uint160 delta = self.highSqrtPriceX96 - self.lowSqrtPriceX96;
-        self.xyBoundX128 = calcLowerBoundRatio(
-            amplitude,
-            self.invLowSqrtPriceX96,
-            invDelta
-        );
-        self.yxBoundX128 = calcUpperBoundRatio(
-            amplitude,
-            self.highSqrtPriceX96,
-            delta
-        );
+        require(baseX128 > protocolX128, MisconfiguredFees());
+        // Again, all non-negative values are valid.
+        self.baseFeeX128 = baseX128;
+        self.protocolFeeX128 = protocolX128;
     }
 
-    function setFee(Edge storage self, uint24 fee, uint8 feeProtocol) internal {
-        self.fee = fee;
-        self.feeProtocol = feeProtocol;
-    }
+    /* Actions to take on an edge (hyper-edge) */
+
+    function swapIn()
 
     /* Price functions used by LiqFacet */
 
@@ -125,5 +101,77 @@ library EdgeImpl {
             y = z;
             z = (x / z + z) / 2;
         }
+    }
+}
+
+library ValueLib {
+    uint256 public constant TWOX128 = 2 << 128;
+
+    /// Calculate the value of the current token balance (x).
+    /// @param tX128 The target balance of this token.
+    /// @param eX128 The capital efficiency factor of x.
+    /// @param x The token balance. Won't go above 128 bits.
+    function v(
+        uint256 tX128,
+        uint256 eX128,
+        uint256 x,
+        bool roundUp
+    ) internal returns (uint256 valueX128) {
+        uint256 etX128 = FullMath.mulX128(eX128, tX128, roundUp);
+        valueX128 = etX128 + 2 * tX128;
+        uint256 denomX128 = (x << 128) + etX128;
+        uint256 sqrtNumX128 = etX128 + tX128;
+        if (roundUp) {
+            valueX128 += FullMath.mulDivRoundingUp(
+                sqrtNumX128,
+                sqrtNumX128,
+                denomX128
+            );
+        } else {
+            valueX128 += FullMath.mulDiv(sqrtNumX128, sqrtNumX128, denomX128);
+        }
+    }
+
+    /// Calculate the derivative of v with respect to t.
+    /// We only use this for solving for t with newtons method so careful rounding is less necessary.
+    function dvdt(
+        uint256 tX128,
+        uint256 eX128,
+        uint256 x
+    ) internal returns (uint256 dvX128) {
+        uint256 etX128 = FullMath.mulX128(eX128, tX128, false);
+        dvX128 = eX128 + TWOX128;
+        uint256 xX128 = x << 128;
+        uint256 numAX128 = 2 * xX128 + etX128;
+        uint256 numBX128 = tX128 +
+            2 *
+            etX128 +
+            FullMath.mulX128(eX128, etX128, false);
+        uint256 sqrtDenomX128 = xX128 + etX128;
+        uint256 denomX128 = FullMath.mulX128(
+            sqrtDenomX128,
+            sqrtDenomX128,
+            false
+        );
+        dvX128 -= FullMath.mulDiv(numAX128, numBX128, denomX128);
+    }
+
+    /// Given the desired value (vX128), what is the corresponding balance of the token.
+    function x(
+        uint256 tX128,
+        uint256 eX128,
+        uint256 vX128,
+        bool roundUp
+    ) internal returns (uint256 _x) {
+        uint256 etX128 = FullMath.mulX128(eX128, tX128, roundUp);
+        uint256 sqrtNumX128 = etX128 + tX128;
+        // V is always less than (e + 2) * t
+        uint256 denomX128 = etX128 + 2 * tX128 - vX128;
+        uint256 xX128 = roundUp
+            ? FullMath.mulDivRoundingUp(sqrtNumX128, sqrtNumX128, denomX128)
+            : FullMath.mulDiv(sqrtNumX128, sqrtNumX128, denomX128);
+        xX128 -= etX128;
+        _x = xX128 >> 128;
+        if (roundUp && ((xX128 << 128) != 0)) _x += 1;
     }
 }

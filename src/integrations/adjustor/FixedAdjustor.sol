@@ -20,7 +20,7 @@ contract FixedAdjustor is IAdjustor {
     function setAdjustment(address token, uint256 _adjX128) internal {
         AdminLib.validateOwner();
         adjsX128[token] = _adjX128;
-        invAdjsX128[token] = FullMath.mulDivX256(1, _adjX128);
+        invAdjsX128[token] = FullMath.mulDivX256(1, _adjX128, false);
         // Technically inv can be off by rounding but will only appear in the case where
         // We want to round the result up and the mulX128 doesn't roundup itself.
         // This is acceptable for our purposes but may be worth consideration for others.

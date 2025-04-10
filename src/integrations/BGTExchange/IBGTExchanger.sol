@@ -12,7 +12,7 @@ interface IBGTExchanger {
     function exchange(
         address inToken,
         uint128 amount
-    ) external returns (uint256 bgtAmount);
+    ) external returns (uint256 bgtAmount, uint256 spendAmount);
 
     /// Query the amount of BGT owed to a caller.
     function owed(address caller) external view returns (uint256 bgtOwed);

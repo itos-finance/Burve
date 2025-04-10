@@ -14,40 +14,45 @@ import {ClosureDist} from "../Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
 
 /// Swap related functions
-/// @dev Remember that amounts are real, but prices are nominal.
+/// @dev Remember that amounts are real, but prices are nominal (meaning they should be around 1 to 1).
 contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     error SwapTokenLocked(address token);
 
-    // Reports the NOMINAL price as it goes out of bounds by being too far from one due to a swap.
+    /// Reports the NOMINAL price as it goes out of bounds by being too far from one due to a swap.
     error SwapOutOfBounds(uint160 resultingSqrtPriceX96);
-    // When the user specifies an exact out amount and we fail to fetch it for an
+    /// When the user specifies an exact out amount and we fail to fetch it for an
     error InsufficientOutAmount(uint256 expected, uint256 actual);
 
+    /// We don't report prices because it's not useful since later swaps in other tokens
+    /// can change other implied prices in the same hyper-edge.
     event Swap(
         address sender,
         address indexed recipient,
         address indexed inToken,
         address indexed outToken,
         uint256 inAmount,
-        uint256 outAmount,
-        uint160 finalSqrtPriceX96
-    ); // Nominal prices.
+        uint256 outAmount
+    ); // Real amounts.
 
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
-    /// @param sqrtPriceLimitX96 is the NOMINAL square root price limit.
+    /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
+    /// @param cid The closure we choose to swap through.
     function swap(
         address recipient,
         address inToken,
         address outToken,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96 // Nominal.
+        uint256 amountLimit,
+        ClosureId cid
     )
         external
         nonReentrant
         validTokens(inToken, outToken)
         returns (uint256 inAmount, uint256 outAmount)
     {
+        Store.closure(cid);
+
         uint256 protocolFee;
         uint160 finalSqrtPriceX96;
         (inAmount, outAmount, protocolFee, finalSqrtPriceX96) = _preSwap(

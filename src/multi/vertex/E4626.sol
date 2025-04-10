@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ClosureId} from "./Closure.sol";
-import {FullMath} from "../FullMath.sol";
+import {FullMath} from "../../FullMath.sol";
 import {VaultTemp} from "./VaultPointer.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
@@ -23,8 +22,6 @@ struct VaultE4626 {
 using VaultE4626Impl for VaultE4626 global;
 
 library VaultE4626Impl {
-    /// Thrown when trying to deposit and withdraw from the same vault in one bulk operation.
-    error OverlappingOperations(address vault);
     /// Thrown when requesting a balance too large for a given cid.
     error InsufficientBalance(
         address vault,
@@ -65,10 +62,21 @@ library VaultE4626Impl {
         uint256 assetsToDeposit = temp.vars[1];
         uint256 assetsToWithdraw = temp.vars[2];
 
-        if (assetsToDeposit > 0) {
-            if (assetsToWithdraw > 0)
-                revert OverlappingOperations(address(self.vault));
+        if (assetsToDeposit > 0 && assetsToWithdraw > 0) {
+            // We can net out and save ourselves some fees.
+            if (assetsToDeposit > assetsToWithdraw) {
+                assetsToDeposit -= assetsToWithdraw;
+                assetsToWithdraw = 0;
+            } else if (assetsToWithdraw > assetsToDeposit) {
+                assetsToDeposit = 0;
+                assetsToWithdraw -= assetsToDeposit;
+            } else {
+                // Perfect net!
+                return;
+            }
+        }
 
+        if (assetsToDeposit > 0) {
             // Temporary approve the deposit.
             SafeERC20.forceApprove(
                 self.token,
@@ -103,9 +111,7 @@ library VaultE4626Impl {
             temp.vars[3],
             true // Round up to round shares down.
         );
-        // Note that we do not include pending withdrawals, only pending deposits in this total amount
-        // because there should be no mixing of withdrawals and deposits.
-        uint256 totalAssets = temp.vars[0] + newlyAdding;
+        uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
 
         uint256 discountedAmount = FullMath.mulX128(
             amount,
@@ -126,8 +132,13 @@ library VaultE4626Impl {
         ClosureId cid,
         uint256 amount
     ) internal {
+        uint256 newlyAdding = FullMath.mulX128(
+            temp.vars[1],
+            temp.vars[3],
+            false // Round down to round shares removed up.
+        );
         // We need to remove the assets we will remove because we're removing from total shares along the way.
-        uint256 totalAssets = temp.vars[0] - temp.vars[2];
+        uint256 totalAssets = temp.vars[0] + newlyAdding - temp.vars[2];
         // We don't check if we have enough assets for this cid to supply because
         // 1. The shares will underflow if we don't
         // 2. The outer check in vertex should suffice.

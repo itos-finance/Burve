@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ClosureId} from "./Closure.sol";
+import {ClosureId} from "../closure/Id.sol";
 import {VaultE4626} from "./E4626.sol";
 
 /// The types of vaults we can handle.

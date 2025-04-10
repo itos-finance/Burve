@@ -129,10 +129,11 @@ library FullMath {
     }
 
     /// A slightly optimized version of mulDiv for when we want to divide a by b (where b > a) and get an X256 result.
-    /// @custom:gas 518
+    /// @custom:gas 548
     function mulDivX256(
         uint256 num,
-        uint256 denominator
+        uint256 denominator,
+        bool roundUp
     ) internal pure returns (uint256 result) {
         require(denominator > num, "0");
 
@@ -146,6 +147,7 @@ library FullMath {
             remainder := mulmod(num, X128, denominator)
             remainder := mulmod(remainder, X128, denominator)
         }
+        roundUp = roundUp && (remainder > 0);
         // Subtract out the remainder. Now remainder holds the fractional portion.
         assembly {
             num := sub(num, gt(remainder, 0))
@@ -182,6 +184,7 @@ library FullMath {
             // We know the result is entirely fractional.
             result = remainder * inv;
         }
+        if (roundUp) result += 1;
         return result;
     }
 

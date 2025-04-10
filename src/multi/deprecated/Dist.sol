@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {ClosureId} from "./Id.sol";
+import {ClosureId} from "../closure/Id.sol";
 import {FullMath} from "../../FullMath.sol";
 
 // In-memory data structure for stores a probability distribution over closures.
@@ -47,7 +47,7 @@ library ClosureDistImpl {
             uint256 weight = self.weights[i];
             self.weights[i] = (weight == self.totalWeight)
                 ? type(uint256).max
-                : FullMath.mulDivX256(self.weights[i], self.totalWeight);
+                : FullMath.mulDivX256(self.weights[i], self.totalWeight, false);
         }
         self.totalWeight = 0;
     }
