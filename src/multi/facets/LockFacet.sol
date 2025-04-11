@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {Store} from "../Store.sol";
-import {newVertexId} from "../Vertex.sol";
+import {VertexLib} from "../vertex/Id.sol";
 
 struct Locker {
     mapping(address => bool) lockers;
@@ -18,18 +18,18 @@ contract LockFacet {
             AdminLib.validateOwner();
         }
 
-        Store.vertex(newVertexId(token)).lock();
+        Store.vertex(VertexLib.newId(token)).lock();
     }
 
     function unlock(address token) external {
         if (!Store.locker().unlockers[msg.sender]) {
             AdminLib.validateOwner();
         }
-        Store.vertex(newVertexId(token)).unlock();
+        Store.vertex(VertexLib.newId(token)).unlock();
     }
 
     function isLocked(address token) external view returns (bool) {
-        return Store.vertex(newVertexId(token)).isLocked();
+        return Store.vertex(VertexLib.newId(token)).isLocked();
     }
 
     /* Admin */

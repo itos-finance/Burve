@@ -31,6 +31,6 @@ library ClosureIdImpl {
         ClosureId self,
         VertexId vid
     ) internal pure returns (bool) {
-        return (ClosureId.unwrap(self) & VertexId.unwrap(vid)) != 0;
+        return (ClosureId.unwrap(self) & vid.bit()) != 0;
     }
 }

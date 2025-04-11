@@ -2,12 +2,12 @@
 pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
-import {Edge} from "../Edge.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {Vertex, VertexId, newVertexId} from "../Vertex.sol";
-import {VaultType} from "../VaultProxy.sol";
+import {Vertex} from "../vertex/Vertex.sol";
+import {VertexId, VertexLib} from "../vertex/Id.sol";
+import {VaultType} from "../vertex/VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegLib, TokenRegistry} from "../Token.sol";
+import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 
 struct SimplexStorage {
@@ -31,13 +31,15 @@ contract SimplexFacet {
     );
 
     /* Getters */
-
+    /*
+    /// TODO move to new view facet
     /// Convert your token of interest to the vertex id which you can
     /// sum with other vertex ids to create a closure Id.
     function getVertexId(address token) external view returns (uint16 vid) {
         return VertexId.unwrap(newVertexId(token));
     }
 
+    /// TODO move to new view facet
     /// Fetch the list of tokens registered in this simplex.
     function getTokens() external view returns (address[] memory tokens) {
         address[] storage _t = Store.tokenRegistry().tokens;
@@ -47,6 +49,7 @@ contract SimplexFacet {
         }
     }
 
+    /// TODO move to new view facet
     /// Fetch the vertex index of the given token addresses.
     /// Returns a negative value if the token is not present.
     function getIndexes(
@@ -62,10 +65,11 @@ contract SimplexFacet {
         }
     }
 
+    /// TODO move to new view facet
     /// Get the number of currently installed vertices
     function numVertices() external view returns (uint8) {
         return TokenRegLib.numVertices();
-    }
+    } */
 
     /* Admin Function */
 
@@ -74,11 +78,39 @@ contract SimplexFacet {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.adjustor().cacheAdjustment(token);
-        Store.vertex(newVertexId(token)).init(token, vault, vType);
+        Store.vertex(VertexLib.newId(token)).init(token, vault, vType);
         emit VertexAdded(token, vault, vType);
     }
 
-    /// Withdraw fees earned by the protocol.
+    function addClosure(
+        uint16 _cid,
+        uint256 baseFeeX128,
+        uint256 protocolTakeX128
+    ) external {
+        AdminLib.validateOwner();
+        ClosureId cid = ClosureId.wrap(_cid);
+        Closure storage c = Store.closure(cid);
+        uint256 target = Store.simplex().initTarget;
+        uint256[MAX_TOKENS] storage neededBalances = c.init(
+            target,
+            baseFeeX128,
+            protocolTakeX128
+        );
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            uint256 realNeeded = AdjustorLib.toReal(neededBalances[i]);
+            address token = tokenReg.tokens[i];
+            TransferHelper.safeTransferFrom(
+                token,
+                msg.sender,
+                address(this),
+                realNeeded
+            );
+            Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
+        }
+    }
+
+    /*     /// Withdraw fees earned by the protocol.
     function withdrawFees(address token, uint256 amount) external {
         AdminLib.validateOwner();
         // Normally tokens supporting the AMM ALWAYS resides in the vaults.
@@ -91,22 +123,6 @@ contract SimplexFacet {
         emit FeesWithdrawn(token, amount);
     }
 
-    /// These will be the paramters used by all edges on construction.
-    /// @dev Note that the ticks are nominal values, so centered at one.
-    function setDefaultEdge(
-        uint128 amplitude,
-        int24 lowTick,
-        int24 highTick,
-        uint24 fee,
-        uint8 feeProtocol
-    ) external {
-        AdminLib.validateOwner();
-        Edge storage defaultE = Store.simplex().defaultEdge;
-        defaultE.setRange(amplitude, lowTick, highTick);
-        defaultE.setFee(fee, feeProtocol);
-        emit DefaultEdgeSet(amplitude, lowTick, highTick, fee, feeProtocol);
-    }
-
     function setAdjustor(IAdjustor adj) external {
         AdminLib.validateOwner();
         Store.load().adjustor = adj;
@@ -114,9 +130,10 @@ contract SimplexFacet {
         for (uint256 i = 0; i < tokens.length; ++i) {
             adj.cacheAdjustment(tokens[i]);
         }
-    }
+    } */
 
-    function setName(string calldata newName) external {
+    // TODO What are these?
+    /*     function setName(string calldata newName) external {
         AdminLib.validateOwner();
         Store.simplex().name = newName;
         emit NewName(newName);
@@ -124,5 +141,5 @@ contract SimplexFacet {
 
     function getName() external view returns (string memory name) {
         return Store.simplex().name;
-    }
+    } */
 }

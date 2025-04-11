@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {newVertexId, VertexId} from "../Vertex.sol";
-import {VaultLib, VaultType} from "../VaultProxy.sol";
-import {ClosureId} from "../Closure.sol";
+import {VertexLib, VertexId} from "../vertex/Id.sol";
+import {VaultLib, VaultType} from "../vertex/VaultProxy.sol";
+import {ClosureId} from "../closure/Id.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {Timed} from "../../Timed.sol";
 
@@ -24,7 +24,7 @@ contract VaultFacet {
     function viewVaults(
         address token
     ) external returns (address active, address backup) {
-        VertexId vid = newVertexId(token);
+        VertexId vid = VertexLib.newId(token);
         (active, backup) = VaultLib.getVaultAddresses(vid);
     }
 
@@ -32,7 +32,7 @@ contract VaultFacet {
     function addVault(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
         // This validates the token is installed.
-        newVertexId(token);
+        VertexLib.newId(token);
         bytes memory entry = abi.encode(vault, vType);
         Timed.memoryPrecommit(uint160(token), entry);
         // Timed will issue a precommit event.
@@ -46,7 +46,7 @@ contract VaultFacet {
             entry,
             (address, VaultType)
         );
-        VertexId vid = newVertexId(token);
+        VertexId vid = VertexLib.newId(token);
         VaultLib.add(vid, token, vault, vType);
         emit VaultInstalled(token, vault);
     }
@@ -85,7 +85,7 @@ contract VaultFacet {
     function hotSwap(address token) external {
         AdminLib.validateOwner();
         // Validates the token.
-        VertexId vid = newVertexId(token);
+        VertexId vid = VertexLib.newId(token);
         (address fromVault, address toVault) = VaultLib.hotSwap(vid);
         emit VaultMigrated(token, fromVault, toVault);
     }

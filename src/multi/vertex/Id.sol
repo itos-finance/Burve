@@ -45,6 +45,10 @@ library VertexIdImpl {
         return uint8(VertexId.unwrap(self));
     }
 
+    function bit(VertexId self) internal pure returns (uint16) {
+        return uint16(VertexId.unwrap(self) >> 8);
+    }
+
     function isStop(VertexId self) internal pure returns (bool) {
         return uint8(VertexId.unwrap(self)) == MAX_TOKENS;
     }

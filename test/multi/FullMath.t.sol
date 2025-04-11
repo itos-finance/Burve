@@ -7,7 +7,7 @@ import {FullMath} from "../../src/FullMath.sol";
 contract FullMathTest is Test {
     function setUp() public {}
 
-    function testMulDivX256() public pure {
+    function testMulDivX256() public {
         {
             uint256 half = FullMath.mulDivX256(1000, 2000, false);
             uint256 half2 = FullMath.mulDivX256(

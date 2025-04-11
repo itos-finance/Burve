@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+/* // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
@@ -68,3 +68,4 @@ contract ViewFacet {
         return cid.contains(newVertexId(idx));
     }
 }
+ */

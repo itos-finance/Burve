@@ -9,11 +9,10 @@ import {IERC4626} from "forge-std/interfaces/IERC4626.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
-import {VaultTemp} from "../../src/multi/VaultPointer.sol";
-import {VaultE4626, VaultE4626Impl} from "../../src/multi/E4626.sol";
-import {ClosureId} from "../../src/multi/Closure.sol";
+import {VaultTemp} from "../../src/multi/vertex/VaultPointer.sol";
+import {VaultE4626, VaultE4626Impl} from "../../src/multi/vertex/E4626.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
 
-// TODO once we have a mock Erc4626
 contract E4626Test is Test {
     IERC20 public token;
     IERC4626 public e4626;

@@ -6,7 +6,7 @@ import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import {VaultType} from "../../src/multi/VaultProxy.sol";
+import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {TransferHelper} from "../../src/TransferHelper.sol";
 
 contract AdjustmentTest is MultiSetupTest {

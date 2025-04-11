@@ -110,7 +110,7 @@ library AssetBookImpl {
         a.bgtValue -= bgtValue;
     }
 
-    /// Push all the currently earned fees into the collected balances.
+    /// Push all the currently earned fees into the collected balances and update checkpoints.
     /// @dev We basically always collect fees first whenever we interact with an asset.
     function collect(
         AssetBook self,

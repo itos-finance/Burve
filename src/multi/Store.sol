@@ -1,32 +1,35 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {AssetStorage} from "./Asset.sol";
-import {VaultStorage} from "./VaultProxy.sol";
-import {Vertex, VertexId} from "./Vertex.sol";
+import {AssetBook} from "./Asset.sol";
+import {Closure} from "./closure/Closure.sol";
+import {ClosureId} from "./closure/Id.sol";
+import {VaultStorage} from "./vertex/VaultProxy.sol";
+import {Vertex} from "./vertex/Vertex.sol";
+import {VertexId} from "./vertex/Id.sol";
 import {TokenRegistry} from "./Token.sol";
-import {Edge} from "./Edge.sol";
-import {SimplexStorage} from "./facets/SimplexFacet.sol";
+import {Simplex} from "./Simplex.sol";
 import {Locker} from "./facets/LockFacet.sol";
 import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 
 struct Storage {
-    IAdjustor adjustor;
-    AssetStorage assets;
+    AssetBook assets;
     TokenRegistry tokenReg;
     VaultStorage _vaults;
-    SimplexStorage simplex;
+    Simplex simplex;
     Locker _locker;
     // Graph elements
+    mapping(ClosureId => Closure) closures;
     mapping(VertexId => Vertex) vertices;
-    mapping(address => mapping(address => Edge)) edges; // Mapping from token,token to uniswap pool.
 }
 
 library Store {
     bytes32 public constant MULTI_STORAGE_POSITION =
         keccak256("multi.diamond.storage.20250113");
 
-    error NoEdgeSettings(address token0, address token1);
+    error EmptyClosure(ClosureId);
+    error UninitializedClosure(ClosureId);
+    error UninitializedVertex(VertexId);
 
     function load() internal pure returns (Storage storage s) {
         bytes32 position = MULTI_STORAGE_POSITION;
@@ -36,7 +39,8 @@ library Store {
     }
 
     function vertex(VertexId vid) internal view returns (Vertex storage v) {
-        return load().vertices[vid];
+        v = load().vertices[vid];
+        require(VertexId.unwrap(v.vid) != 0, UninitializedVertex(vid));
     }
 
     function tokenRegistry()
@@ -47,39 +51,21 @@ library Store {
         return load().tokenReg;
     }
 
-    /// Returns an edge or the default edge if it isn't set up yet.
-    function edge(
-        address token0,
-        address token1
-    ) internal view returns (Edge storage _edge) {
-        _edge = rawEdge(token0, token1);
-        if (_edge.amplitude == 0) {
-            _edge = load().simplex.defaultEdge;
-            // If the default edge is also unset, then we revert.
-            if (_edge.amplitude == 0) revert NoEdgeSettings(token0, token1);
-        }
-    }
-
-    /// Called when a function wants to access an edge, even if it isn't set up.
-    function rawEdge(
-        address token0,
-        address token1
-    ) internal view returns (Edge storage _edge) {
-        if (token0 > token1) {
-            (token0, token1) = (token1, token0);
-        }
-        return load().edges[token0][token1];
+    function closure(ClosureId cid) internal view returns (Closure storage _c) {
+        require(ClosureId.unwrap(cid) != 0, EmptyClosure(cid));
+        _c = load().closures[cid];
+        require(ClosureId.unwrap(_c.cid) != 0, UninitializedClosure(cid));
     }
 
     function vaults() internal view returns (VaultStorage storage v) {
         return load()._vaults;
     }
 
-    function assets() internal view returns (AssetStorage storage a) {
+    function assets() internal view returns (AssetBook storage a) {
         return load().assets;
     }
 
-    function simplex() internal view returns (SimplexStorage storage s) {
+    function simplex() internal view returns (Simplex storage s) {
         return load().simplex;
     }
 
@@ -88,6 +74,6 @@ library Store {
     }
 
     function adjustor() internal view returns (IAdjustor adj) {
-        return load().adjustor;
+        return IAdjustor(load().simplex.adjustor);
     }
 }

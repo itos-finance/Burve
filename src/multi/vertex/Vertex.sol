@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {VertexId} from "./Id.sol";
+import {VertexId, VertexLib} from "./Id.sol";
 import {ReserveLib} from "./Reserve.sol";
 import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
@@ -41,7 +41,7 @@ library VertexImpl {
         address vault,
         VaultType vType
     ) internal {
-        self.vid = newVertexId(token);
+        self.vid = VertexLib.newId(token);
         VaultLib.add(self.vid, token, vault, vType);
     }
 
@@ -52,18 +52,28 @@ library VertexImpl {
     /// Given the target REAL balance, we move shares to the reserve and
     /// return the shares moved so the closure can add it as earnings to its depositors.
     /// @dev The shares earned are MOVED TO THE RESERVE.
+    /// @param targetReal The amount of tokens the cid expects to have in this token.
+    /// @return reserveSharesEarned - The amount of shares moved to the reserve which non-bgt values can claim later.
+    /// @return bgtResidual - The real token amounts earned by the bgt values which can be exchanged.
     function trimBalance(
         Vertex storage self,
         ClosureId cid,
-        uint256 targetReal
-    ) internal returns (uint256 reserveSharesEarned) {
+        uint256 targetReal,
+        uint256 value,
+        uint256 bgtValue
+    ) internal returns (uint256 reserveSharesEarned, uint256 bgtResidual) {
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         uint256 realBalance = vProxy.balance(cid, false);
         if (targetReal > realBalance)
             emit InsufficientBalance(self.vid, cid, targetNominal, realBalance);
         uint256 residualReal = realBalance - targetReal;
         vProxy.withdraw(cid, residualReal);
-        reserveSharesEarned = ReserveLib.deposit(vProxy, cid, residualReal);
+        bgtResidual = mulDiv(residualReal, bgtValue, value);
+        reserveSharesEarned = ReserveLib.deposit(
+            vProxy,
+            cid,
+            residualReal - bgtResidual
+        );
         vProxy.commit();
     }
 

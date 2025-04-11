@@ -2,11 +2,11 @@
 pragma solidity ^0.8.17;
 
 import {console2} from "forge-std/console2.sol";
-import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
+import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {VaultFacet} from "../../src/multi/facets/VaultFacet.sol";
-import {VaultType} from "../../src/multi/VaultPointer.sol";
-import {VaultLib} from "../../src/multi/VaultProxy.sol";
+import {VaultType} from "../../src/multi/vertex/VaultPointer.sol";
+import {VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
@@ -71,11 +71,7 @@ contract VaultFacetTest is MultiSetupTest {
 
     // Test tranfering balances from one to another.
     function testTransfer() public {
-        // Add liq this time.
-        uint128[] memory amounts = new uint128[](2);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
-        liqFacet.addLiq(address(this), 0x3, amounts);
+        valueFacet.addValue(address(this), 0x3, 100e18, 0);
 
         // Similar to the basic test, but now we can't remove once we transfer tokens in.
         v.addVault(tokens[0], altVaults[0], VaultType.E4626);
@@ -135,10 +131,7 @@ contract VaultFacetTest is MultiSetupTest {
     // Test the swap facet withdraws and removes from the appropriate vaults and prices are still calculated correctly.
     function testSwap() public {
         // Basic liq
-        uint128[] memory amounts = new uint128[](2);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
-        liqFacet.addLiq(address(this), 0x3, amounts);
+        valueFacet.addValue(address(this), 0x3, 100e18, 0);
 
         // Check that the sim swap is the same if balances are all in 0, in a mix, and in 1.
         (, uint256 outAmount0, ) = swapFacet.simSwap(
@@ -222,7 +215,7 @@ contract VaultFacetTest is MultiSetupTest {
         assertEq(ERC20(tokens[0]).balanceOf(active), 0);
     }
 
-    // Test the liq facet deposits and withdraws appropriately and the prices stay in line.
+    // Test the liq deposits and withdraws appropriately and the prices stay in line.
     function testLiq() public {
         // Add vault
         v.addVault(tokens[0], altVaults[0], VaultType.E4626);
@@ -232,10 +225,7 @@ contract VaultFacetTest is MultiSetupTest {
         // Both vaults are empty.
 
         // Check that a deposit will add to the active vault.
-        uint128[] memory amounts = new uint128[](2);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
-        uint256 shares = liqFacet.addLiq(address(this), 0x3, amounts);
+        valueFacet.addValue(address(this), 0x3, 100e18, 0);
         // Adding liq adds tokens to the active vault.
         assertEq(ERC20(tokens[0]).balanceOf(active), 100e18, "1");
         assertEq(ERC20(tokens[0]).balanceOf(backup), 0, "2");
@@ -247,7 +237,7 @@ contract VaultFacetTest is MultiSetupTest {
 
         // Removing liquidity removes successfully from both vaults.
         // Might leave some dust behind (in the backup vault only!)
-        liqFacet.removeLiq(address(this), 0x3, shares);
+        valueFacet.removeValue(address(this), 0x3, 100e18, 0);
         assertEq(ERC20(tokens[0]).balanceOf(active), 0, "5");
         assertApproxEqAbs(ERC20(tokens[0]).balanceOf(backup), 0, 2, "6");
     }

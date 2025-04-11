@@ -3,7 +3,9 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveFacets, InitLib} from "../../src/InitLib.sol";
+// TODO: make a fresh swap test, but use MultiSetup.u.sol.
+
+/* import {BurveFacets, InitLib} from "../../src/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
@@ -15,10 +17,10 @@ import {ClosureId, newClosureId} from "../../src/multi/Closure.sol";
 import {VaultType} from "../../src/multi/VaultProxy.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {Edge} from "../../src/multi/Edge.sol";
-import {MockERC4626} from "../mocks/MockERC4626.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol"; */
 
 contract SwapFacetTest is Test {
-    SimplexDiamond public diamond;
+    /*     SimplexDiamond public diamond;
     EdgeFacet public edgeFacet;
     LiqFacet public liqFacet;
     SimplexFacet public simplexFacet;
@@ -588,5 +590,5 @@ contract SwapFacetTest is Test {
         liqFacet.removeLiq(alice, closureId, shares0);
         liqFacet.removeLiq(alice, closureId, shares1);
         vm.stopPrank();
-    }
+    } */
 }

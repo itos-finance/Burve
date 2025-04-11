@@ -2,28 +2,26 @@
 pragma solidity ^0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {InitLib, BurveFacets} from "../../src/InitLib.sol";
+import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
-import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
+import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
+import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import {VaultType} from "../../src/multi/VaultProxy.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 
 contract MultiSetupTest is Test {
     uint256 constant INITIAL_MINT_AMOUNT = 1e30;
-    uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100_000e18;
+    uint256 constant INITIAL_VALUE = 100_000e18;
 
     /* Diamond */
     address public diamond;
-    EdgeFacet public edgeFacet;
-    LiqFacet public liqFacet;
+    ValueFacet public valueFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
     LockFacet public lockFacet;
@@ -47,8 +45,7 @@ contract MultiSetupTest is Test {
         BurveFacets memory bFacets = InitLib.deployFacets();
         diamond = address(new SimplexDiamond(bFacets));
 
-        edgeFacet = EdgeFacet(diamond);
-        liqFacet = LiqFacet(diamond);
+        viewFacet = ViewFacet(diamond);
         simplexFacet = SimplexFacet(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);

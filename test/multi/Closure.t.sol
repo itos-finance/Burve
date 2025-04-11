@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
-import {ClosureId, newClosureId} from "../../src/multi/Closure.sol";
+import {ClosureId, newClosureId} from "../../src/multi/closure/Id.sol";
 import {TokenRegistry} from "../../src/multi/Token.sol";
 import {Store} from "../../src/multi/Store.sol";
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveFacetBase} from "../../src/multi/facets/Base.sol";
+import {BurveFacetBase} from "../../src/multi/deprecated/Base.sol";
 import {TokenRegistry, TokenRegLib} from "../../src/multi/Token.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";

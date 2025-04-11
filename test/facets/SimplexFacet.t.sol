@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import {Test} from "forge-std/Test.sol";
+/* import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveFacets, InitLib} from "../../src/InitLib.sol";
+import {BurveFacets, InitLib} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
-import {VaultType, VaultLib} from "../../src/multi/VaultProxy.sol";
-import {TokenRegistryImpl} from "../../src/multi/Token.sol";
+import {VaultType, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
 import {Store} from "../../src/multi/Store.sol";
-import {VertexId, newVertexId} from "../../src/multi/Vertex.sol";
+import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
 import {TokenRegLib} from "../../src/multi/Token.sol";
-import {Edge} from "../../src/multi/Edge.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 // Adjustment test imports
 import {MultiSetupTest} from "./MultiSetup.u.sol";
@@ -200,4 +196,4 @@ contract SimplexFacetAdjustorTest is MultiSetupTest {
         uint256 noAdjLiq = liqFacet.addLiq(address(this), 0x7, amounts);
         assertApproxEqRel(noAdjLiq, (initLiq + withAdjLiq) / 5, 1e16); // Off by 1%
     }
-}
+} */
