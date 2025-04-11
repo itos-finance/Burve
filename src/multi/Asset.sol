@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "./closure/Id.sol";
 import {Store} from "./Store.sol";
 import {FullMath} from "../FullMath.sol";
+import {MAX_TOKENS} from "./Token.sol";
 
 /*
     Users can have value balances in each cid, but those values are deposited into

@@ -32,7 +32,7 @@ contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
     /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
-    /// @param cid The closure we choose to swap through.
+    /// @param _cid The closure we choose to swap through.
     function swap(
         address recipient,
         address inToken,

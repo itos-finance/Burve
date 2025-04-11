@@ -163,17 +163,17 @@ library ClosureImpl {
                 ValueLib.v(self.targetX128, eX128, self.balances[i], false);
         }
         // Now we add the missing value.
-        uint256 eX128 = esX128[vIdx];
+        uint256 veX128 = esX128[vIdx];
         uint256 currentValueX128 = ValueLib.v(
             self.targetX128,
-            eX128,
+            veX128,
             self.balances[vIdx],
             false
         );
         // To get the required amount.
         uint256 finalAmount = ValueLib.x(
             self.targetX128,
-            eX128,
+            veX128,
             currentValueX128 + missingValueX128,
             true
         );
@@ -270,17 +270,17 @@ library ClosureImpl {
                 );
         }
         uint8 vIdx = vid.idx();
-        uint256 eX128 = esX128[vIdx];
+        uint256 veX128 = esX128[vIdx];
         uint256 currentValueX128 = ValueLib.v(
             self.targetX128,
-            eX128,
+            veX128,
             self.balances[vIdx],
             false
         );
         // How much can we remove?
         uint256 finalAmount = ValueLib.x(
             self.targetX128,
-            eX128,
+            veX128,
             currentValueX128 - addedValueX128,
             true
         );

@@ -14,12 +14,12 @@ library ValueLib {
     function v(
         uint256 tX128,
         uint256 eX128,
-        uint256 x,
+        uint256 _x,
         bool roundUp
     ) internal returns (uint256 valueX128) {
         uint256 etX128 = FullMath.mulX128(eX128, tX128, roundUp);
         valueX128 = etX128 + 2 * tX128;
-        uint256 denomX128 = (x << 128) + etX128;
+        uint256 denomX128 = (_x << 128) + etX128;
         uint256 sqrtNumX128 = etX128 + tX128;
         if (roundUp) {
             valueX128 += FullMath.mulDivRoundingUp(
@@ -108,11 +108,11 @@ library ValueLib {
     function dvdt(
         uint256 tX128,
         uint256 eX128,
-        uint256 x
+        uint256 _x
     ) internal returns (uint256 dvX128) {
         uint256 etX128 = FullMath.mulX128(eX128, tX128, false);
         dvX128 = eX128 + TWOX128;
-        uint256 xX128 = x << 128;
+        uint256 xX128 = _x << 128;
         uint256 numAX128 = 2 * xX128 + etX128;
         uint256 numBX128 = tX128 +
             2 *
