@@ -21,7 +21,7 @@ import {ValueFacet} from "./facets/ValueFacet.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {LockFacet} from "./facets/LockFacet.sol";
 import {VaultFacet} from "./facets/VaultFacet.sol";
-import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
+import {SimplexLib} from "./Simplex.sol";
 
 error FunctionNotFound(bytes4 _functionSelector);
 
@@ -75,10 +75,10 @@ contract SimplexDiamond is IDiamond {
 
         {
             bytes4[] memory valueSelectors = new bytes4[](4);
-            liqSelectors[0] = ValueFacet.addValue.selector;
-            liqSelectors[1] = ValueFacet.addValueSingle.selector;
-            liqSelectors[2] = ValueFacet.removeValue.selector;
-            liqSelectors[3] = ValueFacet.removeValueSingle.selector;
+            valueSelectors[0] = ValueFacet.addValue.selector;
+            valueSelectors[1] = ValueFacet.addValueSingle.selector;
+            valueSelectors[2] = ValueFacet.removeValue.selector;
+            valueSelectors[3] = ValueFacet.removeValueSingle.selector;
             cuts[3] = FacetCut({
                 facetAddress: facets.valueFacet,
                 action: FacetCutAction.Add,

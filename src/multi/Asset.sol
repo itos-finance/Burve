@@ -73,7 +73,7 @@ library AssetBookImpl {
         ) = Store.closure(cid).check();
 
         uint256 nonBgtValue = a.value - a.bgtValue;
-        for (uint8 = 0; i < MAX_TOKENS; ++i) {
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             // Fees
             feeBalances[i] =
                 a.collectedBalances[i] +
@@ -125,7 +125,7 @@ library AssetBookImpl {
         ) = Store.closure(cid).check();
         Asset storage a = self.assets[recipient][cid];
         uint256 nonBgtValue = a.value - a.bgtValue;
-        for (uint8 = 0; i < MAX_TOKENS; ++i) {
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             // Fees
             a.collectedBalances[i] +=
                 FullMath.mulX128(

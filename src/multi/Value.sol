@@ -2,7 +2,8 @@
 pragma solidity ^0.8.27;
 
 import {MAX_TOKENS} from "./Token.sol";
-import {VertexId} from "./vertex/Vertex.sol";
+import {VertexId} from "./vertex/Id.sol";
+import {FullMath} from "../FullMath.sol";
 
 library ValueLib {
     uint256 public constant TWOX128 = 2 << 128;
@@ -10,7 +11,7 @@ library ValueLib {
     /// Calculate the value of the current token balance (x).
     /// @param tX128 The target balance of this token.
     /// @param eX128 The capital efficiency factor of x.
-    /// @param x The token balance. Won't go above 128 bits.
+    /// @param _x The token balance. Won't go above 128 bits.
     function v(
         uint256 tX128,
         uint256 eX128,

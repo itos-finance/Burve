@@ -4,13 +4,15 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
+import {AdjustorLib} from "../Adjustor.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
+import {ClosureId} from "../closure/Id.sol";
+import {Closure} from "../closure/Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
 
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal (meaning they should be around 1 to 1).
-contract SwapFacet is ReentrancyGuardTransient, BurveFacetBase {
+contract SwapFacet is ReentrancyGuardTransient {
     /// We don't report prices because it's not useful since later swaps in other tokens
     /// can change other implied prices in the same hyper-edge.
     event Swap(

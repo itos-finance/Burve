@@ -6,6 +6,7 @@ import {VertexId} from "./Id.sol";
 import {VaultProxy} from "./VaultProxy.sol";
 import {VaultLib} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
+import {Store} from "../Store.sol";
 
 struct Reserve {
     // The shares we have for the balance we have in each vault.

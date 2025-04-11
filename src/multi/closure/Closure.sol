@@ -5,6 +5,11 @@ import {MAX_TOKENS} from "../Token.sol";
 import {SimplexLib} from "../Simplex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {AdjustorLib} from "../Adjustor.sol";
+import {ClosureId} from "./Id.sol";
+import {FullMath} from "../../FullMath.sol";
+import {ValueLib} from "../Value.sol";
+import {ReserveLib} from "../vertex/Reserve.sol";
+import {Store} from "../Store.sol";
 import {UnsafeMath} from "Commons/Math/UnsafeMath.sol";
 
 /// Holds the information relevant to a single closure
@@ -241,6 +246,7 @@ library ClosureImpl {
         self.targetX128 -= valueX128 / self.n;
         // We first calculate what value is effectively "added" by not removing the tokens.
         // And then we make sure to remove that amount of value with the out token.
+        uint8 vIdx = vid.idx();
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         uint256 addedValueX128 = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -269,7 +275,6 @@ library ClosureImpl {
                     true
                 );
         }
-        uint8 vIdx = vid.idx();
         uint256 veX128 = esX128[vIdx];
         uint256 currentValueX128 = ValueLib.v(
             self.targetX128,
@@ -608,7 +613,9 @@ library ClosureImpl {
     }
 
     /// Return the current fee checkpoints.
-    function getCheck()
+    function getCheck(
+        Closure storage self
+    )
         internal
         view
         returns (
@@ -677,7 +684,7 @@ library ClosureImpl {
     function trimAllBalances(Closure storage self) internal {
         uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
         for (VertexId vIter = VertexLib.minId(); !vIter.stop(); vIter.inc()) {
-            _trimBalance(self, vid, nonBgtValueStaked);
+            _trimBalance(self, vIter, nonBgtValueStaked);
         }
     }
 
@@ -702,7 +709,7 @@ library ClosureImpl {
             self.bgtValueStaked
         );
         self.earningsPerValueX128[idx] += (earnings << 128) / nonBgtValueStaked;
-        (uint256 bgtEarned, uint256 unspent) = Simplex.bgtExchange(
+        (uint256 bgtEarned, uint256 unspent) = SimplexLib.bgtExchange(
             idx,
             bgtReal
         );

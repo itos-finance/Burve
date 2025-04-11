@@ -45,7 +45,7 @@ contract MultiSetupTest is Test {
         BurveFacets memory bFacets = InitLib.deployFacets();
         diamond = address(new SimplexDiamond(bFacets));
 
-        viewFacet = ViewFacet(diamond);
+        valueFacet = ValueFacet(diamond);
         simplexFacet = SimplexFacet(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);

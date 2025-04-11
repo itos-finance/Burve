@@ -11,7 +11,7 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {Store} from "../Store.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {AssetBook} from "../Asset.sol";
-import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
+import {AdjustorLib} from "../Adjustor.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -156,6 +156,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         address recipient,
         uint16 _closureId,
         uint256 value,
+        uint256 bgtValue,
         address token
     ) external nonReentrant returns (uint256 removedBalance) {
         if (value == 0) revert DeMinimisDeposit();
@@ -167,7 +168,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint256 realRemoved = AdjustorLib.toReal(removedBalance);
         TransferHelper.safeTransfer(token, recipient, realRemoved);
         // Users can removed locked tokens as it helps derisk this protocol.
-        Store.vertex(vid).withdraw(cid, realRequired, false);
+        Store.vertex(vid).withdraw(cid, realRemoved, false);
         Store.assets().remove(msg.sender, cid, value, bgtValue);
     }
 

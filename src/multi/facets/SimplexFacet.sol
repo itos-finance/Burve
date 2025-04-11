@@ -8,12 +8,10 @@ import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {VaultType} from "../vertex/VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
-import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
+import {AdjustorLib} from "../Adjustor.sol";
+import {ClosureId} from "../closure/Id.sol";
+import {Closure} from "../closure/Closure.sol";
 
-struct SimplexStorage {
-    string name;
-    Edge defaultEdge;
-}
 contract SimplexFacet {
     event NewName(string newName);
     event VertexAdded(

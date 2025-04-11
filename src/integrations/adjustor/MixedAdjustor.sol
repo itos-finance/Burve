@@ -25,7 +25,7 @@ contract MixedAdjustor is IAdjustor {
 
     function setDefaultAdjustor(address adjustor) external {
         AdminLib.validateOwner();
-        defAjd = adjustor;
+        defAdj = adjustor;
     }
 
     function toNominal(

@@ -5,6 +5,7 @@ import {VertexId, VertexLib} from "./Id.sol";
 import {ReserveLib} from "./Reserve.sol";
 import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
+import {FullMath} from "../../FullMath.sol";
 
 /**
  * Vertices supply tokens to the closures. Each tracks the total balance of one token.
@@ -65,10 +66,10 @@ library VertexImpl {
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         uint256 realBalance = vProxy.balance(cid, false);
         if (targetReal > realBalance)
-            emit InsufficientBalance(self.vid, cid, targetNominal, realBalance);
+            emit InsufficientBalance(self.vid, cid, targetReal, realBalance);
         uint256 residualReal = realBalance - targetReal;
         vProxy.withdraw(cid, residualReal);
-        bgtResidual = mulDiv(residualReal, bgtValue, value);
+        bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
         reserveSharesEarned = ReserveLib.deposit(
             vProxy,
             cid,
