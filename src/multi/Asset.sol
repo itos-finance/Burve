@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "./closure/Id.sol";
 import {Store} from "./Store.sol";
 import {FullMath} from "../FullMath.sol";
-import {MAX_TOKENS} from "./Token.sol";
+import {MAX_TOKENS} from "./Constants.sol";
 
 /*
     Users can have value balances in each cid, but those values are deposited into
@@ -35,21 +35,21 @@ using AssetBookImpl for AssetBook global;
 library AssetBookImpl {
     /// Add value to a cid. If the cid already has value, the fees earned will be collected!
     function add(
-        AssetBook self,
+        AssetBook storage self,
         address recipient,
         ClosureId cid,
         uint256 value,
         uint256 bgtValue
     ) internal {
         collect(self, recipient, cid);
-        Asset storage a = self.asset[recipient][cid];
+        Asset storage a = self.assets[recipient][cid];
         a.value += value;
         a.bgtValue += bgtValue;
     }
 
     /// Query the value held by a user in a given cid and the fees acccrued so far.
     function query(
-        AssetBook self,
+        AssetBook storage self,
         address recipient,
         ClosureId cid
     )
@@ -68,9 +68,9 @@ library AssetBookImpl {
         /* Get total fee balances */
         (
             uint256[MAX_TOKENS] storage epvX128,
-            uint256[MAX_TOKENS] storage unepbvX128,
-            uint256 bpvX128
-        ) = Store.closure(cid).check();
+            uint256 bpvX128,
+            uint256[MAX_TOKENS] storage unepbvX128
+        ) = Store.closure(cid).getCheck();
 
         uint256 nonBgtValue = a.value - a.bgtValue;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -99,14 +99,14 @@ library AssetBookImpl {
 
     /// Remove value from this cid.
     function remove(
-        AssetBook self,
+        AssetBook storage self,
         address recipient,
         ClosureId cid,
         uint256 value, // Total
         uint256 bgtValue // BGT specific
     ) internal {
         collect(self, recipient, cid);
-        Asset storage a = self.asset[recipient][cid];
+        Asset storage a = self.assets[recipient][cid];
         a.value -= value;
         a.bgtValue -= bgtValue;
     }
@@ -114,15 +114,15 @@ library AssetBookImpl {
     /// Push all the currently earned fees into the collected balances and update checkpoints.
     /// @dev We basically always collect fees first whenever we interact with an asset.
     function collect(
-        AssetBook self,
+        AssetBook storage self,
         address recipient,
         ClosureId cid
     ) internal {
         (
             uint256[MAX_TOKENS] storage epvX128,
-            uint256[MAX_TOKENS] storage unepbvX128,
-            uint256 bpvX128
-        ) = Store.closure(cid).check();
+            uint256 bpvX128,
+            uint256[MAX_TOKENS] storage unepbvX128
+        ) = Store.closure(cid).getCheck();
         Asset storage a = self.assets[recipient][cid];
         uint256 nonBgtValue = a.value - a.bgtValue;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -153,7 +153,7 @@ library AssetBookImpl {
     /// and resets the current collected balances to 0.
     /// @dev Used by facets to collect fees earned. These amounts should be withdraw from the reserve.
     function claimFees(
-        AssetBook self,
+        AssetBook storage self,
         address recipient,
         ClosureId cid
     ) internal returns (uint256[MAX_TOKENS] memory feeBalances) {

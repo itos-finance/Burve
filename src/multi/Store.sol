@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {AssetBook} from "./Asset.sol";
 import {Closure} from "./closure/Closure.sol";
 import {ClosureId} from "./closure/Id.sol";
+import {Reserve} from "./vertex/Reserve.sol";
 import {VaultStorage} from "./vertex/VaultProxy.sol";
 import {Vertex} from "./vertex/Vertex.sol";
 import {VertexId} from "./vertex/Id.sol";
@@ -18,6 +19,7 @@ struct Storage {
     VaultStorage _vaults;
     Simplex simplex;
     Locker _locker;
+    Reserve _reserve;
     // Graph elements
     mapping(ClosureId => Closure) closures;
     mapping(VertexId => Vertex) vertices;
@@ -75,5 +77,10 @@ library Store {
 
     function adjustor() internal view returns (IAdjustor adj) {
         return IAdjustor(load().simplex.adjustor);
+    }
+
+    // TODO: fix. Was added to compile ReserveLib
+    function reserve() internal view returns (Reserve storage r) {
+        return load()._reserve;
     }
 }

@@ -90,14 +90,19 @@ contract SimplexFacet {
         Closure storage c = Store.closure(cid);
         uint256 target = Store.simplex().initTarget;
         uint256[MAX_TOKENS] storage neededBalances = c.init(
+            cid,
             target,
             baseFeeX128,
             protocolTakeX128
         );
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            uint256 realNeeded = AdjustorLib.toReal(neededBalances[i]);
             address token = tokenReg.tokens[i];
+            uint256 realNeeded = AdjustorLib.toReal(
+                token,
+                neededBalances[i],
+                true
+            ); // TODO: double check
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,

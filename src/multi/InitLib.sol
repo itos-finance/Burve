@@ -20,7 +20,7 @@ library InitLib {
      * Deploys each of the facets for the Burve diamond
      */
     function deployFacets() internal returns (BurveFacets memory facets) {
-        facets.liqFacet = address(new ValueFacet());
+        facets.valueFacet = address(new ValueFacet());
         facets.simplexFacet = address(new SimplexFacet());
         facets.swapFacet = address(new SwapFacet());
         facets.vaultFacet = address(new VaultFacet());

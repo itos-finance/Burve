@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {MAX_TOKENS} from "./Token.sol";
+import {MAX_TOKENS} from "./Constants.sol";
 import {IBGTExchanger} from "../integrations/BGTExchange/IBGTExchanger.sol";
 import {TokenRegLib} from "./Token.sol";
 import {Store} from "./Store.sol";
@@ -52,21 +52,22 @@ library SimplexLib {
         return Store.simplex().deMinimusVX128;
     }
 
-    function getEs() internal returns (uint256[MAX_TOKENS] storage) {
+    function getEs() internal view returns (uint256[MAX_TOKENS] storage) {
         return Store.simplex().esX128;
     }
 
     function bgtExchange(
-        uint256 idx,
+        uint8 idx,
         uint256 amount
     ) internal returns (uint256 bgtEarned, uint256 unspent) {
         Simplex storage s = Store.simplex();
         if (s.bgtEx == address(0)) return (0, amount);
         address token = TokenRegLib.getToken(idx);
         uint256 spentAmount;
+        // TODO: fix uint256 uint128 cast
         (bgtEarned, spentAmount) = IBGTExchanger(s.bgtEx).exchange(
             token,
-            amount
+            uint128(amount)
         );
         unspent = amount - spentAmount;
     }

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {MAX_TOKENS} from "./Constants.sol";
 import {Store} from "./Store.sol";
-
-uint256 constant MAX_TOKENS = 16;
 
 struct TokenRegistry {
     address[] tokens;

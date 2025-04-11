@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-
+/*
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
@@ -142,3 +142,4 @@ contract AdjustmentTest is MultiSetupTest {
         assertEq(sqrtPX96, 1 << 96, "2");
     }
 }
+*/

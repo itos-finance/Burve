@@ -56,7 +56,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                 inAmount,
                 false
             );
-            uint256 nominalOut = c.swapInExact(inToken, outToken, nominalIn);
+            uint256 nominalOut = c.swapInExact(inVid, outVid, nominalIn);
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
             require(
                 outAmount >= amountLimit,
@@ -118,7 +118,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                 inAmount,
                 false
             );
-            uint256 nominalOut = c.simSwapInExact(inToken, outToken, nominalIn);
+            uint256 nominalOut = c.simSwapInExact(inVid, outVid, nominalIn);
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
         } else {
             outAmount = uint256(-amountSpecified);
@@ -127,7 +127,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                 outAmount,
                 true
             );
-            uint256 nominalIn = c.swapOutExact(inVid, outVid, nominalOut);
+            uint256 nominalIn = c.simSwapOutExact(inVid, outVid, nominalOut);
             inAmount = AdjustorLib.toReal(inVid.idx(), nominalIn, true);
         }
     }

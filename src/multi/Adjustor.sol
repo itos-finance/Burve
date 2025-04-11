@@ -6,11 +6,21 @@ import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 import {TokenRegLib} from "./Token.sol";
 
 library AdjustorLib {
+    // TODO: double check with Terence
+    function toReal(
+        address token,
+        uint256 nominal,
+        bool roundUp
+    ) internal view returns (uint256 real) {
+        IAdjustor adj = Store.adjustor();
+        real = adj.toReal(token, nominal, roundUp);
+    }
+
     function toReal(
         uint8 idx,
         uint256 nominal,
         bool roundUp
-    ) internal returns (uint256 real) {
+    ) internal view returns (uint256 real) {
         IAdjustor adj = Store.adjustor();
         real = adj.toReal(TokenRegLib.getToken(idx), nominal, roundUp);
     }
@@ -19,7 +29,7 @@ library AdjustorLib {
         uint8 idx,
         uint256 real,
         bool roundUp
-    ) internal returns (uint256 nominal) {
+    ) internal view returns (uint256 nominal) {
         IAdjustor adj = Store.adjustor();
         nominal = adj.toNominal(TokenRegLib.getToken(idx), real, roundUp);
     }

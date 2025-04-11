@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {MAX_TOKENS} from "../Token.sol";
+import {MAX_TOKENS} from "./../Constants.sol";
 import {VertexId} from "./Id.sol";
 import {VaultProxy} from "./VaultProxy.sol";
 import {VaultLib} from "./VaultProxy.sol";

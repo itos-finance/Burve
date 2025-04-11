@@ -15,13 +15,13 @@ contract E4626ViewAdjustor is IAdjustor {
         assetToken = _assetToken;
     }
 
-    function checkAsset(IERC4626 vault) internal {
+    function checkAsset(IERC4626 vault) internal view {
         address vaultAsset = vault.asset();
         if (vaultAsset != assetToken)
             revert AssetMismatch(vaultAsset, assetToken);
     }
 
-    function getVault(address token) internal returns (IERC4626 vault) {
+    function getVault(address token) internal view returns (IERC4626 vault) {
         vault = IERC4626(token);
         checkAsset(vault);
     }

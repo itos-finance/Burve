@@ -15,7 +15,7 @@ contract MixedAdjustor is IAdjustor {
 
     constructor() {
         AdminLib.initOwner(msg.sender);
-        defAdj = new NullAdjustor();
+        defAdj = address(new NullAdjustor());
     }
 
     function setAdjustor(address token, address adjustor) external {

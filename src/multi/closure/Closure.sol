@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {MAX_TOKENS} from "../Token.sol";
+import {MAX_TOKENS} from "./../Constants.sol";
 import {SimplexLib} from "../Simplex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {AdjustorLib} from "../Adjustor.sol";
@@ -37,6 +37,9 @@ struct Closure {
 using ClosureImpl for Closure global;
 
 library ClosureImpl {
+    // TODO: remove after fixing below
+    error NotImplemented();
+
     uint256 public constant ONEX128 = 1 << 128;
     event WarningExcessValueDetected(
         ClosureId cid,
@@ -68,14 +71,15 @@ library ClosureImpl {
         self.targetX128 = target << 128;
         self.baseFeeX128 = baseFeeX128;
         self.protocolTakeX128 = protocolTakeX128;
-        for (VertexId vIter = VertexLib.minId(); !vIter.stop(); vIter.inc()) {
+        for (VertexId vIter = VertexLib.minId(); !vIter.isStop(); vIter.inc()) {
             if (cid.contains(vIter)) {
                 self.n += 1;
                 self.balances[vIter.idx()] += target;
             }
         }
         // Tiny burned value.
-        self.valueStaked += target * self.n;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked += uint128(target * self.n);
         return self.balances;
     }
 
@@ -102,8 +106,10 @@ library ClosureImpl {
             valueX128 /
             self.n +
             ((valueX128 % self.n) > 0 ? 1 : 0);
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked += uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked += uint128(bgtValue);
         // Value is handled. Now handle balances.
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             requiredBalances[i] = FullMath.mulX128(
@@ -123,77 +129,89 @@ library ClosureImpl {
         uint256 bgtValue,
         VertexId vid
     ) internal returns (uint256 requiredAmount) {
-        require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
-        // We still need to trim all balances here because value is changing.
-        trimAllBalances(self);
-        uint256 scaleX128 = FullMath.mulDivX256(
-            value,
-            self.n * self.targetX128,
-            true
-        );
-        uint256 valueX128 = value << 128;
-        self.targetX128 +=
-            valueX128 /
-            self.n +
-            ((valueX128 % self.n) > 0 ? 1 : 0);
-        // We first calculate what value is effectively "lost" by not adding the tokens.
-        // And then we make sure to add that amount of value to the deposit token.
-        uint8 vIdx = vid.idx();
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
-        uint256 missingValueX128 = 0;
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (self.balances[i] == 0) continue;
-
-            uint256 requiredBalance = FullMath.mulX128(
-                scaleX128,
-                self.balances[i],
-                true
-            );
-            if (i == vIdx) {
-                // the amount added to the in token is not taxed.
-                requiredAmount = requiredBalance;
-                self.balances[i] += requiredBalance;
-                // And there is no missing value here.
-                continue;
-            }
-            // For all other tokens, we have to add the missing value.
-            uint256 eX128 = esX128[i];
-            missingValueX128 +=
-                ValueLib.v(
-                    self.targetX128,
-                    eX128,
-                    requiredBalance + self.balances[i],
-                    true
-                ) -
-                ValueLib.v(self.targetX128, eX128, self.balances[i], false);
-        }
-        // Now we add the missing value.
-        uint256 veX128 = esX128[vIdx];
-        uint256 currentValueX128 = ValueLib.v(
-            self.targetX128,
-            veX128,
-            self.balances[vIdx],
-            false
-        );
-        // To get the required amount.
-        uint256 finalAmount = ValueLib.x(
-            self.targetX128,
-            veX128,
-            currentValueX128 + missingValueX128,
-            true
-        );
-        uint256 untaxedRequired = finalAmount - self.balances[vIdx];
-        self.balances[vIdx] = finalAmount;
-        uint256 taxedRequired = UnsafeMath.divRoundingUp(
-            untaxedRequired << 128,
-            ONEX128 - self.baseFeeX128
-        );
-        addEarnings(self, vIdx, taxedRequired - untaxedRequired);
-        requiredAmount += taxedRequired;
-        // This needs to happen after any fee earnings.
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
+        revert NotImplemented();
     }
+
+    // TODO: fix. Hitting stack too deep on compile error.
+    // function addValueSingle(
+    //     Closure storage self,
+    //     uint256 value,
+    //     uint256 bgtValue,
+    //     VertexId vid
+    // ) internal returns (uint256 requiredAmount) {
+    //     require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
+    //     // We still need to trim all balances here because value is changing.
+    //     trimAllBalances(self);
+    //     uint256 scaleX128 = FullMath.mulDivX256(
+    //         value,
+    //         self.n * self.targetX128,
+    //         true
+    //     );
+    //     uint256 valueX128 = value << 128;
+    //     self.targetX128 +=
+    //         valueX128 /
+    //         self.n +
+    //         ((valueX128 % self.n) > 0 ? 1 : 0);
+    //     // We first calculate what value is effectively "lost" by not adding the tokens.
+    //     // And then we make sure to add that amount of value to the deposit token.
+    //     uint8 vIdx = vid.idx();
+    //     uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+    //     uint256 missingValueX128 = 0;
+    //     for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+    //         if (self.balances[i] == 0) continue;
+
+    //         uint256 requiredBalance = FullMath.mulX128(
+    //             scaleX128,
+    //             self.balances[i],
+    //             true
+    //         );
+    //         if (i == vIdx) {
+    //             // the amount added to the in token is not taxed.
+    //             requiredAmount = requiredBalance;
+    //             self.balances[i] += requiredBalance;
+    //             // And there is no missing value here.
+    //             continue;
+    //         }
+    //         // For all other tokens, we have to add the missing value.
+    //         uint256 eX128 = esX128[i];
+    //         missingValueX128 +=
+    //             ValueLib.v(
+    //                 self.targetX128,
+    //                 eX128,
+    //                 requiredBalance + self.balances[i],
+    //                 true
+    //             ) -
+    //             ValueLib.v(self.targetX128, eX128, self.balances[i], false);
+    //     }
+    //     // Now we add the missing value.
+    //     uint256 veX128 = esX128[vIdx];
+    //     uint256 currentValueX128 = ValueLib.v(
+    //         self.targetX128,
+    //         veX128,
+    //         self.balances[vIdx],
+    //         false
+    //     );
+    //     // To get the required amount.
+    //     uint256 finalAmount = ValueLib.x(
+    //         self.targetX128,
+    //         veX128,
+    //         currentValueX128 + missingValueX128,
+    //         true
+    //     );
+    //     uint256 untaxedRequired = finalAmount - self.balances[vIdx];
+    //     self.balances[vIdx] = finalAmount;
+    //     uint256 taxedRequired = UnsafeMath.divRoundingUp(
+    //         untaxedRequired << 128,
+    //         ONEX128 - self.baseFeeX128
+    //     );
+    //     addEarnings(self, vIdx, taxedRequired - untaxedRequired);
+    //     requiredAmount += taxedRequired;
+    //     // This needs to happen after any fee earnings.
+    //     // TODO: fix cast. Changed to compile
+    //     self.valueStaked += uint128(value);
+    //     // TODO: fix cast. Changed to compile
+    //     self.bgtValueStaked += uint128(bgtValue);
+    // }
 
     /// Remove value from a closure by removing from every token in the closure.
     /// Note that fee claiming is separate and should be done on the asset. This merely changes the closure.
@@ -214,8 +232,10 @@ library ClosureImpl {
         uint256 valueX128 = value << 128;
         // We round down here to like addValue we keep more target value in the pool.
         self.targetX128 += valueX128 / self.n;
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked -= uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked -= uint128(bgtValue);
         // Value is handled. Now handle balances.
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             withdrawnBalances[i] = FullMath.mulX128(
@@ -291,12 +311,14 @@ library ClosureImpl {
         );
         uint256 untaxedRemove = self.balances[vIdx] - finalAmount;
         self.balances[vIdx] = finalAmount;
-        uint256 tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128);
+        uint256 tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, false); // TODO: double check rounding up
         addEarnings(self, vIdx, tax);
         removedAmount += untaxedRemove - tax;
         // This needs to happen last.
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked -= uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked -= uint128(bgtValue);
     }
 
     /// Add an exact amount of one token and receive value in return.
@@ -327,8 +349,10 @@ library ClosureImpl {
         value = ((newTargetX128 - self.targetX128) * self.n) >> 128; // Round down received value balance.
         bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down.
         self.targetX128 = newTargetX128;
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked += uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked += uint128(bgtValue);
     }
 
     /// Remove an exact amount of one token and pay the requisite value.
@@ -360,8 +384,10 @@ library ClosureImpl {
         if ((value << 128) > 0) value += 1; // We need to round up.
         bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down both ways.
         self.targetX128 = newTargetX128;
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked -= uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked -= uint128(bgtValue);
     }
 
     /// Swap in with an exact amount of one token for another.
@@ -414,8 +440,8 @@ library ClosureImpl {
             newOutValueX128,
             true
         );
-        outAmount = self.balance[outIdx] - newOutBalance;
-        self.balance[outIdx] = newOutBalance;
+        outAmount = self.balances[outIdx] - newOutBalance;
+        self.balances[outIdx] = newOutBalance;
     }
 
     /// Swap out an exact amount of one token by swapping in another.
@@ -464,8 +490,8 @@ library ClosureImpl {
             newInValueX128,
             false
         );
-        uint256 untaxedInAmount = newInBalance - self.balance[inIdx];
-        self.balance[inIdx] = newInBalance;
+        uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
+        self.balances[inIdx] = newInBalance;
         // Finally we tax the in amount.
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
@@ -496,8 +522,10 @@ library ClosureImpl {
                 value
             );
 
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked += uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked += uint128(bgtValue);
     }
 
     /// Simulate swapping in with an exact amount of one token for another.
@@ -543,7 +571,7 @@ library ClosureImpl {
             newOutValueX128,
             true
         );
-        outAmount = self.balance[outIdx] - newOutBalance;
+        outAmount = self.balances[outIdx] - newOutBalance;
     }
 
     /// Simulate swaping out an exact amount of one token by swapping in another.
@@ -585,7 +613,7 @@ library ClosureImpl {
             newInValueX128,
             false
         );
-        uint256 untaxedInAmount = newInBalance - self.balance[inIdx];
+        uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
         // Finally we tax the in amount.
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
@@ -608,8 +636,10 @@ library ClosureImpl {
                 self.valueStaked,
                 value
             );
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
+        // TODO: fix cast. Changed to compile
+        self.valueStaked -= uint128(value);
+        // TODO: fix cast. Changed to compile
+        self.bgtValueStaked -= uint128(bgtValue);
     }
 
     /// Return the current fee checkpoints.
@@ -621,7 +651,7 @@ library ClosureImpl {
         returns (
             uint256[MAX_TOKENS] storage earningsPerValueX128,
             uint256 bgtPerBgtValueX128,
-            uint256[MAX_TOKENS] unexchangedPerBgtValueX128
+            uint256[MAX_TOKENS] storage unexchangedPerBgtValueX128
         )
     {
         return (
@@ -663,7 +693,10 @@ library ClosureImpl {
         // We total the shares earned and split after to reduce our vault deposits, and
         // we potentially lose one less dust.
         uint256 valueAmount = userAmount - bgtExAmount;
-        uint256 reserveShares = ReserveLib.deposit(idx, unspent + valueAmount);
+        uint256 reserveShares = ReserveLib.deposit(
+            VertexLib.newId(idx),
+            unspent + valueAmount
+        );
         if (unspent > 0) {
             // rare
             uint256 unspentShares = (reserveShares * unspent) /
@@ -683,7 +716,7 @@ library ClosureImpl {
     /// Called before any value changes or swaps.
     function trimAllBalances(Closure storage self) internal {
         uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
-        for (VertexId vIter = VertexLib.minId(); !vIter.stop(); vIter.inc()) {
+        for (VertexId vIter = VertexLib.minId(); !vIter.isStop(); vIter.inc()) {
             _trimBalance(self, vIter, nonBgtValueStaked);
         }
     }
@@ -716,8 +749,8 @@ library ClosureImpl {
         self.bgtPerBgtValueX128 += (bgtEarned << 128) / self.bgtValueStaked;
         // rare
         if (unspent > 0) {
-            uint256 unspentShares = ReserveLib.deposit(idx, unspent);
-            self.unexchangedPerBgtValueX128 +=
+            uint256 unspentShares = ReserveLib.deposit(vid, unspent);
+            self.unexchangedPerBgtValueX128[idx] +=
                 (unspentShares << 128) /
                 self.bgtValueStaked;
         }

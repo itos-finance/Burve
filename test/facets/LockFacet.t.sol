@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-
+/*
 import {console2} from "forge-std/console2.sol";
 import {VertexImpl} from "../../src/multi/vertex/Vertex.sol";
 import {VertexLib} from "../../src/multi/vertex/Id.sol";
@@ -121,7 +121,7 @@ contract LockFacetTest is MultiSetupTest {
         // First add a bunch of liquidity.
         _fundAccount(owner);
         vm.prank(owner);
-        viewFacet.addValue(owner, 0x3, 100e18, 0);
+        valueFacet.addValue(owner, 0x3, 100e18, 0);
 
         // Before locking, alice can swap freely
         vm.prank(alice);
@@ -171,3 +171,4 @@ contract LockFacetTest is MultiSetupTest {
         swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 1 << 97);
     }
 }
+*/

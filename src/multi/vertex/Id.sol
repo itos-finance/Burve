@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {TokenRegLib, MAX_TOKENS} from "../Token.sol";
+import {MAX_TOKENS} from "./../Constants.sol";
+import {TokenRegLib} from "../Token.sol";
 
 /// A vertex id is an uint where the bottom 8 bits is the idx, the next 16 bits
 /// is a one-hot encoding of the idx.
@@ -9,17 +10,20 @@ type VertexId is uint24;
 
 library VertexLib {
     function newId(uint8 idx) internal pure returns (VertexId) {
-        return VertexId.wrap((1 << (idx + 8)) + idx);
+        // TODO: I'm confused about this calculation and don't know if it's correct
+        return VertexId.wrap(uint24(1 << (idx + 8)) + idx);
     }
 
     function newId(address token) internal view returns (VertexId) {
         uint8 idx = TokenRegLib.getIdx(token);
-        return VertexId.wrap((1 << (idx + 8)) + idx);
+        // TODO: I'm confused about this calculation and don't know if it's correct
+        return VertexId.wrap(uint24(1 << (idx + 8)) + idx);
     }
 
     function maxId() internal pure returns (VertexId) {
         // The one hot encoding won't match with any cid.
-        return VertexId.wrap(MAX_TOKENS);
+        // TODO: fix cast. Trying to compile.
+        return VertexId.wrap(uint24(MAX_TOKENS));
     }
 
     function minId() internal pure returns (VertexId) {
@@ -50,7 +54,8 @@ library VertexIdImpl {
     }
 
     function isStop(VertexId self) internal pure returns (bool) {
-        return uint8(VertexId.unwrap(self)) == MAX_TOKENS;
+        // TODO: fix cast. Trying to compile.
+        return uint8(VertexId.unwrap(self)) == uint24(MAX_TOKENS);
     }
 }
 

@@ -71,8 +71,12 @@ contract ValueFacet is ReentrancyGuardTransient {
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (requiredBalances[i] == 0) continue; // Irrelevant token.
-            uint256 realNeeded = AdjustorLib.toReal(requiredBalances[i]);
             address token = tokenReg.tokens[i];
+            uint256 realNeeded = AdjustorLib.toReal(
+                token,
+                requiredBalances[i],
+                true
+            ); // TODO: double check
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
@@ -98,7 +102,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
         requiredBalance = c.addValueSingle(value, bgtValue, vid);
-        uint256 realRequired = AdjustorLib.toReal(requiredBalance);
+        uint256 realRequired = AdjustorLib.toReal(token, requiredBalance, true); // TODO: double check
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,
@@ -142,8 +146,12 @@ contract ValueFacet is ReentrancyGuardTransient {
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (receivedBalances[i] == 0) continue;
-            uint256 realSend = AdjustorLib.toReal(receivedBalances[i]);
             address token = tokenReg.tokens[i];
+            uint256 realSend = AdjustorLib.toReal(
+                token,
+                receivedBalances[i],
+                true
+            ); // TODO: double check
             // Users can remove value even if the token is locked. It actually helps derisk us.
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
             TransferHelper.safeTransfer(token, recipient, realSend);
@@ -165,7 +173,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
         removedBalance = c.removeValueSingle(value, bgtValue, vid);
-        uint256 realRemoved = AdjustorLib.toReal(removedBalance);
+        uint256 realRemoved = AdjustorLib.toReal(token, removedBalance, true); // TODO: double check
         TransferHelper.safeTransfer(token, recipient, realRemoved);
         // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, realRemoved, false);

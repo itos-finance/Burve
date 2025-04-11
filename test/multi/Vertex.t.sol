@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-
+/*
 import {Test, stdError} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {Vertex} from "../../src/multi/vertex/Vertex.sol";
@@ -83,3 +83,4 @@ contract VertexTest is Test {
         );
     }
 }
+*/

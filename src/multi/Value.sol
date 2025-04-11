@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {MAX_TOKENS} from "./Token.sol";
+import {MAX_TOKENS} from "./Constants.sol";
 import {VertexId} from "./vertex/Id.sol";
 import {FullMath} from "../FullMath.sol";
 
@@ -17,7 +17,7 @@ library ValueLib {
         uint256 eX128,
         uint256 _x,
         bool roundUp
-    ) internal returns (uint256 valueX128) {
+    ) internal pure returns (uint256 valueX128) {
         uint256 etX128 = FullMath.mulX128(eX128, tX128, roundUp);
         valueX128 = etX128 + 2 * tX128;
         uint256 denomX128 = (_x << 128) + etX128;
@@ -39,7 +39,7 @@ library ValueLib {
         uint256 eX128,
         uint256 vX128,
         bool roundUp
-    ) internal returns (uint256 _x) {
+    ) internal pure returns (uint256 _x) {
         uint256 etX128 = FullMath.mulX128(eX128, tX128, roundUp);
         uint256 sqrtNumX128 = etX128 + tX128;
         // V is always less than (e + 2) * t
