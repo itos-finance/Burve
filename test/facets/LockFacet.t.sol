@@ -2,8 +2,8 @@
 pragma solidity ^0.8.27;
 
 import {console2} from "forge-std/console2.sol";
-import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
-import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {VertexImpl} from "../../src/multi/vertex/Vertex.sol";
+import {VertexLib} from "../../src/multi/vertex/Id.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -77,19 +77,13 @@ contract LockFacetTest is MultiSetupTest {
 
     /// Test attempts to interact with liquidity when a vertex is locked.
     function testLockedLiq() public {
-        uint128[] memory amounts = new uint128[](3);
         uint16 cid2 = 0x0003;
         uint16 cid3 = 0x0007;
-
-        // Alice can originally add liquidity.
-        amounts[0] = 1e18;
-        amounts[1] = 1e18;
-        amounts[2] = 1e18;
 
         IERC20 lockedToken = IERC20(tokens[2]);
         uint256 originalBalance = lockedToken.balanceOf(alice);
         vm.prank(alice);
-        uint256 shares = liqFacet.addLiq(alice, cid3, amounts);
+        valueFacet.addValue(alice, cid3, 1e18, 0);
         assertLt(lockedToken.balanceOf(alice), originalBalance);
 
         vm.prank(owner);
@@ -97,18 +91,18 @@ contract LockFacetTest is MultiSetupTest {
         // But once token2 is locked she can't add more.
         vm.expectRevert(
             abi.encodeWithSelector(
-                LiqFacet.VertexLockedInCID.selector,
-                uint16(0x4)
+                VertexImpl.VertexLocked.selector,
+                VertexLib.newId(tokens[2])
             )
         );
         vm.startPrank(alice);
-        liqFacet.addLiq(alice, cid3, amounts);
+        valueFacet.addValue(alice, cid3, 1e18, 0);
 
         // She can still add to cid 2 though since it doesn't include the third token.
-        liqFacet.addLiq(alice, cid2, amounts);
+        valueFacet.addValue(alice, cid2, 1e18, 0);
 
         // She can remove her previous liquidity though.
-        liqFacet.removeLiq(alice, cid3, shares);
+        valueFacet.removeValue(alice, cid3, 1e18, 0);
         vm.stopPrank();
         // And get back the locked token even if its locked.
         assertApproxEqAbs(lockedToken.balanceOf(alice), originalBalance, 1);
@@ -119,18 +113,15 @@ contract LockFacetTest is MultiSetupTest {
 
         // Alice can add again.
         vm.prank(alice);
-        liqFacet.addLiq(alice, cid3, amounts);
+        valueFacet.addValue(alice, cid3, 1e18, 0);
     }
 
     /// Test attempts to swap when a vertex is locked.
     function testLockedSwap() public {
         // First add a bunch of liquidity.
         _fundAccount(owner);
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
         vm.prank(owner);
-        liqFacet.addLiq(owner, 0x3, amounts);
+        viewFacet.addValue(owner, 0x3, 100e18, 0);
 
         // Before locking, alice can swap freely
         vm.prank(alice);
@@ -144,15 +135,15 @@ contract LockFacetTest is MultiSetupTest {
         vm.startPrank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                SwapFacet.SwapTokenLocked.selector,
-                tokens[1]
+                VertexImpl.VertexLocked.selector,
+                VertexLib.newId(tokens[1])
             )
         );
         swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 1 << 95);
         vm.expectRevert(
             abi.encodeWithSelector(
-                SwapFacet.SwapTokenLocked.selector,
-                tokens[1]
+                VertexImpl.VertexLocked.selector,
+                VertexLib.newId(tokens[1])
             )
         );
         swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 1 << 97);
@@ -173,8 +164,8 @@ contract LockFacetTest is MultiSetupTest {
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                SwapFacet.SwapTokenLocked.selector,
-                tokens[0]
+                VertexImpl.VertexLocked.selector,
+                VertexLib.newId(tokens[0])
             )
         );
         swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 1 << 97);

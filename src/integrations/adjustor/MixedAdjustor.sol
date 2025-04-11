@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {IAdjustor} from "./IAdjustor.sol";
-import {AdminLib} from "@Commons/Util/AdminLib.sol";
+import {AdminLib} from "Commons/Util/Admin.sol";
 import {NullAdjustor} from "./NullAdjustor.sol";
 
 /// An Adjustor that uses a mix of other adjustors.

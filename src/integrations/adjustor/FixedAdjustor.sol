@@ -3,8 +3,8 @@ pragma solidity ^0.8.27;
 
 import {IAdjustor} from "./IAdjustor.sol";
 import {FullMath} from "../../FullMath.sol";
-import {AdminLib} from "@Commons/Util/AdminLib.sol";
-import {SafeCast} from "@Commons/Math/Cast.sol";
+import {AdminLib} from "Commons/Util/Admin.sol";
+import {SafeCast} from "Commons/Math/Cast.sol";
 
 /// An Adjustor that just stores the adjustment ratios.
 contract FixedAdjustor is IAdjustor {

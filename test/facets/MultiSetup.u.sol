@@ -95,9 +95,6 @@ contract MultiSetupTest is Test {
                 VaultType.E4626
             );
         }
-
-        // Setup edges
-        simplexFacet.setDefaultEdge(100, -100, 100, 0, 0);
     }
 
     function _fundAccount(address account) internal {

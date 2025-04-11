@@ -82,7 +82,7 @@ library VertexImpl {
         Vertex storage self,
         ClosureId cid,
         uint256 amount
-    ) internal returns (uint256 shares) {
+    ) internal {
         require(!self._isLocked, VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         vProxy.deposit(cid, amount);
@@ -95,7 +95,7 @@ library VertexImpl {
         ClosureId cid,
         uint256 amount,
         bool checkLock
-    ) internal returns (uint256 amount) {
+    ) internal {
         require(!(checkLock && self._isLocked), VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         vProxy.withdraw(cid, amount);

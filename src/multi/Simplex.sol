@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {MAX_TOKENS} from "./Token.sol";
 import {IBGTExchanger} from "../integrations/BGTExchange/IBGTExchanger.sol";
-import {TokenLib} from "./Token.sol";
+import {TokenRegLib} from "./Token.sol";
 
 // Stores information unchanged between all closures.
 struct Simplex {
@@ -60,7 +60,7 @@ library SimplexLib {
         uint256 amount
     ) internal returns (uint256 bgtEarned, uint256 unspent) {
         if (bgtEx == address(0)) return (0, amount);
-        address token = TokenLib.getToken(idx);
+        address token = TokenRegLib.getToken(idx);
         uint256 spentAmount;
         (bgtEarned, spentAmount) = IBGTExchanger(bgtEx).exchange(token, amount);
         unspent = amount - spentAmount;

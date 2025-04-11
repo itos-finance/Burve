@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import "./BaseScript.sol";
+/* import "./BaseScript.sol";
 
 contract UpdateEdgeFee is BaseScript {
     // Modify these parameters as needed
@@ -28,3 +28,4 @@ contract UpdateEdgeFee is BaseScript {
         vm.stopBroadcast();
     }
 }
+ */

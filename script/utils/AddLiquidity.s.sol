@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-
+/*
 import "./BaseScript.sol";
-import {ClosureId} from "../../src/multi/Closure.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
 
 contract AddLiquidity is BaseScript {
     function run() external {
@@ -79,3 +79,4 @@ contract AddLiquidity is BaseScript {
         vm.stopBroadcast();
     }
 }
+ */

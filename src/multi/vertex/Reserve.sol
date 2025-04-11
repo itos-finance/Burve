@@ -5,7 +5,7 @@ import {MAX_TOKENS} from "../Token.sol";
 import {VertexId} from "./Id.sol";
 import {VaultProxy} from "./VaultProxy.sol";
 import {VaultLib} from "./VaultProxy.sol";
-import {ClosureId} from "../closure/Closure.sol";
+import {ClosureId} from "../closure/Id.sol";
 
 struct Reserve {
     // The shares we have for the balance we have in each vault.
