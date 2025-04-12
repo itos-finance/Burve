@@ -27,6 +27,7 @@ contract SimplexFacet {
         uint24 fee,
         uint8 feeProtocol
     );
+    error InsufficientStartingTarget(uint128 startingTarget);
 
     /* Getters */
     /*
@@ -82,16 +83,20 @@ contract SimplexFacet {
 
     function addClosure(
         uint16 _cid,
+        uint128 startingTarget,
         uint256 baseFeeX128,
         uint256 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
-        uint256 target = Store.simplex().initTarget;
+        require(
+            startingTarget >= Store.simplex().initTarget,
+            InsufficientStartingTarget(startingTarget)
+        );
         uint256[MAX_TOKENS] storage neededBalances = c.init(
             cid,
-            target,
+            startingTarget,
             baseFeeX128,
             protocolTakeX128
         );
