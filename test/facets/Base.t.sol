@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
-
+/*
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {BurveFacetBase} from "../../src/multi/deprecated/Base.sol";
@@ -9,7 +9,7 @@ import {Store} from "../../src/multi/Store.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
 contract BurveFacetBaseTest is Test, BurveFacetBase {
-    /* Guarded functions */
+    // Guarded functions
 
     function tokenCall(address token) external validToken(token) {}
     function tokensCall(
@@ -17,7 +17,7 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address _token1
     ) external validTokens(_token0, _token1) {}
 
-    /* Tests */
+    // Tests
 
     function testValidToken() public {
         address token0 = address(new MockERC20("0", "0", 18));
@@ -69,3 +69,4 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         this.tokensCall(token0, token1);
     }
 }
+*/

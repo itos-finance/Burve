@@ -7,7 +7,7 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {VaultType} from "../vertex/VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
