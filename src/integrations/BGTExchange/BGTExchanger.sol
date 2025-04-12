@@ -9,10 +9,11 @@ import {AdminLib} from "Commons/Util/Admin.sol";
 contract BGTExchanger is IBGTExchanger {
     mapping(address token => uint256 rateX128) public rate;
     mapping(address caller => uint256) public owed;
+    mapping(address caller => uint256) public withdrawn;
     mapping(address caller => bool) public isExchanger;
     address public bgtToken;
     uint256 public bgtBalance;
-    IBgtExchanger public backupEx;
+    IBGTExchanger public backupEx;
 
     error NoExchangePermissions();
     error InsufficientOwed();
@@ -51,9 +52,19 @@ contract BGTExchanger is IBGTExchanger {
     }
 
     /// @inheritdoc IBGTExchanger
+    function getOwed(address caller) public view returns (uint256 _owed) {
+        _owed = owed[caller];
+        if (address(backupEx) != address(0)) {
+            _owed += backupEx.getOwed(caller);
+        }
+        _owed -= withdrawn[caller];
+    }
+
+    /// @inheritdoc IBGTExchanger
     function withdraw(address recipient, uint256 bgtAmount) external {
-        if (owed[msg.sender] < bgtAmount) revert InsufficientOwed();
-        owed[msg.sender] -= bgtAmount;
+        uint256 _owed = getOwed(msg.sender);
+        if (_owed < bgtAmount) revert InsufficientOwed();
+        withdrawn[msg.sender] += bgtAmount;
         TransferHelper.safeTransfer(bgtToken, recipient, bgtAmount);
     }
 
@@ -92,17 +103,9 @@ contract BGTExchanger is IBGTExchanger {
         );
     }
 
-    // TODO add to standard
+    /// @inheritdoc IBGTExchanger
     function setBackup(address backup) external {
         AdminLib.validateOwner();
         backupEx = IBGTExchanger(backup);
-    }
-
-    // TODO add to standard.
-    function getOwed() external returns (uint256 _owed) {
-        _owed = owed[msg.sender];
-        if (address(backupEx) != address(0)) {
-            backupEx.getOwed(msg.sender);
-        }
     }
 }

@@ -15,7 +15,7 @@ interface IBGTExchanger {
     ) external returns (uint256 bgtAmount, uint256 spendAmount);
 
     /// Query the amount of BGT owed to a caller.
-    function owed(address caller) external view returns (uint256 bgtOwed);
+    function getOwed(address caller) external view returns (uint256 bgtOwed);
 
     /// Withdraw some of the bgt owed to the msg sender.
     function withdraw(address recipient, uint256 bgtAmount) external;
@@ -46,4 +46,8 @@ interface IBGTExchanger {
 
     /// Retrieves bgt from the msg sender for exchange.
     function fund(uint256 amount) external;
+
+    /// Set a backup IBGTExchanger to fallback to owed balances.
+    /// This is useful when updating a protocol to a new IBGTExchanger but we need to pay out owed balances.
+    function setBackup(address backup) external;
 }
