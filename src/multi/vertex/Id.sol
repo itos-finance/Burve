@@ -55,7 +55,7 @@ library VertexIdImpl {
 
     function isStop(VertexId self) internal pure returns (bool) {
         // TODO: fix cast. Trying to compile.
-        return uint8(VertexId.unwrap(self)) == uint24(MAX_TOKENS);
+        return uint8(VertexId.unwrap(self)) == MAX_TOKENS;
     }
 }
 

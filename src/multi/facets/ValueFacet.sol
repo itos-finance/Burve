@@ -66,17 +66,21 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
-        requiredBalances = c.addValue(value, bgtValue);
+        uint256[MAX_TOKENS] memory requiredNominal = c.addValue(
+            value,
+            bgtValue
+        );
         // Fetch balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (requiredBalances[i] == 0) continue; // Irrelevant token.
+            if (!cid.contains(i)) continue; // Irrelevant token.
             address token = tokenReg.tokens[i];
             uint256 realNeeded = AdjustorLib.toReal(
                 token,
                 requiredBalances[i],
                 true
-            ); // TODO: double check
+            );
+            requiredBalances[i] = realNeeded;
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
@@ -101,15 +105,19 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        requiredBalance = c.addValueSingle(value, bgtValue, vid);
-        uint256 realRequired = AdjustorLib.toReal(token, requiredBalance, true); // TODO: double check
+        uint256 nominalRequired = c.addValueSingle(value, bgtValue, vid);
+        uint256 requiredBalance = AdjustorLib.toReal(
+            token,
+            requiredBalance,
+            true
+        );
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,
             address(this),
-            realRequired
+            requiredBalance
         );
-        Store.vertex(vid).deposit(cid, realRequired);
+        Store.vertex(vid).deposit(cid, requiredBalance);
         Store.assets().add(recipient, cid, value, bgtValue);
     }
 
@@ -141,17 +149,21 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
-        receivedBalances = c.removeValue(value, bgtValue);
+        uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(
+            value,
+            bgtValue
+        );
         // Send balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (receivedBalances[i] == 0) continue;
+            if (!cid.contains(i)) continue;
             address token = tokenReg.tokens[i];
             uint256 realSend = AdjustorLib.toReal(
                 token,
                 receivedBalances[i],
-                true
-            ); // TODO: double check
+                false
+            );
+            receivedBalances[i] = realSend;
             // Users can remove value even if the token is locked. It actually helps derisk us.
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
             TransferHelper.safeTransfer(token, recipient, realSend);
@@ -172,11 +184,15 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        removedBalance = c.removeValueSingle(value, bgtValue, vid);
-        uint256 realRemoved = AdjustorLib.toReal(token, removedBalance, true); // TODO: double check
-        TransferHelper.safeTransfer(token, recipient, realRemoved);
+        uint256 removedNominal = c.removeValueSingle(value, bgtValue, vid);
+        uint256 removedBalance = AdjustorLib.toReal(
+            token,
+            removedBalance,
+            false
+        );
+        TransferHelper.safeTransfer(token, recipient, removedBalance);
         // Users can removed locked tokens as it helps derisk this protocol.
-        Store.vertex(vid).withdraw(cid, realRemoved, false);
+        Store.vertex(vid).withdraw(cid, removedBalance, false);
         Store.assets().remove(msg.sender, cid, value, bgtValue);
     }
 
@@ -188,26 +204,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         address token,
         uint256 amount
     ) external nonReentrant returns (uint256 valueGiven) {
-        ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid);
-    }
-
-    /// Extract value tokens from your LP position for trading purposes.
-    function extract(
-        uint16 _closureId,
-        uint256 value,
-        uint256 bgtValue
-    ) external {
-        ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid);
-    }
-
-    /// Pay value tokens to redeem for an LP position in a given closure.
-    function redeem(
-        uint256 _closureId,
-        uint256 value,
-        uint256 bgtValue
-    ) external {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
     }

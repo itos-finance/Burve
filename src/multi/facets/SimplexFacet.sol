@@ -102,7 +102,7 @@ contract SimplexFacet {
                 token,
                 neededBalances[i],
                 true
-            ); // TODO: double check
+            );
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,

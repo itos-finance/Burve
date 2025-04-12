@@ -37,9 +37,6 @@ struct Closure {
 using ClosureImpl for Closure global;
 
 library ClosureImpl {
-    // TODO: remove after fixing below
-    error NotImplemented();
-
     uint256 public constant ONEX128 = 1 << 128;
     event WarningExcessValueDetected(
         ClosureId cid,
@@ -78,8 +75,7 @@ library ClosureImpl {
             }
         }
         // Tiny burned value.
-        // TODO: fix cast. Changed to compile
-        self.valueStaked += uint128(target * self.n);
+        self.valueStaked += target * self.n;
         return self.balances;
     }
 
@@ -106,12 +102,11 @@ library ClosureImpl {
             valueX128 /
             self.n +
             ((valueX128 % self.n) > 0 ? 1 : 0);
-        // TODO: fix cast. Changed to compile
-        self.valueStaked += uint128(value);
-        // TODO: fix cast. Changed to compile
-        self.bgtValueStaked += uint128(bgtValue);
+        self.valueStaked += value;
+        self.bgtValueStaked += bgtValue;
         // Value is handled. Now handle balances.
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!self.cid.contains(i)) continue;
             requiredBalances[i] = FullMath.mulX128(
                 scaleX128,
                 self.balances[i],
@@ -150,7 +145,7 @@ library ClosureImpl {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         uint256 missingValueX128 = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (self.balances[i] == 0) continue;
+            if (!self.cid.contains(i)) continue;
 
             uint256 requiredBalance = FullMath.mulX128(
                 scaleX128,
@@ -226,12 +221,11 @@ library ClosureImpl {
         uint256 valueX128 = value << 128;
         // We round down here to like addValue we keep more target value in the pool.
         self.targetX128 += valueX128 / self.n;
-        // TODO: fix cast. Changed to compile
-        self.valueStaked -= uint128(value);
-        // TODO: fix cast. Changed to compile
-        self.bgtValueStaked -= uint128(bgtValue);
+        self.valueStaked -= value;
+        self.bgtValueStaked -= bgtValue;
         // Value is handled. Now handle balances.
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!self.cid.contains(i)) continue;
             withdrawnBalances[i] = FullMath.mulX128(
                 scaleX128,
                 self.balances[i],
@@ -264,7 +258,7 @@ library ClosureImpl {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         uint256 addedValueX128 = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (self.balances[i] == 0) continue;
+            if (!self.cid.contains(i)) continue;
 
             // Round this down to round down the "added" value.
             uint256 scaledBalance = FullMath.mulX128(
@@ -305,7 +299,7 @@ library ClosureImpl {
         );
         uint256 untaxedRemove = self.balances[vIdx] - finalAmount;
         self.balances[vIdx] = finalAmount;
-        uint256 tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, false); // TODO: double check rounding up
+        uint256 tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, true);
         addEarnings(self, vIdx, tax);
         removedAmount += untaxedRemove - tax;
         // This needs to happen last.
@@ -488,6 +482,25 @@ library ClosureImpl {
         addEarnings(self, inIdx, inAmount - untaxedInAmount);
     }
 
+    /// Remove staked value tokens from this closure. Asset checks if you have said value tokens to begin with.
+    /// This doens't change the target or remove tokens. Just allows for someone use to stake now.
+    function unstakeValue(
+        Closure storage self,
+        uint256 value,
+        uint256 bgtValue
+    ) internal {
+        trimAllBalances(self);
+        // Unstakers can't remove more than deminimus.
+        if (self.valueStaked - SimplexLib.deMinimusValue() < value)
+            revert InsufficientUnstakeAvailable(
+                self.cid,
+                self.valueStaked,
+                value
+            );
+        self.valueStaked -= value;
+        self.bgtValueStaked -= bgtValue;
+    }
+
     /// Stake value tokens in this closure if there is value to be redeemed.
     function stakeValue(
         Closure storage self,
@@ -510,10 +523,8 @@ library ClosureImpl {
                 value
             );
 
-        // TODO: fix cast. Changed to compile
-        self.valueStaked += uint128(value);
-        // TODO: fix cast. Changed to compile
-        self.bgtValueStaked += uint128(bgtValue);
+        self.valueStaked += value;
+        self.bgtValueStaked += bgtValue;
     }
 
     /// Simulate swapping in with an exact amount of one token for another.
@@ -607,27 +618,6 @@ library ClosureImpl {
             untaxedInAmount << 128,
             ONEX128 - self.baseFeeX128
         );
-    }
-
-    /// Remove staked value tokens from this closure. Asset checks if you have said value tokens to begin with.
-    /// This doens't change the target or remove tokens. Just allows for someone use to stake now.
-    function unstakeValue(
-        Closure storage self,
-        uint256 value,
-        uint256 bgtValue
-    ) internal {
-        trimAllBalances(self);
-        // Unstakers can't remove more than deminimus.
-        if (self.valueStaked - SimplexLib.deMinimusValue() < value)
-            revert InsufficientUnstakeAvailable(
-                self.cid,
-                self.valueStaked,
-                value
-            );
-        // TODO: fix cast. Changed to compile
-        self.valueStaked -= uint128(value);
-        // TODO: fix cast. Changed to compile
-        self.bgtValueStaked -= uint128(bgtValue);
     }
 
     /// Return the current fee checkpoints.

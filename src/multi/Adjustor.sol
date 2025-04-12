@@ -6,7 +6,6 @@ import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 import {TokenRegLib} from "./Token.sol";
 
 library AdjustorLib {
-    // TODO: double check with Terence
     function toReal(
         address token,
         uint256 nominal,

@@ -64,10 +64,9 @@ library SimplexLib {
         if (s.bgtEx == address(0)) return (0, amount);
         address token = TokenRegLib.getToken(idx);
         uint256 spentAmount;
-        // TODO: fix uint256 uint128 cast
         (bgtEarned, spentAmount) = IBGTExchanger(s.bgtEx).exchange(
             token,
-            uint128(amount)
+            uint128(amount) // safe cast since amount cant possibly be more than 1e30
         );
         unspent = amount - spentAmount;
     }
