@@ -11,6 +11,5 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 
 
 TODO:
-Add back vertex validation without breaking init vertex flow.
 ValueTokenFacet - write 6-7
 ValueLib - write newtons method. 9 - 11

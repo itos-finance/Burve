@@ -17,6 +17,7 @@ contract SimplexFacet {
     event VertexAdded(
         address indexed token,
         address indexed vault,
+        VertexId vid,
         VaultType vaultType
     );
     event FeesWithdrawn(address indexed token, uint256 amount);
@@ -77,8 +78,12 @@ contract SimplexFacet {
         AdminLib.validateOwner();
         Store.tokenRegistry().register(token);
         Store.adjustor().cacheAdjustment(token);
-        Store.vertex(VertexLib.newId(token)).init(token, vault, vType);
-        emit VertexAdded(token, vault, vType);
+        // We do this explicitly because a normal call to Store.vertex would validate the
+        // vertex is already initialized which of course it is not yet.
+        VertexId vid = VertexLib.newId(token);
+        Vertex storage v = Store.load().vertices[vid];
+        v.init(vid, token, vault, vType);
+        emit VertexAdded(token, vault, vid, vType);
     }
 
     function addClosure(

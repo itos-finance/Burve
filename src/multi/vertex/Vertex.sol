@@ -38,11 +38,12 @@ library VertexImpl {
 
     function init(
         Vertex storage self,
+        VertexId vid,
         address token,
         address vault,
         VaultType vType
     ) internal {
-        self.vid = VertexLib.newId(token);
+        self.vid = vid;
         VaultLib.add(self.vid, token, vault, vType);
     }
 
