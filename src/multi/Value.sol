@@ -2,7 +2,6 @@
 pragma solidity ^0.8.27;
 
 import {MAX_TOKENS} from "./Constants.sol";
-import {VertexId} from "./vertex/Id.sol";
 import {FullMath} from "../FullMath.sol";
 
 /// Parameters controlling the newton's method search for t.

@@ -59,8 +59,8 @@ contract ValueFacet is ReentrancyGuardTransient {
     function addValue(
         address recipient,
         uint16 _closureId,
-        uint256 value,
-        uint256 bgtValue
+        uint128 value,
+        uint128 bgtValue
     )
         external
         nonReentrant
@@ -101,10 +101,10 @@ contract ValueFacet is ReentrancyGuardTransient {
     function addValueSingle(
         address recipient,
         uint16 _closureId,
-        uint256 value,
-        uint256 bgtValue,
+        uint128 value,
+        uint128 bgtValue,
         address token,
-        uint256 maxRequired
+        uint128 maxRequired
     ) external nonReentrant returns (uint256 requiredBalance) {
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
@@ -130,9 +130,9 @@ contract ValueFacet is ReentrancyGuardTransient {
         address recipient,
         uint16 _closureId,
         address token,
-        uint256 amount,
+        uint128 amount,
         uint256 bgtPercentX256,
-        uint256 minValue
+        uint128 minValue
     ) external nonReentrant returns (uint256 valueReceived) {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
@@ -162,8 +162,8 @@ contract ValueFacet is ReentrancyGuardTransient {
     function removeValue(
         address recipient,
         uint16 _closureId,
-        uint256 value,
-        uint256 bgtValue
+        uint128 value,
+        uint128 bgtValue
     )
         external
         nonReentrant
@@ -200,10 +200,10 @@ contract ValueFacet is ReentrancyGuardTransient {
     function removeValueSingle(
         address recipient,
         uint16 _closureId,
-        uint256 value,
-        uint256 bgtValue,
+        uint128 value,
+        uint128 bgtValue,
         address token,
-        uint256 minReceive
+        uint128 minReceive
     ) external nonReentrant returns (uint256 removedBalance) {
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
@@ -225,9 +225,9 @@ contract ValueFacet is ReentrancyGuardTransient {
         address recipient,
         uint16 _closureId,
         address token,
-        uint256 amount,
+        uint128 amount,
         uint256 bgtPercentX256,
-        uint256 maxValue
+        uint128 maxValue
     ) external nonReentrant returns (uint256 valueGiven) {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.

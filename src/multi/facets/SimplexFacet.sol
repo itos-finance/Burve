@@ -95,7 +95,8 @@ contract SimplexFacet {
     ) external {
         AdminLib.validateOwner();
         ClosureId cid = ClosureId.wrap(_cid);
-        Closure storage c = Store.closure(cid);
+        // We fetch the raw storage because Store.closure would check the closure for initialization.
+        Closure storage c = Store.load().closures[cid];
         require(
             startingTarget >= Store.simplex().initTarget,
             InsufficientStartingTarget(startingTarget)
@@ -108,6 +109,7 @@ contract SimplexFacet {
         );
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!cid.contains(i)) continue;
             address token = tokenReg.tokens[i];
             uint256 realNeeded = AdjustorLib.toReal(
                 token,

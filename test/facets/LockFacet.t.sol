@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-/*
+
 import {console2} from "forge-std/console2.sol";
 import {VertexImpl} from "../../src/multi/vertex/Vertex.sol";
 import {VertexLib} from "../../src/multi/vertex/Id.sol";
@@ -13,6 +13,8 @@ contract LockFacetTest is MultiSetupTest {
         vm.startPrank(owner);
         _newDiamond();
         _newTokens(3);
+        _initializeClosure(0x7);
+        _initializeClosure(0x3);
         _fundAccount(alice);
         vm.stopPrank();
     }
@@ -92,7 +94,7 @@ contract LockFacetTest is MultiSetupTest {
         vm.expectRevert(
             abi.encodeWithSelector(
                 VertexImpl.VertexLocked.selector,
-                VertexLib.newId(tokens[2])
+                VertexLib.newId(2)
             )
         );
         vm.startPrank(alice);
@@ -125,7 +127,7 @@ contract LockFacetTest is MultiSetupTest {
 
         // Before locking, alice can swap freely
         vm.prank(alice);
-        swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 1 << 95);
+        swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 0, 0x3);
 
         // But locked...
         vm.prank(owner);
@@ -136,17 +138,17 @@ contract LockFacetTest is MultiSetupTest {
         vm.expectRevert(
             abi.encodeWithSelector(
                 VertexImpl.VertexLocked.selector,
-                VertexLib.newId(tokens[1])
+                VertexLib.newId(1)
             )
         );
-        swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 1 << 95);
+        swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 0, 0x3);
         vm.expectRevert(
             abi.encodeWithSelector(
                 VertexImpl.VertexLocked.selector,
-                VertexLib.newId(tokens[1])
+                VertexLib.newId(1)
             )
         );
-        swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 1 << 97);
+        swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 0, 0x3);
         vm.stopPrank();
 
         // And after unlocking she can.
@@ -154,8 +156,8 @@ contract LockFacetTest is MultiSetupTest {
         lockFacet.unlock(tokens[1]);
 
         vm.startPrank(alice);
-        swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 1 << 97);
-        swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 1 << 95);
+        swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 0, 0x3);
+        swapFacet.swap(alice, tokens[0], tokens[1], 1e18, 0, 0x3);
         vm.stopPrank();
 
         // Test again with token0
@@ -165,10 +167,9 @@ contract LockFacetTest is MultiSetupTest {
         vm.expectRevert(
             abi.encodeWithSelector(
                 VertexImpl.VertexLocked.selector,
-                VertexLib.newId(tokens[0])
+                VertexLib.newId(0)
             )
         );
-        swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 1 << 97);
+        swapFacet.swap(alice, tokens[1], tokens[0], 1e18, 0, 0x3);
     }
 }
-*/

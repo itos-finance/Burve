@@ -1,17 +1,34 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-/*
+
 import {Test, stdError} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {Vertex} from "../../src/multi/vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
+import {Vertex} from "../../src/multi/vertex/Vertex.sol";
 import {TokenRegistry, TokenRegLib, TokenRegistryImpl} from "../../src/multi/Token.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {ClosureId, newClosureId} from "../../src/multi/closure/Id.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {Store} from "../../src/multi/Store.sol";
-import {console2} from "forge-std/console2.sol";
+
+contract VertexIdTest is Test {
+    function testExactId() public view {
+        assertEq(VertexId.unwrap(VertexLib.newId(0)), 1 << 8);
+        assertEq(VertexId.unwrap(VertexLib.minId()), 1 << 8);
+        assertEq(VertexId.unwrap(VertexLib.newId(1)), (1 << 9) + 1);
+        assertEq(VertexId.unwrap(VertexLib.newId(2)), (1 << 10) + 2);
+    }
+
+    function testInc() public view {
+        assertEq(
+            VertexId.unwrap(VertexLib.newId(5).inc()),
+            VertexId.unwrap(VertexLib.newId(6))
+        );
+    }
+}
+
+/*
 
 contract VertexTest is Test {
     using VertexImpl for Vertex;

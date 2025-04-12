@@ -18,7 +18,7 @@ import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 
 contract MultiSetupTest is Test {
     uint256 constant INITIAL_MINT_AMOUNT = 1e30;
-    uint256 constant INITIAL_VALUE = 100_000e18;
+    uint128 constant INITIAL_VALUE = 1_000_000e18;
 
     /* Diamond */
     address public diamond;
@@ -54,7 +54,7 @@ contract MultiSetupTest is Test {
         lockFacet = LockFacet(diamond);
     }
 
-    /// Deploy two tokens and install them as vertices in the diamond with an edge.
+    /// Deploy tokens and install them as vertices in the diamond with an edge.
     function _newTokens(uint8 numTokens) public {
         // Setup test tokens
         for (uint8 i = 0; i < numTokens; ++i) {
@@ -100,6 +100,22 @@ contract MultiSetupTest is Test {
         }
     }
 
+    /// Initalize a zero fee closure with the initial value amount.
+    function _initializeClosure(uint16 cid) internal {
+        // Mint ourselves enough to fund the initial target of the pool.
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            if ((1 << i) & cid > 0) {
+                MockERC20(tokens[i]).mint(owner, INITIAL_VALUE);
+                MockERC20(tokens[i]).approve(
+                    address(diamond),
+                    type(uint256).max
+                );
+            }
+        }
+        simplexFacet.addClosure(cid, INITIAL_VALUE, 0, 0);
+    }
+
+    /// Call this last since it messes with prank.
     function _fundAccount(address account) internal {
         for (uint256 i = 0; i < tokens.length; ++i) {
             MockERC20(tokens[i]).mint(account, INITIAL_MINT_AMOUNT);

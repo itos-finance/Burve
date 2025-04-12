@@ -20,12 +20,6 @@ library VertexLib {
         return VertexId.wrap(uint24(1 << (idx + 8)) + idx);
     }
 
-    function maxId() internal pure returns (VertexId) {
-        // The one hot encoding won't match with any cid.
-        // TODO: fix cast. Trying to compile.
-        return VertexId.wrap(uint24(MAX_TOKENS));
-    }
-
     function minId() internal pure returns (VertexId) {
         return newId(0);
     }
@@ -54,7 +48,6 @@ library VertexIdImpl {
     }
 
     function isStop(VertexId self) internal pure returns (bool) {
-        // TODO: fix cast. Trying to compile.
         return uint8(VertexId.unwrap(self)) == MAX_TOKENS;
     }
 }
