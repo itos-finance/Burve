@@ -8,6 +8,8 @@ import {Store} from "./Store.sol";
 
 // Stores information unchanged between all closures.
 struct Simplex {
+    string name;
+    string symbol;
     address adjustor;
     address bgtEx;
     /// New closures are made with at least this much target value.
@@ -33,6 +35,8 @@ library SimplexLib {
 
     function init(address adjustor) internal {
         Simplex storage s = Store.simplex();
+        s.name = "N/A";
+        s.symbol = "N/A";
         s.adjustor = adjustor;
         s.initTarget = 1e18; // reasonable default
         s.deMinimusVX128 = 1e6; // reasonable default

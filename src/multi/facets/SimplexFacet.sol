@@ -11,9 +11,10 @@ import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
+import {Simplex} from "../Simplex.sol";
 
 contract SimplexFacet {
-    event NewName(string newName);
+    event NewName(string newName, string symbol);
     event VertexAdded(
         address indexed token,
         address indexed vault,
@@ -145,14 +146,23 @@ contract SimplexFacet {
         }
     } */
 
-    // TODO What are these?
-    /*     function setName(string calldata newName) external {
-        AdminLib.validateOwner();
-        Store.simplex().name = newName;
-        emit NewName(newName);
+    function setName(
+        string calldata newName,
+        string calldata newSymbol
+    ) external {
+        Simplex storage s = Store.simplex();
+        s.name = newName;
+        s.symbol = newSymbol;
+        emit NewName(newName, newSymbol);
     }
 
-    function getName() external view returns (string memory name) {
-        return Store.simplex().name;
-    } */
+    function getName()
+        external
+        view
+        returns (string memory name, string memory symbol)
+    {
+        Simplex storage s = Store.simplex();
+        name = s.name;
+        symbol = s.symbol;
+    }
 }

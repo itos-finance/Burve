@@ -18,6 +18,8 @@ import {Store} from "./Store.sol";
 import {BurveFacets} from "./InitLib.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
 import {ValueFacet} from "./facets/ValueFacet.sol";
+import {ValueTokenFacet} from "./facets/ValueTokenFacet.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {LockFacet} from "./facets/LockFacet.sol";
 import {VaultFacet} from "./facets/VaultFacet.sol";
@@ -30,7 +32,7 @@ contract SimplexDiamond is IDiamond {
         AdminLib.initOwner(msg.sender);
         SimplexLib.init(facets.adjustor);
 
-        FacetCut[] memory cuts = new FacetCut[](8);
+        FacetCut[] memory cuts = new FacetCut[](9);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -137,6 +139,27 @@ contract SimplexDiamond is IDiamond {
 
             cuts[7] = IDiamond.FacetCut({
                 facetAddress: facets.vaultFacet,
+                action: IDiamond.FacetCutAction.Add,
+                functionSelectors: selectors
+            });
+        }
+
+        {
+            bytes4[] memory selectors = new bytes4[](11);
+            selectors[0] = ERC20.name.selector;
+            selectors[1] = ERC20.symbol.selector;
+            selectors[2] = ERC20.decimals.selector;
+            selectors[3] = ERC20.totalSupply.selector;
+            selectors[4] = ERC20.balanceOf.selector;
+            selectors[5] = ERC20.transfer.selector;
+            selectors[6] = ERC20.allowance.selector;
+            selectors[7] = ERC20.approve.selector;
+            selectors[8] = ERC20.transferFrom.selector;
+            selectors[9] = ValueTokenFacet.mint.selector;
+            selectors[10] = ValueTokenFacet.burn.selector;
+
+            cuts[8] = IDiamond.FacetCut({
+                facetAddress: facets.valueTokenFacet,
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
             });

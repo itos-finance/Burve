@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
+import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
@@ -22,6 +23,7 @@ contract MultiSetupTest is Test {
     /* Diamond */
     address public diamond;
     ValueFacet public valueFacet;
+    ValueTokenFacet public valueTokenFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
     LockFacet public lockFacet;
@@ -46,6 +48,7 @@ contract MultiSetupTest is Test {
         diamond = address(new SimplexDiamond(bFacets));
 
         valueFacet = ValueFacet(diamond);
+        valueTokenFacet = ValueTokenFacet(diamond);
         simplexFacet = SimplexFacet(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
