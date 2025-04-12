@@ -117,18 +117,32 @@ contract ValueFacet is ReentrancyGuardTransient {
         Store.assets().add(recipient, cid, value, bgtValue);
     }
 
-    /*
     /// Add exactly this much of the given token for value in the given closure.
     function addSingleForValue(
         address recipient,
         uint16 _closureId,
         address token,
-        uint256 amount
+        uint256 amount,
+        uint256 bgtPercentX256
     ) external nonReentrant returns (uint256 valueReceived) {
         ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid);
+        Closure storage c = Store.closure(cid); // Validates cid.
+        VertexId vid = VertexLib.newId(token); // Validates token.
+        TransferHelper.safeTransferFrom(
+            token,
+            msg.sender,
+            address(this),
+            amount
+        );
+        Store.vertex(vid).deposit(cid, amount);
+        (uint256 value, uint256 bgtValue) = c.addTokenForValue(
+            vid,
+            AdjustorLib.toNominal(token, amount, false), // Round down value deposited.
+            bgtPercentX256
+        );
+        if (value == 0) revert DeMinimisDeposit();
+        Store.assets().add(recipient, cid, value, bgtValue);
     }
-    */
 
     /// Remove exactly this much value to the given closure and receive all tokens involved.
     function removeValue(
@@ -182,24 +196,32 @@ contract ValueFacet is ReentrancyGuardTransient {
         VertexId vid = VertexLib.newId(token); // Validates token.
         uint256 removedNominal = c.removeValueSingle(value, bgtValue, vid);
         removedBalance = AdjustorLib.toReal(token, removedNominal, false);
-        TransferHelper.safeTransfer(token, recipient, removedBalance);
         // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, removedBalance, false);
+        TransferHelper.safeTransfer(token, recipient, removedBalance);
         Store.assets().remove(msg.sender, cid, value, bgtValue);
     }
 
-    /*
     /// Remove exactly this much of the given token for value in the given closure.
     function removeSingleForValue(
         address recipient,
         uint16 _closureId,
         address token,
-        uint256 amount
+        uint256 amount,
+        uint256 bgtPercentX256
     ) external nonReentrant returns (uint256 valueGiven) {
         ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid);
+        Closure storage c = Store.closure(cid); // Validates cid.
+        VertexId vid = VertexLib.newId(token); // Validates token.
+        (uint256 value, uint256 bgtValue) = c.removeTokenForValue(
+            vid,
+            AdjustorLib.toNominal(token, amount, true), // Round up value removed.
+            bgtPercentX256
+        );
+        if (value == 0) revert DeMinimisDeposit();
+        Store.assets().remove(recipient, cid, value, bgtValue);
+        // Users can removed locked tokens as it helps derisk this protocol.
+        Store.vertex(vid).withdraw(cid, amount, false);
+        TransferHelper.safeTransfer(token, recipient, amount);
     }
-    */
-
-    /* helpers */
 }

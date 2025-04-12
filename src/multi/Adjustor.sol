@@ -32,4 +32,13 @@ library AdjustorLib {
         IAdjustor adj = Store.adjustor();
         nominal = adj.toNominal(TokenRegLib.getToken(idx), real, roundUp);
     }
+
+    function toNominal(
+        address token,
+        uint256 real,
+        bool roundUp
+    ) internal view returns (uint256 nominal) {
+        IAdjustor adj = Store.adjustor();
+        nominal = adj.toNominal(token, real, roundUp);
+    }
 }
