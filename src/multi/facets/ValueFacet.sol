@@ -27,6 +27,7 @@ functions here.
 contract ValueFacet is ReentrancyGuardTransient {
     error DeMinimisDeposit();
     error InsufficientValueForBgt(uint256 value, uint256 bgtValue);
+    error PastSlippageBounds();
 
     /// @notice Emitted when liquidity is added to a closure
     /// @param recipient The address that received the value
@@ -53,6 +54,8 @@ contract ValueFacet is ReentrancyGuardTransient {
     );
 
     /// Add exactly this much value to the given closure by providing all tokens involved.
+    /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
+    /// which validates the requiredBalances are small enough according to some logic.
     function addValue(
         address recipient,
         uint16 _closureId,
@@ -78,7 +81,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             address token = tokenReg.tokens[i];
             uint256 realNeeded = AdjustorLib.toReal(
                 token,
-                requiredBalances[i],
+                requiredNominal[i],
                 true
             );
             requiredBalances[i] = realNeeded;
@@ -94,12 +97,14 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Add exactly this much value to the given closure by providing a single token.
+    /// @param maxRequired Revert if required balance is greater than this.
     function addValueSingle(
         address recipient,
         uint16 _closureId,
         uint256 value,
         uint256 bgtValue,
-        address token
+        address token,
+        uint256 maxRequired
     ) external nonReentrant returns (uint256 requiredBalance) {
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
@@ -108,6 +113,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         VertexId vid = VertexLib.newId(token); // Validates token.
         uint256 nominalRequired = c.addValueSingle(value, bgtValue, vid);
         requiredBalance = AdjustorLib.toReal(token, nominalRequired, true);
+        require(requiredBalance <= maxRequired, PastSlippageBounds());
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,
@@ -119,12 +125,14 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Add exactly this much of the given token for value in the given closure.
+    /// @param minValue Revert if valueReceived is smaller than this.
     function addSingleForValue(
         address recipient,
         uint16 _closureId,
         address token,
         uint256 amount,
-        uint256 bgtPercentX256
+        uint256 bgtPercentX256,
+        uint256 minValue
     ) external nonReentrant returns (uint256 valueReceived) {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
@@ -137,17 +145,20 @@ contract ValueFacet is ReentrancyGuardTransient {
         );
         Store.vertex(vid).deposit(cid, amount);
         SearchParams memory search = Store.simplex().searchParams;
-        (uint256 value, uint256 bgtValue) = c.addTokenForValue(
+        uint256 bgtValue;
+        (valueReceived, bgtValue) = c.addTokenForValue(
             vid,
             AdjustorLib.toNominal(token, amount, false), // Round down value deposited.
             bgtPercentX256,
             search
         );
-        if (value == 0) revert DeMinimisDeposit();
-        Store.assets().add(recipient, cid, value, bgtValue);
+        require(valueReceived > 0, DeMinimisDeposit());
+        require(valueReceived >= minValue, PastSlippageBounds());
+        Store.assets().add(recipient, cid, valueReceived, bgtValue);
     }
 
     /// Remove exactly this much value to the given closure and receive all tokens involved.
+    /// @dev Wrap this with a helper contract which validates the received balances are sufficient.
     function removeValue(
         address recipient,
         uint16 _closureId,
@@ -173,7 +184,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             address token = tokenReg.tokens[i];
             uint256 realSend = AdjustorLib.toReal(
                 token,
-                receivedBalances[i],
+                nominalReceives[i],
                 false
             );
             receivedBalances[i] = realSend;
@@ -185,12 +196,14 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Remove exactly this much value to the given closure by receiving a single token.
+    /// @param minReceive Revert if removedBalance is smaller than this.
     function removeValueSingle(
         address recipient,
         uint16 _closureId,
         uint256 value,
         uint256 bgtValue,
-        address token
+        address token,
+        uint256 minReceive
     ) external nonReentrant returns (uint256 removedBalance) {
         if (value == 0) revert DeMinimisDeposit();
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
@@ -199,6 +212,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         VertexId vid = VertexLib.newId(token); // Validates token.
         uint256 removedNominal = c.removeValueSingle(value, bgtValue, vid);
         removedBalance = AdjustorLib.toReal(token, removedNominal, false);
+        require(removedBalance >= minReceive, PastSlippageBounds());
         // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, removedBalance, false);
         TransferHelper.safeTransfer(token, recipient, removedBalance);
@@ -206,25 +220,29 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Remove exactly this much of the given token for value in the given closure.
+    /// @param maxValue Revert if valueGiven is larger than this.
     function removeSingleForValue(
         address recipient,
         uint16 _closureId,
         address token,
         uint256 amount,
-        uint256 bgtPercentX256
+        uint256 bgtPercentX256,
+        uint256 maxValue
     ) external nonReentrant returns (uint256 valueGiven) {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
         SearchParams memory search = Store.simplex().searchParams;
-        (uint256 value, uint256 bgtValue) = c.removeTokenForValue(
+        uint256 bgtValue;
+        (valueGiven, bgtValue) = c.removeTokenForValue(
             vid,
             AdjustorLib.toNominal(token, amount, true), // Round up value removed.
             bgtPercentX256,
             search
         );
-        if (value == 0) revert DeMinimisDeposit();
-        Store.assets().remove(recipient, cid, value, bgtValue);
+        require(valueGiven > 0, DeMinimisDeposit());
+        require(valueGiven <= maxValue, PastSlippageBounds());
+        Store.assets().remove(recipient, cid, valueGiven, bgtValue);
         // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, amount, false);
         TransferHelper.safeTransfer(token, recipient, amount);

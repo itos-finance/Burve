@@ -48,6 +48,25 @@ library ValueLib {
         return FullMath.mulDivX256(1, eX128 + TWOX128, true);
     }
 
+    /// Convert our max_token storage arrays to dense in memory arrays to newtons over.
+    function stripArrays(
+        uint8 n,
+        uint256[MAX_TOKENS] storage _esX128,
+        uint256[MAX_TOKENS] storage _xs
+    ) internal view returns (uint256[] memory esX128, uint256[] memory xs) {
+        esX128 = new uint256[](n);
+        xs = new uint256[](n);
+        uint8 k = 0;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (_xs[i] > 0) {
+                xs[k] = _xs[i];
+                esX128[k] = _esX128[i];
+                ++k;
+            }
+        }
+        require(n == k, "Closure size mismatch");
+    }
+
     /* User operations */
 
     /// Calculate the value of the current token balance (x).
@@ -116,23 +135,10 @@ library ValueLib {
     /// On token removes, rounding down overdispenses value by 1, but we overcharge fees so its okay.
     function t(
         SearchParams memory searchParams,
-        uint8 n,
-        uint256[MAX_TOKENS] storage _esX128,
-        uint256[MAX_TOKENS] storage _xs,
+        uint256[] memory esX128,
+        uint256[] memory xs,
         uint256 tX128
     ) internal pure returns (uint256 targetX128) {
-        // Setup
-        uint256[] memory esX128 = new uint256[](n);
-        uint256[] memory xs = new uint256[](n);
-        uint8 k = 0;
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (_xs[i] > 0) {
-                xs[k] = _xs[i];
-                esX128[k] = _esX128[i];
-                ++k;
-            }
-        }
-        require(n == k, "Closure size mismatch");
         // Run newton's method.
         bool done = false;
         uint256 nextTX128;

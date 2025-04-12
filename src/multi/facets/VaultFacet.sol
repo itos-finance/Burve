@@ -23,7 +23,7 @@ contract VaultFacet {
     /// Query which vaults are in use for a token.
     function viewVaults(
         address token
-    ) external returns (address active, address backup) {
+    ) external view returns (address active, address backup) {
         VertexId vid = VertexLib.newId(token);
         (active, backup) = VaultLib.getVaultAddresses(vid);
     }

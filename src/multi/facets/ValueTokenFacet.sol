@@ -33,12 +33,20 @@ contract ValueTokenFacet is ERC20 {
 
     /* Helpers */
 
-    function getValueTokenName() internal returns (string memory tokenName) {
+    function getValueTokenName()
+        internal
+        view
+        returns (string memory tokenName)
+    {
         string memory name = Store.simplex().name;
         return string.concat("brvValue", name);
     }
 
-    function getValueSymbol() internal returns (string memory tokenSymbol) {
+    function getValueSymbol()
+        internal
+        view
+        returns (string memory tokenSymbol)
+    {
         string memory symbol = Store.simplex().symbol;
         return string.concat("val", symbol);
     }

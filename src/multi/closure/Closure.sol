@@ -296,13 +296,17 @@ library ClosureImpl {
         // Use the ValueLib's newton's method to solve for the value added and update target.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         self.setBalance(idx, self.balances[idx] + amount);
-        uint256 newTargetX128 = ValueLib.t(
-            searchParams,
-            self.n,
-            esX128,
-            self.balances,
-            self.targetX128
-        );
+        uint256 newTargetX128;
+        {
+            (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
+                .stripArrays(self.n, esX128, self.balances);
+            newTargetX128 = ValueLib.t(
+                searchParams,
+                mesX128,
+                mxs,
+                self.targetX128
+            );
+        }
         // The pool is now entirely correct by just updating the target and value balances.
         value = ((newTargetX128 - self.targetX128) * self.n) >> 128; // Round down received value balance.
         bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down.
@@ -329,13 +333,17 @@ library ClosureImpl {
         // Use the ValueLib's newton's method to solve for the value removed and update target.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         self.setBalance(idx, self.balances[idx] - amount);
-        uint256 newTargetX128 = ValueLib.t(
-            searchParams,
-            self.n,
-            esX128,
-            self.balances,
-            self.targetX128 // TODO: Estimate a better starting guess.
-        );
+        uint256 newTargetX128;
+        {
+            (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
+                .stripArrays(self.n, esX128, self.balances);
+            newTargetX128 = ValueLib.t(
+                searchParams,
+                mesX128,
+                mxs,
+                self.targetX128 // TODO: Estimate a better starting guess.
+            );
+        }
         // The pool is now entirely correct by just updating the target and value balances.
         uint256 valueX128 = ((self.targetX128 - newTargetX128) * self.n);
         value = valueX128 >> 128;
@@ -738,7 +746,7 @@ library ClosureImpl {
         Closure storage self,
         SingleValueIter memory valIter,
         bool roundUp
-    ) internal returns (uint256 vertexBalance) {
+    ) internal view returns (uint256 vertexBalance) {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!self.cid.contains(i)) continue;

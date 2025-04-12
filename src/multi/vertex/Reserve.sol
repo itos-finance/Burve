@@ -24,7 +24,7 @@ library ReserveLib {
         uint256 amount
     ) internal returns (uint256 shares) {
         VaultProxy memory vProxy = VaultLib.getProxy(vid);
-        deposit(vProxy, vid, amount);
+        shares = deposit(vProxy, vid, amount);
         vProxy.commit();
     }
 
@@ -52,7 +52,7 @@ library ReserveLib {
     function query(
         VertexId vid,
         uint256 shares
-    ) internal returns (uint256 amount) {
+    ) internal view returns (uint256 amount) {
         Reserve storage reserve = Store.reserve();
         uint8 idx = vid.idx();
         VaultProxy memory vProxy = VaultLib.getProxy(vid);

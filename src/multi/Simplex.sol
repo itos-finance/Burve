@@ -57,7 +57,7 @@ library SimplexLib {
     }
 
     // Within this bound, valueStaked and target are effectively zero.
-    function deMinimusValue() internal returns (uint256 dM) {
+    function deMinimusValue() internal view returns (uint256 dM) {
         dM = uint256(Store.simplex().searchParams.deMinimusX128);
         if (uint128(dM) > 0) {
             dM = (dM >> 128) + 1;
