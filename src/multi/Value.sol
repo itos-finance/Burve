@@ -5,10 +5,53 @@ import {MAX_TOKENS} from "./Constants.sol";
 import {VertexId} from "./vertex/Id.sol";
 import {FullMath} from "../FullMath.sol";
 
+/// Parameters controlling the newton's method search for t.
+struct SearchParams {
+    uint8 maxIter;
+    uint8 lookBack;
+    // Value at which we regard it close enough to 0 to not exploit us.
+    // If it's smaller than fees paid there's no reason to attempt to game this.
+    // TODO if we swap to allowing negative fs as the result, we should enforce a minimum swap size
+    // to avoid gaming deMinimus. Where min swap size * fees is larger than this.
+    int256 deMinimusX128; // int X128 to match ftX128, but always positive.
+}
+
+using SearchParamsImpl for SearchParams global;
+
+library SearchParamsImpl {
+    function init(SearchParams storage self) internal {
+        self.maxIter = 5;
+        self.lookBack = 3;
+        self.deMinimusX128 = 1e6;
+    }
+}
+
 library ValueLib {
+    uint256 public constant ONEX128 = 1 << 128;
     uint256 public constant TWOX128 = 2 << 128;
 
+    error TSolutionNotFound(
+        uint256 tX128,
+        int256 ftX128,
+        uint256[] esX128,
+        uint256[] xs
+    );
+
+    /* Simplex internal methods */
+
+    /// Given an efficiency factor, calculate the minimum value of x before v goes negative.
+    /// @dev Since we're calculating a min, we round up, and uses of this also round up.
+    function calcMinXPerTX128(
+        uint256 eX128
+    ) internal pure returns (uint256 xPerTX128) {
+        // The calculation is simply 1 / (e + 2)
+        return FullMath.mulDivX256(1, eX128 + TWOX128, true);
+    }
+
+    /* User operations */
+
     /// Calculate the value of the current token balance (x).
+    /// @dev Calling this with too small an x will revert.
     /// @param tX128 The target balance of this token.
     /// @param eX128 The capital efficiency factor of x.
     /// @param _x The token balance. Won't go above 128 bits.
@@ -23,17 +66,18 @@ library ValueLib {
         uint256 denomX128 = (_x << 128) + etX128;
         uint256 sqrtNumX128 = etX128 + tX128;
         if (roundUp) {
-            valueX128 += FullMath.mulDivRoundingUp(
+            valueX128 -= FullMath.mulDivRoundingUp(
                 sqrtNumX128,
                 sqrtNumX128,
                 denomX128
             );
         } else {
-            valueX128 += FullMath.mulDiv(sqrtNumX128, sqrtNumX128, denomX128);
+            valueX128 -= FullMath.mulDiv(sqrtNumX128, sqrtNumX128, denomX128);
         }
     }
 
     /// Calculate the difference in value between two token balances.
+    /// @dev Will revert if x balances are not in size order.
     function vDiff(
         uint256 tX128,
         uint256 eX128,
@@ -47,6 +91,7 @@ library ValueLib {
     }
 
     /// Given the desired value (vX128), what is the corresponding balance of the token.
+    /// @dev Since v is positive, x will be positive.
     function x(
         uint256 tX128,
         uint256 eX128,
@@ -70,64 +115,127 @@ library ValueLib {
     /// By convention we always round this down. On token adds, it under-dispenses value.
     /// On token removes, rounding down overdispenses value by 1, but we overcharge fees so its okay.
     function t(
+        SearchParams memory searchParams,
         uint8 n,
         uint256[MAX_TOKENS] storage _esX128,
         uint256[MAX_TOKENS] storage _xs,
         uint256 tX128
-    ) internal returns (uint256 targetX128) {
+    ) internal pure returns (uint256 targetX128) {
         // Setup
         uint256[] memory esX128 = new uint256[](n);
         uint256[] memory xs = new uint256[](n);
-        uint8 j = 0;
+        uint8 k = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (_xs[i] > 0) {
-                xs[j] = _xs[i];
-                esX128[j] = _esX128[i];
-                ++j;
+                xs[k] = _xs[i];
+                esX128[k] = _esX128[i];
+                ++k;
             }
         }
-        require(n == j, "Closure size mismatch");
-        /// FOR NOW WE USE THIS WRONG METHOD JUST TO GET COMPILING.
-        uint256 valueTotalX128;
-        for (uint i = 0; i < n; ++i) {
-            valueTotalX128 += v(tX128, esX128[i], xs[i], false);
-        }
-        // SO so so wrong.
-        return valueTotalX128 / n;
-        // TODO do the newtons method and write unittests for it.
+        require(n == k, "Closure size mismatch");
         // Run newton's method.
-        /*
-        (
-            uint8 maxIter,
-            uint8 fudgeIter,
-            uint8 lookBack,
-            uint256 deMinimus
-        ) = SimplexLib.newtonsParams();
-        uint256 evaldF =
-        while
-        (tX128,  = tStep(t, esX128, xs, )
-        */
+        bool done = false;
+        uint256 nextTX128;
+        int256 ftX128;
+        int256[] memory oldFts = new int256[](searchParams.maxIter);
+        for (uint8 i = 0; i < searchParams.maxIter; ++i) {
+            ftX128 = f(tX128, esX128, xs);
+            // If we found a good solution, we're done.
+            if (0 <= ftX128 && ftX128 <= searchParams.deMinimusX128) {
+                done = true;
+                break;
+            }
+            nextTX128 = stepT(tX128, esX128, xs, ftX128);
+
+            // If we didn't, lookback and previous solutions
+            // and see if we're in a loop.
+            bool isLoop = false;
+            uint8 actualLookBack = (i < searchParams.lookBack)
+                ? i
+                : searchParams.lookBack;
+            oldFts[i] = ftX128;
+            for (uint256 j = 1; j <= actualLookBack; ++j) {
+                if (oldFts[i - j] == ftX128) {
+                    isLoop = true;
+                    break;
+                }
+            }
+            // If we're in a loop, we just need a small nudge to get out.
+            tX128 = isLoop ? (tX128 + nextTX128) / 2 : nextTX128;
+        }
+        require(done, TSolutionNotFound(tX128, ftX128, esX128, xs));
+        return tX128;
     }
 
     /* Newtons method helpers for t */
 
+    function stepT(
+        uint256 tX128,
+        uint256[] memory esX128,
+        uint256[] memory xs,
+        int256 ftX128
+    ) internal pure returns (uint256 nextTX128) {
+        int256 dftX128 = dfdt(tX128, esX128, xs);
+        bool posNum = ftX128 > 0;
+        bool posDenom = dftX128 > 0;
+        if (posNum && posDenom) {
+            return
+                tX128 -
+                FullMath.mulDiv(uint256(ftX128), 1 << 128, uint256(dftX128));
+        } else if (posNum && !posDenom) {
+            return
+                tX128 +
+                FullMath.mulDiv(uint256(ftX128), 1 << 128, uint256(-dftX128));
+        } else if (!posNum && posDenom) {
+            return
+                tX128 +
+                FullMath.mulDiv(uint256(-ftX128), 1 << 128, uint256(dftX128));
+        } else {
+            return
+                tX128 -
+                FullMath.mulDiv(uint256(-ftX128), 1 << 128, uint256(-dftX128));
+        }
+    }
+
+    /// Evaluate the total value of all tokens minus N * target where N is the number of tokens.
+    /// This can go negative during the process of searching for a valid t.
+    function f(
+        uint256 tX128,
+        uint256[] memory esX128,
+        uint256[] memory xs
+    ) internal pure returns (int256 ftX128) {
+        uint256 n = xs.length;
+        for (uint256 i = 0; i < n; ++i) {
+            ftX128 += int256(v(tX128, esX128[i], xs[i], false));
+        }
+        ftX128 -= int256(n * tX128);
+    }
+
+    /// Calculate the derivative of the search function f which is the sum of all values minus N * target.
     function dfdt(
         uint256 tX128,
-        uint256[MAX_TOKENS] storage esX128,
-        uint256[MAX_TOKENS] storage xs
-    ) internal {}
+        uint256[] memory esX128,
+        uint256[] memory xs
+    ) internal pure returns (int256 dftX128) {
+        uint256 n = xs.length;
+        for (uint256 i = 0; i < n; ++i) {
+            dftX128 += dvdt(tX128, esX128[i], xs[i]);
+        }
+    }
 
-    /// Calculate the derivative of v with respect to t.
-    /// We only use this for solving for t with newtons method so careful rounding is less necessary.
+    /// Calculate the derivative of v with respect to t minus 1.
+    /// We minus one because we only use this for solving for t which needs to subtract one for N*t anways.
+    /// Rounding is more of an art here which is okay since we're iterating for a deMinimus solution.
     function dvdt(
         uint256 tX128,
         uint256 eX128,
         uint256 _x
-    ) internal returns (uint256 dvX128) {
+    ) internal pure returns (int256 dvX128) {
         uint256 etX128 = FullMath.mulX128(eX128, tX128, false);
-        dvX128 = eX128 + TWOX128;
+        dvX128 = int256(eX128 + ONEX128);
         uint256 xX128 = _x << 128;
         uint256 numAX128 = 2 * xX128 + etX128;
+        // We round down here to balance the rounding in the denom.
         uint256 numBX128 = tX128 +
             2 *
             etX128 +
@@ -138,6 +246,6 @@ library ValueLib {
             sqrtDenomX128,
             false
         );
-        dvX128 -= FullMath.mulDiv(numAX128, numBX128, denomX128);
+        dvX128 -= int256(FullMath.mulDiv(numAX128, numBX128, denomX128));
     }
 }

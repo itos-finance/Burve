@@ -7,7 +7,7 @@ import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "./Id.sol";
 import {FullMath} from "../../FullMath.sol";
-import {ValueLib} from "../Value.sol";
+import {ValueLib, SearchParams} from "../Value.sol";
 import {ReserveLib} from "../vertex/Reserve.sol";
 import {Store} from "../Store.sol";
 import {UnsafeMath} from "Commons/Math/UnsafeMath.sol";
@@ -66,6 +66,7 @@ library ClosureImpl {
     error TokenBalanceOutOfBounds(
         ClosureId cid,
         uint256 attemptedBalance,
+        uint256 minBalance,
         uint256 maxBalance
     );
 
@@ -281,7 +282,8 @@ library ClosureImpl {
         Closure storage self,
         VertexId vid,
         uint256 amount,
-        uint256 bgtPercentX256
+        uint256 bgtPercentX256,
+        SearchParams memory searchParams
     ) internal returns (uint256 value, uint256 bgtValue) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
@@ -295,6 +297,7 @@ library ClosureImpl {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         self.setBalance(idx, self.balances[idx] + amount);
         uint256 newTargetX128 = ValueLib.t(
+            searchParams,
             self.n,
             esX128,
             self.balances,
@@ -313,7 +316,8 @@ library ClosureImpl {
         Closure storage self,
         VertexId vid,
         uint256 amount,
-        uint256 bgtPercentX256
+        uint256 bgtPercentX256,
+        SearchParams memory searchParams
     ) internal returns (uint256 value, uint256 bgtValue) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
@@ -326,6 +330,7 @@ library ClosureImpl {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
         self.setBalance(idx, self.balances[idx] - amount);
         uint256 newTargetX128 = ValueLib.t(
+            searchParams,
             self.n,
             esX128,
             self.balances,
@@ -460,7 +465,7 @@ library ClosureImpl {
     ) internal {
         trimAllBalances(self);
         // Unstakers can't remove more than deminimus.
-        if (self.valueStaked - SimplexLib.deMinimusValue() < value)
+        if (self.valueStaked < value + SimplexLib.deMinimusValue())
             revert InsufficientUnstakeAvailable(
                 self.cid,
                 self.valueStaked,
@@ -709,12 +714,22 @@ library ClosureImpl {
         uint8 idx,
         uint256 newBalance
     ) internal {
-        // We make sure the balance is above zero, which guarantees the value will be positive.
-        // Just by acting on uints, the balance cannot be negative.
-        // And the balance cannot go above twice the target, so we limit our exposure to any given token.
+        // We make sure the balance is above the minimum according to the efficiency factor
+        // which guarantees the value will be positive.
+        // And also the balance does not go above twice the target, so we limit our exposure to any given token.
+        uint256 minX = FullMath.mulX256(
+            Store.simplex().minXPerTX128[idx],
+            self.targetX128,
+            true
+        );
         uint256 twiceTarget = self.targetX128 >> 127;
-        if (newBalance == 0 || newBalance > twiceTarget)
-            revert TokenBalanceOutOfBounds(self.cid, newBalance, twiceTarget);
+        if (newBalance < minX || twiceTarget < newBalance)
+            revert TokenBalanceOutOfBounds(
+                self.cid,
+                newBalance,
+                minX,
+                twiceTarget
+            );
         self.balances[idx] = newBalance;
     }
 

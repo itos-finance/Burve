@@ -11,4 +11,7 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 
 
 TODO:
-ValueLib - write newtons method. 9 - 11
+ValueLib
+- Deminimus + positive search?
+- slippage limits on value add/removes?
+- Unittest valuelib.

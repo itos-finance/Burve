@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {MAX_TOKENS} from "./Constants.sol";
 import {IBGTExchanger} from "../integrations/BGTExchange/IBGTExchanger.sol";
 import {TokenRegLib} from "./Token.sol";
+import {ValueLib, SearchParams} from "./Value.sol";
 import {Store} from "./Store.sol";
 
 // Stores information unchanged between all closures.
@@ -14,12 +15,14 @@ struct Simplex {
     address bgtEx;
     /// New closures are made with at least this much target value.
     uint256 initTarget;
-    /// fudge factor for value.
-    uint256 deMinimusVX128;
     /// The efficiency factor for each token.
     uint256[MAX_TOKENS] esX128;
+    /// A scaling factor for calculating the min acceptable x balance based on e.
+    uint256[MAX_TOKENS] minXPerTX128;
     /// Amounts earned by the protocol for withdrawal.
     uint256[MAX_TOKENS] protocolEarnings;
+    /// Parameters used by ValueLib.t to search
+    SearchParams searchParams;
 }
 
 /// Convenient methods frequently requested by other parts of the pool.
@@ -32,6 +35,7 @@ library SimplexLib {
     // A method to initTarget deminimus
     // Add a default e for new vertices to use.
     // A method to change adjustor.
+    // Method to set search params by admin.
 
     function init(address adjustor) internal {
         Simplex storage s = Store.simplex();
@@ -39,11 +43,12 @@ library SimplexLib {
         s.symbol = "N/A";
         s.adjustor = adjustor;
         s.initTarget = 1e18; // reasonable default
-        s.deMinimusVX128 = 1e6; // reasonable default
         // Default to 10x efficient: price range is [0.84, 1.21].
         for (uint256 i = 0; i < MAX_TOKENS; ++i) {
-            s.esX128[i] = 10;
+            s.esX128[i] = 10 << 128;
+            s.minXPerTX128[i] = ValueLib.calcMinXPerTX128(10 << 128);
         }
+        s.searchParams.init();
     }
 
     function protocolTake(uint8 idx, uint256 amount) internal {
@@ -52,8 +57,19 @@ library SimplexLib {
     }
 
     // Within this bound, valueStaked and target are effectively zero.
-    function deMinimusValue() internal returns (uint256 dX128) {
-        return Store.simplex().deMinimusVX128;
+    function deMinimusValue() internal returns (uint256 dM) {
+        dM = uint256(Store.simplex().searchParams.deMinimusX128);
+        if (uint128(dM) > 0) {
+            dM = (dM >> 128) + 1;
+        } else {
+            dM = dM >> 128;
+        }
+    }
+
+    function setE(uint8 idx, uint256 eX128) internal {
+        Simplex storage s = Store.simplex();
+        s.esX128[idx] = eX128;
+        s.minXPerTX128[idx] = ValueLib.calcMinXPerTX128(eX128);
     }
 
     function getEs() internal view returns (uint256[MAX_TOKENS] storage) {
@@ -74,4 +90,9 @@ library SimplexLib {
         );
         unspent = amount - spentAmount;
     }
+
+    function searchParams()
+        internal
+        returns (uint8 maxIter, uint8 lookBack, uint256 deMinimus)
+    {}
 }

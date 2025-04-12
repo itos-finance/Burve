@@ -12,6 +12,7 @@ import {Store} from "../Store.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {AssetBook} from "../Asset.sol";
 import {AdjustorLib} from "../Adjustor.sol";
+import {SearchParams} from "../Value.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -135,10 +136,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             amount
         );
         Store.vertex(vid).deposit(cid, amount);
+        SearchParams memory search = Store.simplex().searchParams;
         (uint256 value, uint256 bgtValue) = c.addTokenForValue(
             vid,
             AdjustorLib.toNominal(token, amount, false), // Round down value deposited.
-            bgtPercentX256
+            bgtPercentX256,
+            search
         );
         if (value == 0) revert DeMinimisDeposit();
         Store.assets().add(recipient, cid, value, bgtValue);
@@ -213,10 +216,12 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
+        SearchParams memory search = Store.simplex().searchParams;
         (uint256 value, uint256 bgtValue) = c.removeTokenForValue(
             vid,
             AdjustorLib.toNominal(token, amount, true), // Round up value removed.
-            bgtPercentX256
+            bgtPercentX256,
+            search
         );
         if (value == 0) revert DeMinimisDeposit();
         Store.assets().remove(recipient, cid, value, bgtValue);
