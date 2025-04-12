@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
+import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex} from "../../src/multi/Simplex.sol";
 import {SearchParams} from "../../src/multi/Value.sol";
 
@@ -27,6 +28,14 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.startPrank(owner);
 
         SearchParams memory sp = SearchParams(10, 5, 1e4);
+
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.SearchParamsChanged(
+            owner,
+            sp.maxIter,
+            sp.lookBack,
+            sp.deMinimusX128
+        );
         simplexFacet.setSearchParams(sp);
 
         SearchParams memory sp2 = simplexFacet.getSearchParams();
