@@ -19,8 +19,6 @@ struct Vertex {
 using VertexImpl for Vertex global;
 
 library VertexImpl {
-    // TODO: needs to be removed after fixing up methods.
-    error NotImplemented();
     /// Thrown when a vertex is locked so it cannot accept more deposits, or swaps out.
     error VertexLocked(VertexId vid);
     /// Emitted when the pool is holding insufficient balance for a token.
@@ -65,22 +63,19 @@ library VertexImpl {
         uint256 value,
         uint256 bgtValue
     ) internal returns (uint256 reserveSharesEarned, uint256 bgtResidual) {
-        // TODO: fix ReserveLib.deposit below
-        revert NotImplemented();
-
-        // VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
-        // uint256 realBalance = vProxy.balance(cid, false);
-        // if (targetReal > realBalance)
-        //     emit InsufficientBalance(self.vid, cid, targetReal, realBalance);
-        // uint256 residualReal = realBalance - targetReal;
-        // vProxy.withdraw(cid, residualReal);
-        // bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
-        // reserveSharesEarned = ReserveLib.deposit(
-        //     vProxy,
-        //     cid,
-        //     residualReal - bgtResidual
-        // );
-        // vProxy.commit();
+        VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
+        uint256 realBalance = vProxy.balance(cid, false);
+        if (targetReal > realBalance)
+            emit InsufficientBalance(self.vid, cid, targetReal, realBalance);
+        uint256 residualReal = realBalance - targetReal;
+        vProxy.withdraw(cid, residualReal);
+        bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
+        reserveSharesEarned = ReserveLib.deposit(
+            vProxy,
+            self.vid,
+            residualReal - bgtResidual
+        );
+        vProxy.commit();
     }
 
     /// Closures deposit a real amount into this Vertex.
