@@ -33,6 +33,19 @@ library ValueLib {
         }
     }
 
+    /// Calculate the difference in value between two token balances.
+    function vDiff(
+        uint256 tX128,
+        uint256 eX128,
+        uint256 smallX,
+        uint256 largeX,
+        bool roundUp
+    ) internal pure returns (uint256 valueDiffX128) {
+        return
+            v(tX128, eX128, largeX, roundUp) -
+            v(tX128, eX128, smallX, !roundUp);
+    }
+
     /// Given the desired value (vX128), what is the corresponding balance of the token.
     function x(
         uint256 tX128,
