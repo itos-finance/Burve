@@ -40,29 +40,6 @@ contract NullAdjustor is IAdjustor {
         real = nominal;
     }
 
-    /// Query the multiplicative factor for converting the real-valued square root ratio of two token values to
-    /// a nominal value.
-    function nominalSqrtRatioX128(
-        address,
-        address,
-        bool
-    ) external pure returns (uint256 ratioX128) {
-        ratioX128 = 1 << 128;
-    }
-
-    /// Query the multiplicative factor for converting the nominal-valued square root ratio of two token values to
-    /// their real value. Dividing by nominalSqrtRatioX128 can be used instead.
-    function realSqrtRatioX128(
-        address,
-        address,
-        bool
-    ) external pure returns (uint256 ratioX128) {
-        ratioX128 = 1 << 128;
-    }
-
     /// If an adjustment will be queried often, someone can call this to cache the result for cheaper views.
     function cacheAdjustment(address) external pure {}
-
-    /// If a ratio will be queried often, someone can call this to cache the result for cheaper views.
-    function cacheRatio(address, address) external pure {}
 }
