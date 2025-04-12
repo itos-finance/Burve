@@ -1,5 +1,48 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.27;
+
+import {AdminLib} from "Commons/Util/Admin.sol";
+import {MultiSetupTest} from "./MultiSetup.u.sol";
+import {Simplex} from "../../src/multi/Simplex.sol";
+import {SearchParams} from "../../src/multi/Value.sol";
+
+contract SimplexFacetTest is MultiSetupTest {
+    function setUp() public {
+        vm.startPrank(owner);
+        _newDiamond();
+        _newTokens(3);
+        vm.stopPrank();
+    }
+
+    // -- searchParams tests ----
+
+    function testGetSearchParams() public {
+        SearchParams memory sp = simplexFacet.getSearchParams();
+        assertEq(sp.maxIter, 5);
+        assertEq(sp.lookBack, 3);
+        assertEq(sp.deMinimusX128, 1e6);
+    }
+
+    function testSetSearchParams() public {
+        vm.startPrank(owner);
+
+        SearchParams memory sp = SearchParams(10, 5, 1e4);
+        simplexFacet.setSearchParams(sp);
+
+        SearchParams memory sp2 = simplexFacet.getSearchParams();
+        assertEq(sp2.maxIter, sp.maxIter);
+        assertEq(sp2.lookBack, sp.lookBack);
+        assertEq(sp2.deMinimusX128, sp.deMinimusX128);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetSearchParamsNotOwner() public {
+        SearchParams memory sp = SearchParams(10, 5, 1e4);
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setSearchParams(sp);
+    }
+}
 
 /* import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";

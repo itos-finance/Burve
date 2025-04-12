@@ -11,7 +11,8 @@ import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
-import {Simplex} from "../Simplex.sol";
+import {Simplex, SimplexLib} from "../Simplex.sol";
+import {SearchParams} from "../Value.sol";
 
 contract SimplexFacet {
     event NewName(string newName, string symbol);
@@ -124,6 +125,22 @@ contract SimplexFacet {
             );
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
+    }
+
+    /// @notice Gets the current search params.
+    function getSearchParams()
+        external
+        view
+        returns (SearchParams memory params)
+    {
+        return SimplexLib.getSearchParams();
+    }
+
+    /// @notice Sets the search params.
+    /// @dev Only callable by the contract owner.
+    function setSearchParams(SearchParams memory params) external {
+        AdminLib.validateOwner();
+        SimplexLib.setSearchParams(params);
     }
 
     /*     /// Withdraw fees earned by the protocol.
