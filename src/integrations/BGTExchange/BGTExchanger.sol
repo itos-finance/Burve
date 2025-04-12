@@ -12,6 +12,7 @@ contract BGTExchanger is IBGTExchanger {
     mapping(address caller => bool) public isExchanger;
     address public bgtToken;
     uint256 public bgtBalance;
+    IBgtExchanger public backupEx;
 
     error NoExchangePermissions();
     error InsufficientOwed();
@@ -89,5 +90,19 @@ contract BGTExchanger is IBGTExchanger {
             address(this),
             amount
         );
+    }
+
+    // TODO add to standard
+    function setBackup(address backup) external {
+        AdminLib.validateOwner();
+        backupEx = IBGTExchanger(backup);
+    }
+
+    // TODO add to standard.
+    function getOwed() external returns (uint256 _owed) {
+        _owed = owed[msg.sender];
+        if (address(backupEx) != address(0)) {
+            backupEx.getOwed(msg.sender);
+        }
     }
 }

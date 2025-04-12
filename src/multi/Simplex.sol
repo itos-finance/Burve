@@ -36,7 +36,7 @@ library SimplexLib {
         s.adjustor = adjustor;
         s.initTarget = 1e18; // reasonable default
         s.deMinimusVX128 = 1e6; // reasonable default
-        // Default to 10x efficient: price range is [0.916, 1.1].
+        // Default to 10x efficient: price range is [0.84, 1.21].
         for (uint256 i = 0; i < MAX_TOKENS; ++i) {
             s.esX128[i] = 10;
         }
