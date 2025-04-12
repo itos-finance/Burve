@@ -29,7 +29,7 @@ contract E4626ViewAdjustor is IAdjustor {
     function toNominal(
         address token,
         uint256 real,
-        bool roundUp
+        bool
     ) external view returns (uint256 nominal) {
         IERC4626 vault = getVault(token);
         return vault.convertToShares(real);
@@ -38,7 +38,7 @@ contract E4626ViewAdjustor is IAdjustor {
     function toNominal(
         address token,
         int256 real,
-        bool roundUp
+        bool
     ) external view returns (int256 nominal) {
         IERC4626 vault = getVault(token);
         if (real >= 0) {
@@ -51,7 +51,7 @@ contract E4626ViewAdjustor is IAdjustor {
     function toReal(
         address token,
         uint256 nominal,
-        bool roundUp
+        bool
     ) external view returns (uint256 real) {
         IERC4626 vault = getVault(token);
         return vault.convertToAssets(nominal);
@@ -60,13 +60,13 @@ contract E4626ViewAdjustor is IAdjustor {
     function toReal(
         address token,
         int256 nominal,
-        bool roundUp
+        bool
     ) external view returns (int256 real) {
         IERC4626 vault = getVault(token);
-        if (real >= 0) {
-            return SafeCast.toInt256(vault.convertToAssets(uint256(real)));
+        if (nominal >= 0) {
+            return SafeCast.toInt256(vault.convertToAssets(uint256(nominal)));
         } else {
-            return -SafeCast.toInt256(vault.convertToAssets(uint256(-real)));
+            return -SafeCast.toInt256(vault.convertToAssets(uint256(-nominal)));
         }
     }
 
