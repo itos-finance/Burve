@@ -34,6 +34,13 @@ struct Closure {
     uint256[MAX_TOKENS] unexchangedPerBgtValueX128; // Backup for when exchanges are unavailable.
 }
 
+/// In-memory helper struct for saving stack space when iterating when modifying value from a single token.
+struct SingleValueIter {
+    uint256 scaleX128;
+    uint8 vIdx;
+    uint256 valueSumX128;
+}
+
 using ClosureImpl for Closure global;
 
 library ClosureImpl {
@@ -55,6 +62,12 @@ library ClosureImpl {
         uint256 attemptedUnstake
     );
     error IrrelevantVertex(ClosureId cid, VertexId vid);
+    /// Token balances have to stay between 0 and double the target value.
+    error TokenBalanceOutOfBounds(
+        ClosureId cid,
+        uint256 attemptedBalance,
+        uint256 maxBalance
+    );
 
     /// Initialize a closure and add a small balance of each token to get it started. This balance is burned.
     function init(
@@ -71,6 +84,7 @@ library ClosureImpl {
         for (VertexId vIter = VertexLib.minId(); !vIter.isStop(); vIter.inc()) {
             if (cid.contains(vIter)) {
                 self.n += 1;
+                // We don't need to check this assignment.
                 self.balances[vIter.idx()] += target;
             }
         }
@@ -113,7 +127,7 @@ library ClosureImpl {
                 true
             );
             // This happens after because the vault will have
-            self.balances[i] += requiredBalances[i];
+            self.setBalance(i, self.balances[i] + requiredBalances[i]);
         }
     }
 
@@ -127,11 +141,6 @@ library ClosureImpl {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         // We still need to trim all balances here because value is changing.
         trimAllBalances(self);
-        uint256 scaleX128 = FullMath.mulDivX256(
-            value,
-            self.n * self.targetX128,
-            true
-        );
         {
             uint256 valueX128 = value << 128;
             self.targetX128 +=
@@ -139,62 +148,46 @@ library ClosureImpl {
                 self.n +
                 ((valueX128 % self.n) > 0 ? 1 : 0);
         }
+        SingleValueIter memory valIter = SingleValueIter({
+            scaleX128: FullMath.mulDivX256(
+                value,
+                self.n * self.targetX128,
+                true
+            ) + ONEX128,
+            vIdx: vid.idx(),
+            valueSumX128: 0
+        });
+
         // We first calculate what value is effectively "lost" by not adding the tokens.
         // And then we make sure to add that amount of value to the deposit token.
-        uint8 vIdx = vid.idx();
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
-        uint256 missingValueX128 = 0;
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (!self.cid.contains(i)) continue;
-
-            uint256 requiredBalance = FullMath.mulX128(
-                scaleX128,
-                self.balances[i],
-                true
-            );
-            if (i == vIdx) {
-                // the amount added to the in token is not taxed.
-                requiredAmount = requiredBalance;
-                self.balances[i] += requiredBalance;
-                // And there is no missing value here.
-                continue;
-            }
-            // For all other tokens, we have to add the missing value.
-            uint256 eX128 = esX128[i];
-            missingValueX128 += ValueLib.vDiff(
-                self.targetX128,
-                eX128,
-                self.balances[i],
-                requiredBalance + self.balances[i],
-                true
-            );
-        }
-        // Now we add the missing value.
+        uint256 fairVBalance = iterSingleValueDiff(self, valIter, true);
+        requiredAmount = fairVBalance - self.balances[valIter.vIdx];
+        // Now we have the missing value and the currently fair balance for our vertex.
         uint256 finalAmount;
         {
-            uint256 veX128 = esX128[vIdx];
+            uint256 veX128 = SimplexLib.getEs()[valIter.vIdx];
             uint256 currentValueX128 = ValueLib.v(
                 self.targetX128,
                 veX128,
-                self.balances[vIdx],
+                fairVBalance,
                 false
             );
             // To get the required amount.
             finalAmount = ValueLib.x(
                 self.targetX128,
                 veX128,
-                currentValueX128 + missingValueX128,
+                currentValueX128 + valIter.valueSumX128,
                 true
             );
         }
         {
-            uint256 untaxedRequired = finalAmount - self.balances[vIdx];
-            self.balances[vIdx] = finalAmount;
+            uint256 untaxedRequired = finalAmount - fairVBalance;
+            self.setBalance(valIter.vIdx, finalAmount);
             uint256 taxedRequired = UnsafeMath.divRoundingUp(
                 untaxedRequired << 128,
                 ONEX128 - self.baseFeeX128
             );
-            addEarnings(self, vIdx, taxedRequired - untaxedRequired);
+            addEarnings(self, valIter.vIdx, taxedRequired - untaxedRequired);
             requiredAmount += taxedRequired;
         }
         // This needs to happen after any fee earnings.
@@ -231,7 +224,7 @@ library ClosureImpl {
                 self.balances[i],
                 false
             );
-            self.balances[i] -= withdrawnBalances[i];
+            self.setBalance(i, self.balances[i] - withdrawnBalances[i]);
         }
     }
 
@@ -244,63 +237,39 @@ library ClosureImpl {
     ) internal returns (uint256 removedAmount) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
-        uint256 scaleX128 = FullMath.mulDivX256(
-            value,
-            self.n * self.targetX128,
-            true
-        );
-        uint256 valueX128 = value << 128;
-        // Round leftover value up.
-        self.targetX128 -= valueX128 / self.n;
+        {
+            uint256 valueX128 = value << 128;
+            // Round leftover value up.
+            self.targetX128 -= valueX128 / self.n;
+        }
+        SingleValueIter memory valIter = SingleValueIter({
+            scaleX128: ONEX128 -
+                FullMath.mulDivX256(value, self.n * self.targetX128, true),
+            vIdx: vid.idx(),
+            valueSumX128: 0
+        });
         // We first calculate what value is effectively "added" by not removing the tokens.
         // And then we make sure to remove that amount of value with the out token.
-        uint8 vIdx = vid.idx();
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
-        uint256 addedValueX128 = 0;
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (!self.cid.contains(i)) continue;
-
-            // Round this down to round down the "added" value.
-            uint256 scaledBalance = FullMath.mulX128(
-                scaleX128,
-                self.balances[i],
-                false
-            );
-            if (i == vIdx) {
-                // the amount removed from the out token is not taxed.
-                removedAmount = scaledBalance;
-                self.balances[i] -= scaledBalance;
-                continue;
-            }
-
-            uint256 eX128 = esX128[i];
-            addedValueX128 +=
-                ValueLib.v(self.targetX128, eX128, self.balances[i], false) -
-                ValueLib.v(
-                    self.targetX128,
-                    eX128,
-                    self.balances[i] - scaledBalance,
-                    true
-                );
-        }
-        uint256 veX128 = esX128[vIdx];
+        uint256 fairVBalance = iterSingleValueDiff(self, valIter, false);
+        removedAmount = self.balances[valIter.vIdx] - fairVBalance;
+        // Now we have the addedValue which we can remove, and the fair balance for our vertex.
+        uint256 veX128 = SimplexLib.getEs()[valIter.vIdx];
         uint256 currentValueX128 = ValueLib.v(
             self.targetX128,
             veX128,
-            self.balances[vIdx],
+            fairVBalance,
             false
         );
-        // How much can we remove?
         uint256 finalAmount = ValueLib.x(
             self.targetX128,
             veX128,
-            currentValueX128 - addedValueX128,
+            currentValueX128 - valIter.valueSumX128,
             true
         );
-        uint256 untaxedRemove = self.balances[vIdx] - finalAmount;
-        self.balances[vIdx] = finalAmount;
+        uint256 untaxedRemove = fairVBalance - finalAmount;
+        self.setBalance(valIter.vIdx, finalAmount);
         uint256 tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, true);
-        addEarnings(self, vIdx, tax);
+        addEarnings(self, valIter.vIdx, tax);
         removedAmount += untaxedRemove - tax;
         // This needs to happen last.
         self.valueStaked -= value;
@@ -324,7 +293,7 @@ library ClosureImpl {
         amount -= tax;
         // Use the ValueLib's newton's method to solve for the value added and update target.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
-        self.balances[idx] += amount;
+        self.setBalance(idx, self.balances[idx] + amount);
         uint256 newTargetX128 = ValueLib.t(
             self.n,
             esX128,
@@ -355,7 +324,7 @@ library ClosureImpl {
         amount += tax;
         // Use the ValueLib's newton's method to solve for the value removed and update target.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
-        self.balances[idx] -= amount;
+        self.setBalance(idx, self.balances[idx] - amount);
         uint256 newTargetX128 = ValueLib.t(
             self.n,
             esX128,
@@ -404,7 +373,7 @@ library ClosureImpl {
                 self.balances[inIdx],
                 true
             );
-        self.balances[inIdx] += inAmount;
+        self.setBalance(inIdx, self.balances[inIdx] + inAmount);
         uint8 outIdx = outVid.idx();
         // To round down the out amount, we want to remove value at lower values on the curve.
         // But we want to round up the newOutBalance which means we want a higher newOutValue.
@@ -423,7 +392,7 @@ library ClosureImpl {
             true
         );
         outAmount = self.balances[outIdx] - newOutBalance;
-        self.balances[outIdx] = newOutBalance;
+        self.setBalance(outIdx, newOutBalance);
     }
 
     /// Swap out an exact amount of one token by swapping in another.
@@ -455,7 +424,7 @@ library ClosureImpl {
                 self.balances[outIdx] - outAmount,
                 false
             );
-        self.balances[outIdx] -= outAmount;
+        self.setBalance(outIdx, self.balances[outIdx] - outAmount);
         // To round up the in amount, we want to add value at higher values on the curve.
         // But we want to round down the newInBalance which means we want a lower newInValue.
         // Ultimately these are both valid and both negligible, so it doesn't matter.
@@ -473,7 +442,7 @@ library ClosureImpl {
             false
         );
         uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
-        self.balances[inIdx] = newInBalance;
+        self.setBalance(inIdx, newInBalance);
         // Finally we tax the in amount.
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
@@ -639,7 +608,7 @@ library ClosureImpl {
         );
     }
 
-    /* Fee Helpers */
+    /* Helpers */
 
     /// Add NOMINAL fees collected for a given token. Can't be more than 2**128.
     /// Called after swaps and value changes.
@@ -731,6 +700,58 @@ library ClosureImpl {
             self.unexchangedPerBgtValueX128[idx] +=
                 (unspentShares << 128) /
                 self.bgtValueStaked;
+        }
+    }
+
+    /// When we update the balance, we want to double check it stays within bounds.
+    function setBalance(
+        Closure storage self,
+        uint8 idx,
+        uint256 newBalance
+    ) internal {
+        // We make sure the balance is above zero, which guarantees the value will be positive.
+        // Just by acting on uints, the balance cannot be negative.
+        // And the balance cannot go above twice the target, so we limit our exposure to any given token.
+        uint256 twiceTarget = self.targetX128 >> 127;
+        if (newBalance == 0 || newBalance > twiceTarget)
+            revert TokenBalanceOutOfBounds(self.cid, newBalance, twiceTarget);
+        self.balances[idx] = newBalance;
+    }
+
+    /// Helper method to save stack depth when calculating single value changes.
+    function iterSingleValueDiff(
+        Closure storage self,
+        SingleValueIter memory valIter,
+        bool roundUp
+    ) internal returns (uint256 vertexBalance) {
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!self.cid.contains(i)) continue;
+            uint256 fairBalance = FullMath.mulX128(
+                valIter.scaleX128,
+                self.balances[i],
+                true
+            );
+            if (i == valIter.vIdx) vertexBalance = fairBalance;
+            else {
+                uint256 eX128 = esX128[i];
+                if (fairBalance < self.balances[i])
+                    valIter.valueSumX128 += ValueLib.vDiff(
+                        self.targetX128,
+                        eX128,
+                        fairBalance,
+                        self.balances[i],
+                        roundUp
+                    );
+                else
+                    valIter.valueSumX128 += ValueLib.vDiff(
+                        self.targetX128,
+                        eX128,
+                        self.balances[i],
+                        fairBalance,
+                        roundUp
+                    );
+            }
         }
     }
 }

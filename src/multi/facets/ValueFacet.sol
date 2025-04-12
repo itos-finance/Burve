@@ -106,11 +106,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
         uint256 nominalRequired = c.addValueSingle(value, bgtValue, vid);
-        uint256 requiredBalance = AdjustorLib.toReal(
-            token,
-            requiredBalance,
-            true
-        );
+        requiredBalance = AdjustorLib.toReal(token, nominalRequired, true);
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,
@@ -185,11 +181,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
         uint256 removedNominal = c.removeValueSingle(value, bgtValue, vid);
-        uint256 removedBalance = AdjustorLib.toReal(
-            token,
-            removedBalance,
-            false
-        );
+        removedBalance = AdjustorLib.toReal(token, removedNominal, false);
         TransferHelper.safeTransfer(token, recipient, removedBalance);
         // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, removedBalance, false);
