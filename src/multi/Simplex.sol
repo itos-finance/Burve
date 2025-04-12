@@ -91,8 +91,15 @@ library SimplexLib {
         unspent = amount - spentAmount;
     }
 
-    function searchParams()
-        internal
-        returns (uint8 maxIter, uint8 lookBack, uint256 deMinimus)
-    {}
+    /// @notice Gets the current search params.
+    function getSearchParams() internal view returns (SearchParams memory) {
+        Simplex storage simplex = Store.simplex();
+        return simplex.searchParams;
+    }
+
+    /// @notice Sets the search params.
+    function setSearchParams(SearchParams memory params) internal {
+        Simplex storage simplex = Store.simplex();
+        simplex.searchParams = params;
+    }
 }
