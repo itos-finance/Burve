@@ -32,6 +32,14 @@ contract SimplexFacet {
     );
     error InsufficientStartingTarget(uint128 startingTarget);
 
+    /// Emitted when search params are changed.
+    event SearchParamsChanged(
+        address indexed admin,
+        uint8 maxIter,
+        uint8 lookBack,
+        int256 deMinimusX128
+    );
+
     /* Getters */
     /*
     /// TODO move to new view facet
@@ -141,6 +149,12 @@ contract SimplexFacet {
     function setSearchParams(SearchParams memory params) external {
         AdminLib.validateOwner();
         SimplexLib.setSearchParams(params);
+        emit SearchParamsChanged(
+            msg.sender,
+            params.maxIter,
+            params.lookBack,
+            params.deMinimusX128
+        );
     }
 
     /*     /// Withdraw fees earned by the protocol.
