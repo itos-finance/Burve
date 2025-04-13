@@ -90,4 +90,16 @@ library SimplexLib {
         );
         unspent = amount - spentAmount;
     }
+
+    /// @notice Gets the current search params.
+    function getSearchParams() internal view returns (SearchParams memory) {
+        Simplex storage simplex = Store.simplex();
+        return simplex.searchParams;
+    }
+
+    /// @notice Sets the search params.
+    function setSearchParams(SearchParams calldata params) internal {
+        Simplex storage simplex = Store.simplex();
+        simplex.searchParams = params;
+    }
 }

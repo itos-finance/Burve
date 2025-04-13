@@ -11,7 +11,8 @@ import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
-import {Simplex} from "../Simplex.sol";
+import {Simplex, SimplexLib} from "../Simplex.sol";
+import {SearchParams} from "../Value.sol";
 
 contract SimplexFacet {
     event NewName(string newName, string symbol);
@@ -30,6 +31,16 @@ contract SimplexFacet {
         uint8 feeProtocol
     );
     error InsufficientStartingTarget(uint128 startingTarget);
+    /// Throw when setting search params if deMinimusX128 is not positive.
+    error NonPositiveDeMinimusX128(int256 deMinimusX128);
+
+    /// Emitted when search params are changed.
+    event SearchParamsChanged(
+        address indexed admin,
+        uint8 maxIter,
+        int256 deMinimusX128,
+        int256 targetSlippageX128
+    );
 
     /* Getters */
     /*
@@ -124,6 +135,34 @@ contract SimplexFacet {
             );
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
+    }
+
+    /// @notice Gets the current search params.
+    function getSearchParams()
+        external
+        view
+        returns (SearchParams memory params)
+    {
+        return SimplexLib.getSearchParams();
+    }
+
+    /// @notice Sets the search params.
+    /// @dev Only callable by the contract owner.
+    function setSearchParams(SearchParams calldata params) external {
+        AdminLib.validateOwner();
+
+        if (params.deMinimusX128 <= 0) {
+            revert NonPositiveDeMinimusX128(params.deMinimusX128);
+        }
+
+        SimplexLib.setSearchParams(params);
+
+        emit SearchParamsChanged(
+            msg.sender,
+            params.maxIter,
+            params.deMinimusX128,
+            params.targetSlippageX128
+        );
     }
 
     /*     /// Withdraw fees earned by the protocol.
