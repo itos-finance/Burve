@@ -13,14 +13,14 @@ import {MockERC20} from "../mocks/MockERC20.sol";
 import {Store} from "../../src/multi/Store.sol";
 
 contract VertexIdTest is Test {
-    function testExactId() public view {
+    function testExactId() public pure {
         assertEq(VertexId.unwrap(VertexLib.newId(0)), 1 << 8);
         assertEq(VertexId.unwrap(VertexLib.minId()), 1 << 8);
         assertEq(VertexId.unwrap(VertexLib.newId(1)), (1 << 9) + 1);
         assertEq(VertexId.unwrap(VertexLib.newId(2)), (1 << 10) + 2);
     }
 
-    function testInc() public view {
+    function testInc() public pure {
         assertEq(
             VertexId.unwrap(VertexLib.newId(5).inc()),
             VertexId.unwrap(VertexLib.newId(6))

@@ -7,12 +7,13 @@ import {FullMath} from "../FullMath.sol";
 /// Parameters controlling the newton's method search for t.
 struct SearchParams {
     uint8 maxIter;
-    uint8 lookBack;
     // Value at which we regard it close enough to 0 to not exploit us.
     // If it's smaller than fees paid there's no reason to attempt to game this.
-    // TODO if we swap to allowing negative fs as the result, we should enforce a minimum swap size
-    // to avoid gaming deMinimus. Where min swap size * fees is larger than this.
     int256 deMinimusX128; // int X128 to match ftX128, but always positive.
+    // When the initial search fails, we accept solutions farther than deminimus from 0
+    // as long as they overpay in the right direction. However to put a sanity check on it
+    // we limit that overpayment by something sensible here.
+    int256 targetSlippageX128;
 }
 
 using SearchParamsImpl for SearchParams global;
@@ -20,8 +21,8 @@ using SearchParamsImpl for SearchParams global;
 library SearchParamsImpl {
     function init(SearchParams storage self) internal {
         self.maxIter = 5;
-        self.lookBack = 3;
-        self.deMinimusX128 = 1e6;
+        self.deMinimusX128 = 100;
+        self.targetSlippageX128 = 1e12;
     }
 }
 
@@ -140,33 +141,33 @@ library ValueLib {
     ) internal pure returns (uint256 targetX128) {
         // Run newton's method.
         bool done = false;
-        uint256 nextTX128;
         int256 ftX128;
-        int256[] memory oldFts = new int256[](searchParams.maxIter);
+        // We allow deminimus per vertex involved.
+        int256 deMinX128 = searchParams.deMinimusX128 * int256(xs.length);
         for (uint8 i = 0; i < searchParams.maxIter; ++i) {
             ftX128 = f(tX128, esX128, xs);
             // If we found a good solution, we're done.
-            if (0 <= ftX128 && ftX128 <= searchParams.deMinimusX128) {
+            if (-deMinX128 <= ftX128 && ftX128 <= deMinX128) {
                 done = true;
                 break;
             }
-            nextTX128 = stepT(tX128, esX128, xs, ftX128);
-
-            // If we didn't, lookback and previous solutions
-            // and see if we're in a loop.
-            bool isLoop = false;
-            uint8 actualLookBack = (i < searchParams.lookBack)
-                ? i
-                : searchParams.lookBack;
-            oldFts[i] = ftX128;
-            for (uint256 j = 1; j <= actualLookBack; ++j) {
-                if (oldFts[i - j] == ftX128) {
-                    isLoop = true;
+            tX128 = stepT(tX128, esX128, xs, ftX128);
+        }
+        if (!done) {
+            // We'll look again but this time also accept any positive f
+            // that's within a reasonable slippage bound.
+            for (uint8 i = 0; i < searchParams.maxIter; ++i) {
+                ftX128 = f(tX128, esX128, xs);
+                // If we found a good solution, we're done.
+                if (
+                    -deMinX128 <= ftX128 &&
+                    ftX128 <= searchParams.targetSlippageX128
+                ) {
+                    done = true;
                     break;
                 }
+                tX128 = stepT(tX128, esX128, xs, ftX128);
             }
-            // If we're in a loop, we just need a small nudge to get out.
-            tX128 = isLoop ? (tX128 + nextTX128) / 2 : nextTX128;
         }
         require(done, TSolutionNotFound(tX128, ftX128, esX128, xs));
         return tX128;
@@ -184,19 +185,19 @@ library ValueLib {
         bool posNum = ftX128 > 0;
         bool posDenom = dftX128 > 0;
         if (posNum && posDenom) {
-            return
+            nextTX128 =
                 tX128 -
                 FullMath.mulDiv(uint256(ftX128), 1 << 128, uint256(dftX128));
         } else if (posNum && !posDenom) {
-            return
+            nextTX128 =
                 tX128 +
                 FullMath.mulDiv(uint256(ftX128), 1 << 128, uint256(-dftX128));
         } else if (!posNum && posDenom) {
-            return
+            nextTX128 =
                 tX128 +
                 FullMath.mulDiv(uint256(-ftX128), 1 << 128, uint256(dftX128));
         } else {
-            return
+            nextTX128 =
                 tX128 -
                 FullMath.mulDiv(uint256(-ftX128), 1 << 128, uint256(-dftX128));
         }
@@ -226,10 +227,10 @@ library ValueLib {
         for (uint256 i = 0; i < n; ++i) {
             dftX128 += dvdt(tX128, esX128[i], xs[i]);
         }
+        dftX128 -= int256(n * ONEX128);
     }
 
-    /// Calculate the derivative of v with respect to t minus 1.
-    /// We minus one because we only use this for solving for t which needs to subtract one for N*t anways.
+    /// Calculate the derivative of v with respect to t.
     /// Rounding is more of an art here which is okay since we're iterating for a deMinimus solution.
     function dvdt(
         uint256 tX128,
@@ -237,7 +238,7 @@ library ValueLib {
         uint256 _x
     ) internal pure returns (int256 dvX128) {
         uint256 etX128 = FullMath.mulX128(eX128, tX128, false);
-        dvX128 = int256(eX128 + ONEX128);
+        dvX128 = int256(eX128 + TWOX128);
         uint256 xX128 = _x << 128;
         uint256 numAX128 = 2 * xX128 + etX128;
         // We round down here to balance the rounding in the denom.
@@ -246,11 +247,7 @@ library ValueLib {
             etX128 +
             FullMath.mulX128(eX128, etX128, false);
         uint256 sqrtDenomX128 = xX128 + etX128;
-        uint256 denomX128 = FullMath.mulX128(
-            sqrtDenomX128,
-            sqrtDenomX128,
-            false
-        );
-        dvX128 -= int256(FullMath.mulDiv(numAX128, numBX128, denomX128));
+        uint256 halfX128 = FullMath.mulDiv(numAX128, 1 << 128, sqrtDenomX128);
+        dvX128 -= int256(FullMath.mulDiv(halfX128, numBX128, sqrtDenomX128));
     }
 }

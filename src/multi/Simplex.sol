@@ -90,9 +90,4 @@ library SimplexLib {
         );
         unspent = amount - spentAmount;
     }
-
-    function searchParams()
-        internal
-        returns (uint8 maxIter, uint8 lookBack, uint256 deMinimus)
-    {}
 }

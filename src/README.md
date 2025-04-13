@@ -11,6 +11,8 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 
 
 TODO:
-ValueLib
-- Deminimus + positive search?
-- Unittest valuelib.
+Param SETTINGS CHECKS
+- e has to be small such that targetX128 * e is not over 255 bits.
+- Should we just explicitly check balances are less than like 2^120? Or something, so math is 100% safe? - This would limit t as well.
+- Validate deminimus is positive.
+- Min swap size to avoid gaming de minimus

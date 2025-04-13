@@ -50,12 +50,12 @@ contract DecimalAdjustorTest is Test {
         assertEq(adj.adjustments(token7), 1e11);
     }
 
-    function testPositiveNominal() public {
+    function testPositiveNominal() public view {
         assertEq(adj.toNominal(token6, int256(1e12), false), 1e24);
         assertEq(adj.toNominal(token6, int256(1e12), true), 1e24);
     }
 
-    function testNegativeNominal() public {
+    function testNegativeNominal() public view {
         assertEq(adj.toNominal(token24, int256(1e12), false), 1e6);
         assertEq(adj.toNominal(token24, int256(1e12), true), 1e6);
         assertEq(
@@ -64,7 +64,7 @@ contract DecimalAdjustorTest is Test {
         );
     }
 
-    function testPositiveSqrtRatio() public {
+    function testPositiveSqrtRatio() public view {
         // Basic test without using sqrt of 10.
         assertEq(adj.nominalSqrtRatioX128(token18, token6, false), 1e6 << 128);
         assertEq(adj.nominalSqrtRatioX128(token18, token6, true), 1e6 << 128);
@@ -95,7 +95,7 @@ contract DecimalAdjustorTest is Test {
         // Hence, we're off by the smallest amount possible.
     }
 
-    function testNegativeSqrtRatio() public {
+    function testNegativeSqrtRatio() public view {
         uint256 testRatio = adj.nominalSqrtRatioX128(token6, token18, false);
         // We slightly underestimate on ratios that decrease the value.
         // We'll see if this causes any trouble.
