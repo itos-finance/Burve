@@ -17,6 +17,8 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 
 contract SimplexFacet {
+    /// Thrown when setting adjustor if provided address is the zero address.
+    error AdjustorIsZeroAddress();
     error InsufficientStartingTarget(uint128 startingTarget);
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
@@ -35,6 +37,12 @@ contract SimplexFacet {
         int24 highTick,
         uint24 fee,
         uint8 feeProtocol
+    );
+    /// Emitted when the adjustor is changed.
+    event AdjustorChanged(
+        address indexed admin,
+        address fromAdjustor,
+        address toAdjustor
     );
     /// Emitted when search params are changed.
     event SearchParamsChanged(
@@ -166,6 +174,20 @@ contract SimplexFacet {
         if (balance > 0) {
             TransferHelper.safeTransfer(token, msg.sender, balance);
         }
+    }
+
+    /// @notice Gets the current adjustor.
+    function getAdjustor() external view returns (address) {
+        return SimplexLib.getAdjustor();
+    }
+
+    /// @notice Sets the adjustor.
+    /// @dev Only callable by the contract owner.
+    function setAdjustor(address adjustor) external {
+        AdminLib.validateOwner();
+        if (adjustor == address(0x0)) revert AdjustorIsZeroAddress();
+        emit AdjustorChanged(msg.sender, SimplexLib.getAdjustor(), adjustor);
+        SimplexLib.setAdjustor(adjustor);
     }
 
     /// @notice Gets the current search params.

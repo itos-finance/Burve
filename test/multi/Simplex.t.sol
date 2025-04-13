@@ -60,6 +60,24 @@ contract SimplexTest is Test {
         assertEq(simplex.protocolEarnings[1], 0);
     }
 
+    // -- adjustor tests ----
+
+    function testGetAdjustorDefault() public {
+        assertEq(SimplexLib.getAdjustor(), address(0x0));
+    }
+
+    function testGetAdjustorInit() public {
+        address adjustor = makeAddr("initAdjustor");
+        SimplexLib.init(adjustor);
+        assertEq(SimplexLib.getAdjustor(), adjustor);
+    }
+
+    function testSetAdjustor() public {
+        address adjustor = makeAddr("setAdjustor");
+        SimplexLib.setAdjustor(adjustor);
+        assertEq(SimplexLib.getAdjustor(), adjustor);
+    }
+
     // -- searchParam tests ----
 
     function testGetSearchParamsDefault() public {

@@ -144,6 +144,48 @@ contract SimplexFacetTest is MultiSetupTest {
         simplexFacet.withdraw(tokens[0]);
     }
 
+    // -- adjustor tests ----
+
+    function testGetAdjustorDefault() public {
+        assertNotEq(simplexFacet.getAdjustor(), address(0x0));
+    }
+
+    function testSetAdjustor() public {
+        vm.startPrank(owner);
+
+        // set adjustor A
+        address adjustorA = makeAddr("adjustorA");
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.AdjustorChanged(
+            owner,
+            simplexFacet.getAdjustor(),
+            adjustorA
+        );
+        simplexFacet.setAdjustor(adjustorA);
+        assertEq(simplexFacet.getAdjustor(), adjustorA);
+
+        // set adjustor B
+        address adjustorB = makeAddr("adjustorB");
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.AdjustorChanged(owner, adjustorA, adjustorB);
+        simplexFacet.setAdjustor(adjustorB);
+        assertEq(simplexFacet.getAdjustor(), adjustorB);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetAdjustorIsZeroAddress() public {
+        vm.startPrank(owner);
+        vm.expectRevert(SimplexFacet.AdjustorIsZeroAddress.selector);
+        simplexFacet.setAdjustor(address(0));
+        vm.stopPrank();
+    }
+
+    function testRevertSetAdjustorNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setAdjustor(address(0));
+    }
+
     // -- searchParams tests ----
 
     function testGetSearchParams() public {
