@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+
 import {Store} from "../Store.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {Vertex} from "../vertex/Vertex.sol";
@@ -15,6 +17,10 @@ import {Simplex, SimplexLib} from "../Simplex.sol";
 import {SearchParams} from "../Value.sol";
 
 contract SimplexFacet {
+    /// Thrown during withdraw of earned protocol fees if the current balance is lower than the earned amount.
+    error InsufficientBalance(address token, uint256 balance, uint256 earned);
+    error InsufficientStartingTarget(uint128 startingTarget);
+
     event NewName(string newName, string symbol);
     event VertexAdded(
         address indexed token,
@@ -30,10 +36,6 @@ contract SimplexFacet {
         uint24 fee,
         uint8 feeProtocol
     );
-    error InsufficientStartingTarget(uint128 startingTarget);
-    /// Throw when setting search params if deMinimusX128 is not positive.
-    error NonPositiveDeMinimusX128(int256 deMinimusX128);
-
     /// Emitted when search params are changed.
     event SearchParamsChanged(
         address indexed admin,
@@ -43,6 +45,12 @@ contract SimplexFacet {
     );
 
     /* Getters */
+
+    /// @notice Gets earned protocol fees that have yet to be collected.
+    function protocolEarnings() external returns (uint256[MAX_TOKENS] memory) {
+        return SimplexLib.protocolEarnings();
+    }
+
     /*
     /// TODO move to new view facet
     /// Convert your token of interest to the vertex id which you can
@@ -134,6 +142,33 @@ contract SimplexFacet {
                 realNeeded
             );
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
+        }
+    }
+
+    /// @notice Withdraws the given token from the protocol.
+    // Normally tokens supporting the AMM ALWAYS resides in the vaults.
+    // The only exception is
+    // 1. When fees are earned by the protocol.
+    // 2. When someone accidentally sends tokens to this address.
+    // 3. When someone donates.
+    /// @dev Only callable by the contract owner.
+    function withdraw(address token) external {
+        AdminLib.validateOwner();
+
+        uint256 balance = IERC20(token).balanceOf(address(this));
+
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        if (tokenReg.isRegistered(token)) {
+            uint8 idx = tokenReg.tokenIdx[token];
+            uint256 earned = SimplexLib.protocolGive(idx);
+            if (balance < earned) {
+                revert InsufficientBalance(token, balance, earned);
+            }
+            emit FeesWithdrawn(token, earned);
+        }
+
+        if (balance > 0) {
+            TransferHelper.safeTransfer(token, msg.sender, balance);
         }
     }
 

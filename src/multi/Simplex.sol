@@ -51,9 +51,31 @@ library SimplexLib {
         s.searchParams.init();
     }
 
+    /// @notice Gets earned protocol fees that have yet to be collected.
+    function protocolEarnings()
+        internal
+        view
+        returns (uint256[MAX_TOKENS] memory)
+    {
+        Simplex storage simplex = Store.simplex();
+        return simplex.protocolEarnings;
+    }
+
+    /// @notice Adds amount to earned protocol fees for given token.
+    /// @param idx The index of the token.
+    /// @param amount The amount earned.
     function protocolTake(uint8 idx, uint256 amount) internal {
-        Simplex storage s = Store.simplex();
-        s.protocolEarnings[idx] += amount;
+        Simplex storage simplex = Store.simplex();
+        simplex.protocolEarnings[idx] += amount;
+    }
+
+    /// @notice Removes the earned protocol fees for given token.
+    /// @param idx The index of the token.
+    /// @return amount The amount earned.
+    function protocolGive(uint8 idx) internal returns (uint256 amount) {
+        Simplex storage simplex = Store.simplex();
+        amount = simplex.protocolEarnings[idx];
+        simplex.protocolEarnings[idx] = 0;
     }
 
     // Within this bound, valueStaked and target are effectively zero.
