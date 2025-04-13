@@ -107,26 +107,6 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.stopPrank();
     }
 
-    function testRevertWithdrawInsufficientBalance() public {
-        vm.startPrank(owner);
-
-        uint256[MAX_TOKENS] memory protocolEarnings;
-        protocolEarnings[0] = 1e18;
-        storeManipulatorFacet.setProtocolEarnings(protocolEarnings);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                SimplexFacet.InsufficientBalance.selector,
-                tokens[0],
-                0,
-                1e18
-            )
-        );
-        simplexFacet.withdraw(tokens[0]);
-
-        vm.stopPrank();
-    }
-
     function testRevertWithdrawNotOwner() public {
         vm.expectRevert(AdminLib.NotOwner.selector);
         simplexFacet.withdraw(tokens[0]);

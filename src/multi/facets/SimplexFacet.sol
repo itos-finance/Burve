@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegLib, MAX_TOKENS} from "../Token.sol";
+import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
@@ -17,9 +17,9 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 
 contract SimplexFacet {
-    /// Thrown during withdraw of earned protocol fees if the current balance is lower than the earned amount.
-    error InsufficientBalance(address token, uint256 balance, uint256 earned);
     error InsufficientStartingTarget(uint128 startingTarget);
+    /// Throw when setting search params if deMinimusX128 is not positive.
+    error NonPositiveDeMinimusX128(int256 deMinimusX128);
 
     event NewName(string newName, string symbol);
     event VertexAdded(
@@ -157,13 +157,9 @@ contract SimplexFacet {
 
         uint256 balance = IERC20(token).balanceOf(address(this));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        if (tokenReg.isRegistered(token)) {
-            uint8 idx = tokenReg.tokenIdx[token];
+        if (TokenRegLib.isRegistered(token)) {
+            uint8 idx = TokenRegLib.getIdx(token);
             uint256 earned = SimplexLib.protocolGive(idx);
-            if (balance < earned) {
-                revert InsufficientBalance(token, balance, earned);
-            }
             emit FeesWithdrawn(token, earned);
         }
 
