@@ -2,17 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
-import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
-import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
-import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
-import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {MockERC4626} from "../mocks/MockERC4626.sol";
-import {StoreManipulatorFacet} from "./StoreManipulatorFacet.u.sol";
+
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
@@ -20,16 +10,17 @@ import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 
-// import {LibDiamond} from "Commons/Diamond/libraries/LibDiamond.sol";
-// import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
-
-// import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
-
-// import {IDiamondCut} from "Commons/Diamond/interfaces/IDiamondCut.sol";
-// import {IDiamondLoupe} from "Commons/Diamond/interfaces/IDiamondLoupe.sol";
-// import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
-// import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
-// import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
+import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
+import {SimplexDiamond} from "../../src/multi/Diamond.sol";
+import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
+import {StoreManipulatorFacet} from "./StoreManipulatorFacet.u.sol";
+import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
+import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
+import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 
 contract MultiSetupTest is Test {
     uint256 constant INITIAL_MINT_AMOUNT = 1e30;

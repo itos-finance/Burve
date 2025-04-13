@@ -4,12 +4,13 @@ pragma solidity ^0.8.27;
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
+
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
+import {SearchParams} from "../../src/multi/Value.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
-import {SearchParams} from "../../src/multi/Value.sol";
 
 contract SimplexFacetTest is MultiSetupTest {
     function setUp() public {

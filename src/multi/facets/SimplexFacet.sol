@@ -3,18 +3,18 @@ pragma solidity ^0.8.27;
 
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import {Store} from "../Store.sol";
-import {TransferHelper} from "../../TransferHelper.sol";
-import {Vertex} from "../vertex/Vertex.sol";
-import {VertexId, VertexLib} from "../vertex/Id.sol";
-import {VaultType} from "../vertex/VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {TokenRegLib, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
-import {Simplex, SimplexLib} from "../Simplex.sol";
 import {SearchParams} from "../Value.sol";
+import {Simplex, SimplexLib} from "../Simplex.sol";
+import {Store} from "../Store.sol";
+import {TransferHelper} from "../../TransferHelper.sol";
+import {VaultType} from "../vertex/VaultProxy.sol";
+import {Vertex} from "../vertex/Vertex.sol";
+import {VertexId, VertexLib} from "../vertex/Id.sol";
 
 contract SimplexFacet {
     /// Thrown during withdraw of earned protocol fees if the current balance is lower than the earned amount.

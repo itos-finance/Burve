@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {MAX_TOKENS} from "./Constants.sol";
 import {IBGTExchanger} from "../integrations/BGTExchange/IBGTExchanger.sol";
+import {MAX_TOKENS} from "./Constants.sol";
+import {Store} from "./Store.sol";
 import {TokenRegLib} from "./Token.sol";
 import {ValueLib, SearchParams} from "./Value.sol";
-import {Store} from "./Store.sol";
 
 // Stores information unchanged between all closures.
 struct Simplex {
