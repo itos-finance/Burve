@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-/*
+
 import {ClosureId} from "../closure/Id.sol";
 import {FullMath} from "../../FullMath.sol";
 
@@ -72,4 +72,3 @@ library ClosureDistImpl {
         }
     }
 }
-*/

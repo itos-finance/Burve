@@ -5,7 +5,7 @@ import {SafeCast} from "Commons/Math/Cast.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
-import {TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {Vertex} from "../vertex/Vertex.sol";
 import {Store} from "../Store.sol";

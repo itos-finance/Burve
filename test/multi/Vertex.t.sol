@@ -5,7 +5,7 @@ import {Test, stdError} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
 import {Vertex} from "../../src/multi/vertex/Vertex.sol";
-import {TokenRegistry} from "../../src/multi/Token.sol";
+import {TokenRegistry, TokenRegLib} from "../../src/multi/Token.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {ClosureId, newClosureId} from "../../src/multi/closure/Id.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";

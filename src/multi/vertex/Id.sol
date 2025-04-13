@@ -2,8 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {MAX_TOKENS} from "./../Constants.sol";
-import {Store} from "../Store.sol";
-import {TokenRegistry} from "../Token.sol";
+import {TokenRegLib} from "../Token.sol";
 
 /// A vertex id is an uint where the bottom 8 bits is the idx, the next 16 bits
 /// is a one-hot encoding of the idx.
@@ -16,8 +15,7 @@ library VertexLib {
     }
 
     function newId(address token) internal view returns (VertexId) {
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        uint8 idx = tokenReg.getIdx(token);
+        uint8 idx = TokenRegLib.getIdx(token);
         // TODO: I'm confused about this calculation and don't know if it's correct
         return VertexId.wrap(uint24(1 << (idx + 8)) + idx);
     }

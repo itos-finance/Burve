@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {MAX_TOKENS} from "./Constants.sol";
 import {IBGTExchanger} from "../integrations/BGTExchange/IBGTExchanger.sol";
-import {TokenRegistry} from "./Token.sol";
+import {TokenRegLib} from "./Token.sol";
 import {ValueLib, SearchParams} from "./Value.sol";
 import {Store} from "./Store.sol";
 
@@ -82,8 +82,7 @@ library SimplexLib {
     ) internal returns (uint256 bgtEarned, uint256 unspent) {
         Simplex storage s = Store.simplex();
         if (s.bgtEx == address(0)) return (0, amount);
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        address token = tokenReg.getToken(idx);
+        address token = TokenRegLib.getToken(idx);
         uint256 spentAmount;
         (bgtEarned, spentAmount) = IBGTExchanger(s.bgtEx).exchange(
             token,

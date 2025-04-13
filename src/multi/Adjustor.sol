@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Store} from "./Store.sol";
 import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
-import {TokenRegistry} from "./Token.sol";
+import {TokenRegLib} from "./Token.sol";
 
 library AdjustorLib {
     function toReal(
@@ -21,8 +21,7 @@ library AdjustorLib {
         bool roundUp
     ) internal view returns (uint256 real) {
         IAdjustor adj = Store.adjustor();
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        real = adj.toReal(tokenReg.getToken(idx), nominal, roundUp);
+        real = adj.toReal(TokenRegLib.getToken(idx), nominal, roundUp);
     }
 
     function toNominal(
@@ -31,8 +30,7 @@ library AdjustorLib {
         bool roundUp
     ) internal view returns (uint256 nominal) {
         IAdjustor adj = Store.adjustor();
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        nominal = adj.toNominal(tokenReg.getToken(idx), real, roundUp);
+        nominal = adj.toNominal(TokenRegLib.getToken(idx), real, roundUp);
     }
 
     function toNominal(

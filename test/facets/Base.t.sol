@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
-/*
+
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {BurveFacetBase} from "../../src/multi/deprecated/Base.sol";
@@ -9,7 +9,7 @@ import {Store} from "../../src/multi/Store.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
 contract BurveFacetBaseTest is Test, BurveFacetBase {
-    // Guarded functions
+    /* Guarded functions */
 
     function tokenCall(address token) external validToken(token) {}
     function tokensCall(
@@ -17,14 +17,13 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address _token1
     ) external validTokens(_token0, _token1) {}
 
-    // Tests
+    /* Tests */
 
     function testValidToken() public {
         address token0 = address(new MockERC20("0", "0", 18));
         address token1 = address(new MockERC20("1", "1", 18));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(token0);
+        TokenRegLib.register(token0);
         // This should be fine.
         this.tokenCall(token0);
         // But this hasn't been registered
@@ -49,8 +48,7 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address token0 = address(new MockERC20("0", "0", 18));
         address token1 = address(new MockERC20("1", "1", 18));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(token0);
+        TokenRegLib.register(token0);
 
         vm.expectRevert(
             abi.encodeWithSelector(TokenRegLib.TokenNotFound.selector, token1)
@@ -62,11 +60,9 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address token0 = address(new MockERC20("0", "0", 18));
         address token1 = address(new MockERC20("1", "1", 18));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(token0);
-        tokenReg.register(token1);
+        TokenRegLib.register(token0);
+        TokenRegLib.register(token1);
         // No issue
         this.tokensCall(token0, token1);
     }
 }
-*/
