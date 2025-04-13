@@ -43,6 +43,13 @@ contract SimplexFacet {
         address fromAdjustor,
         address toAdjustor
     );
+    /// Emitted when the efficiency factor for a token is changed.
+    event EfficiencyFactorChanged(
+        address indexed admin,
+        address indexed token,
+        uint256 fromEsX128,
+        uint256 toEsX128
+    );
     /// Emitted when search params are changed.
     event SearchParamsChanged(
         address indexed admin,
@@ -173,6 +180,33 @@ contract SimplexFacet {
         if (balance > 0) {
             TransferHelper.safeTransfer(token, msg.sender, balance);
         }
+    }
+
+    /// @notice Gets the efficiency factors for all tokens.
+    function getEsX128() external view returns (uint256[MAX_TOKENS] memory) {
+        return SimplexLib.getEsX128();
+    }
+
+    /// @notice Gets the efficiency factor for a given token.
+    /// @param token The address of the token.
+    function getEX128(address token) external view returns (uint256) {
+        return SimplexLib.getEX128(TokenRegLib.getIdx(token));
+    }
+
+    /// @notice Sets the efficiency factor for a given token.
+    /// @param token The address of the token.
+    /// @param eX128 The efficiency factor to set.
+    /// @dev Only callable by the contract owner.
+    function setEX128(address token, uint256 eX128) external {
+        AdminLib.validateOwner();
+        uint8 idx = TokenRegLib.getIdx(token);
+        emit EfficiencyFactorChanged(
+            msg.sender,
+            token,
+            SimplexLib.getEX128(idx),
+            eX128
+        );
+        SimplexLib.setEX128(idx, eX128);
     }
 
     /// @notice Gets the current adjustor.

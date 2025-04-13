@@ -145,6 +145,46 @@ contract SimplexFacetTest is MultiSetupTest {
         simplexFacet.withdraw(tokens[0]);
     }
 
+    // -- esX128 tests ----
+
+    function testEsX128Default() public {
+        uint256[MAX_TOKENS] memory esX128 = simplexFacet.getEsX128();
+        for (uint256 i = 0; i < MAX_TOKENS; i++) {
+            assertEq(esX128[i], 10 << 128);
+        }
+    }
+
+    function testGetEX128Default() public {
+        uint256 esX128 = simplexFacet.getEX128(tokens[0]);
+        assertEq(esX128, 10 << 128);
+
+        esX128 = simplexFacet.getEX128(tokens[1]);
+        assertEq(esX128, 10 << 128);
+    }
+
+    function testSetEX128() public {
+        vm.startPrank(owner);
+
+        vm.expectEmit(true, true, false, true);
+        emit SimplexFacet.EfficiencyFactorChanged(
+            owner,
+            tokens[1],
+            10 << 128,
+            20 << 128
+        );
+        simplexFacet.setEX128(tokens[1], 20 << 128);
+
+        uint256 esX128 = simplexFacet.getEX128(tokens[1]);
+        assertEq(esX128, 20 << 128);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetEX128NotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setEX128(tokens[0], 1);
+    }
+
     // -- adjustor tests ----
 
     function testGetAdjustorDefault() public {
