@@ -20,28 +20,60 @@ contract SimplexFacetTest is MultiSetupTest {
     function testGetSearchParams() public {
         SearchParams memory sp = simplexFacet.getSearchParams();
         assertEq(sp.maxIter, 5);
-        assertEq(sp.lookBack, 3);
-        assertEq(sp.deMinimusX128, 1e6);
+        assertEq(sp.deMinimusX128, 100);
+        assertEq(sp.targetSlippageX128, 1e12);
     }
 
     function testSetSearchParams() public {
         vm.startPrank(owner);
 
-        SearchParams memory sp = SearchParams(10, 5, 1e4);
+        SearchParams memory sp = SearchParams(10, 500, 1e18);
 
         vm.expectEmit(true, false, false, true);
         emit SimplexFacet.SearchParamsChanged(
             owner,
             sp.maxIter,
-            sp.lookBack,
-            sp.deMinimusX128
+            sp.deMinimusX128,
+            sp.targetSlippageX128
         );
         simplexFacet.setSearchParams(sp);
 
         SearchParams memory sp2 = simplexFacet.getSearchParams();
         assertEq(sp2.maxIter, sp.maxIter);
-        assertEq(sp2.lookBack, sp.lookBack);
         assertEq(sp2.deMinimusX128, sp.deMinimusX128);
+        assertEq(sp2.targetSlippageX128, sp.targetSlippageX128);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetSearchParamsDeMinimusIsZero() public {
+        vm.startPrank(owner);
+
+        SearchParams memory sp = SearchParams(10, 0, 1e18);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SimplexFacet.NonPositiveDeMinimusX128.selector,
+                sp.deMinimusX128
+            )
+        );
+        simplexFacet.setSearchParams(sp);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetSearchParamsDeMinimusIsNegative() public {
+        vm.startPrank(owner);
+
+        SearchParams memory sp = SearchParams(10, -100, 1e18);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SimplexFacet.NonPositiveDeMinimusX128.selector,
+                sp.deMinimusX128
+            )
+        );
+        simplexFacet.setSearchParams(sp);
 
         vm.stopPrank();
     }

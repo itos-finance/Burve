@@ -14,7 +14,7 @@ contract SimplexTest is Test {
 
         SearchParams memory sp = SimplexLib.getSearchParams();
         assertEq(sp.maxIter, 5);
-        assertEq(sp.lookBack, 3);
-        assertEq(sp.deMinimusX128, 1e6);
+        assertEq(sp.deMinimusX128, 100);
+        assertEq(sp.targetSlippageX128, 1e12);
     }
 }

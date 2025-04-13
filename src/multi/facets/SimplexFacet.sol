@@ -31,13 +31,15 @@ contract SimplexFacet {
         uint8 feeProtocol
     );
     error InsufficientStartingTarget(uint128 startingTarget);
+    /// Throw when setting search params if deMinimusX128 is not positive.
+    error NonPositiveDeMinimusX128(int256 deMinimusX128);
 
     /// Emitted when search params are changed.
     event SearchParamsChanged(
         address indexed admin,
         uint8 maxIter,
-        uint8 lookBack,
-        int256 deMinimusX128
+        int256 deMinimusX128,
+        int256 targetSlippageX128
     );
 
     /* Getters */
@@ -148,12 +150,18 @@ contract SimplexFacet {
     /// @dev Only callable by the contract owner.
     function setSearchParams(SearchParams calldata params) external {
         AdminLib.validateOwner();
+
+        if (params.deMinimusX128 <= 0) {
+            revert NonPositiveDeMinimusX128(params.deMinimusX128);
+        }
+
         SimplexLib.setSearchParams(params);
+
         emit SearchParamsChanged(
             msg.sender,
             params.maxIter,
-            params.lookBack,
-            params.deMinimusX128
+            params.deMinimusX128,
+            params.targetSlippageX128
         );
     }
 
