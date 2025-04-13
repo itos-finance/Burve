@@ -98,7 +98,7 @@ library SimplexLib {
     }
 
     /// @notice Sets the search params.
-    function setSearchParams(SearchParams memory params) internal {
+    function setSearchParams(SearchParams calldata params) internal {
         Simplex storage simplex = Store.simplex();
         simplex.searchParams = params;
     }

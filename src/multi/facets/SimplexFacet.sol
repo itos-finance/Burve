@@ -146,7 +146,7 @@ contract SimplexFacet {
 
     /// @notice Sets the search params.
     /// @dev Only callable by the contract owner.
-    function setSearchParams(SearchParams memory params) external {
+    function setSearchParams(SearchParams calldata params) external {
         AdminLib.validateOwner();
         SimplexLib.setSearchParams(params);
         emit SearchParamsChanged(

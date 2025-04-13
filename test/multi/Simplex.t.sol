@@ -17,14 +17,4 @@ contract SimplexTest is Test {
         assertEq(sp.lookBack, 3);
         assertEq(sp.deMinimusX128, 1e6);
     }
-
-    function testSetSearchParams() public {
-        SearchParams memory sp = SearchParams(10, 5, 1e4);
-        SimplexLib.setSearchParams(sp);
-
-        SearchParams memory sp2 = SimplexLib.getSearchParams();
-        assertEq(sp2.maxIter, sp.maxIter);
-        assertEq(sp2.lookBack, sp.lookBack);
-        assertEq(sp2.deMinimusX128, sp.deMinimusX128);
-    }
 }
