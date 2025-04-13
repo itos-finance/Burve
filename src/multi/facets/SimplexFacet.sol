@@ -7,7 +7,7 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {VaultType} from "../vertex/VaultProxy.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
-import {TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
@@ -77,7 +77,7 @@ contract SimplexFacet {
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
-        Store.tokenRegistry().register(token);
+        TokenRegLib.register(token);
         Store.adjustor().cacheAdjustment(token);
         // We do this explicitly because a normal call to Store.vertex would validate the
         // vertex is already initialized which of course it is not yet.
