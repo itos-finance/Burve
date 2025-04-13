@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Test, console} from "forge-std/Test.sol";
 import {ClosureId, newClosureId} from "../../src/multi/closure/Id.sol";
-import {TokenRegistry} from "../../src/multi/Token.sol";
+import {TokenRegLib} from "../../src/multi/Token.sol";
 import {Store} from "../../src/multi/Store.sol";
 
 contract ClosureTest is Test {
@@ -11,10 +11,9 @@ contract ClosureTest is Test {
 
     function testNewClosureId() public {
         {
-            TokenRegistry storage tokenReg = Store.tokenRegistry();
-            tokenReg.register(address(1));
-            tokenReg.register(address(2));
-            tokenReg.register(address(3));
+            TokenRegLib.register(address(1));
+            TokenRegLib.register(address(2));
+            TokenRegLib.register(address(3));
         }
         address[] memory tokens = new address[](1);
         tokens[0] = address(1);

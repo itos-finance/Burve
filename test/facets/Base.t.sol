@@ -23,8 +23,7 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address token0 = address(new MockERC20("0", "0", 18));
         address token1 = address(new MockERC20("1", "1", 18));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(token0);
+        TokenRegLib.register(token0);
         // This should be fine.
         this.tokenCall(token0);
         // But this hasn't been registered
@@ -49,8 +48,7 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address token0 = address(new MockERC20("0", "0", 18));
         address token1 = address(new MockERC20("1", "1", 18));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(token0);
+        TokenRegLib.register(token0);
 
         vm.expectRevert(
             abi.encodeWithSelector(TokenRegLib.TokenNotFound.selector, token1)
@@ -62,9 +60,8 @@ contract BurveFacetBaseTest is Test, BurveFacetBase {
         address token0 = address(new MockERC20("0", "0", 18));
         address token1 = address(new MockERC20("1", "1", 18));
 
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(token0);
-        tokenReg.register(token1);
+        TokenRegLib.register(token0);
+        TokenRegLib.register(token1);
         // No issue
         this.tokensCall(token0, token1);
     }

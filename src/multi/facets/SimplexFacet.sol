@@ -77,7 +77,7 @@ contract SimplexFacet {
     /// Add a token into this simplex.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
-        Store.tokenRegistry().register(token);
+        TokenRegLib.register(token);
         Store.adjustor().cacheAdjustment(token);
         // We do this explicitly because a normal call to Store.vertex would validate the
         // vertex is already initialized which of course it is not yet.
