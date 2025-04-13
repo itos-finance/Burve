@@ -27,15 +27,20 @@ struct Simplex {
 
 /// Convenient methods frequently requested by other parts of the pool.
 library SimplexLib {
+    /// There no logical reason for e to be larger than 1000. This also
+    /// limits the bits to under ten which affords 118 bits for t in ValueLib calculations
+    /// which is more than sufficient.
+    uint256 public constant MAX_E_X128 = 1000 << 128;
+
+    /// Thrown when attempting to assign an e that is too large.
+    error OversizedEfficiencyAssignment(uint256);
+
     // TODO:
     // Need a method for admin to withdraw protocol earnings.
     // Need a method to set efficiency factors (esX128) for each token.
-    // A method to change bgtExchanger.
-    // A method to change deminimus
-    // A method to initTarget deminimus
-    // Add a default e for new vertices to use.
+    // A method to change bgtExchanger (also need unittests for bgtExchanger, though it's partially setup in MultiSetup)
+    // A method to change initTarget
     // A method to change adjustor.
-    // Method to set search params by admin.
 
     function init(address adjustor) internal {
         Simplex storage s = Store.simplex();

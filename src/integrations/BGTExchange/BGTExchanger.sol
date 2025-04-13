@@ -12,13 +12,16 @@ contract BGTExchanger is IBGTExchanger {
     mapping(address caller => uint256) public withdrawn;
     mapping(address caller => bool) public isExchanger;
     address public bgtToken;
+    // The amount still unowed to anyone.
+    // Because of this, one can't just send bgt to this contract to fund it or it
+    // won't be counted in this balance.
     uint256 public bgtBalance;
     IBGTExchanger public backupEx;
 
     error NoExchangePermissions();
     error InsufficientOwed();
 
-    constructor() {
+    constructor(address bgtToken) {
         AdminLib.initOwner(msg.sender);
     }
 
@@ -101,6 +104,7 @@ contract BGTExchanger is IBGTExchanger {
             address(this),
             amount
         );
+        bgtBalance += amount;
     }
 
     /// @inheritdoc IBGTExchanger
