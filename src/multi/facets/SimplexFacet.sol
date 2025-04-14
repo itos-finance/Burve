@@ -5,6 +5,7 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
@@ -17,8 +18,6 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 
 contract SimplexFacet {
-    /// Thrown when setting adjustor if provided address is the zero address.
-    error AdjustorIsZeroAddress();
     error InsufficientStartingTarget(uint128 startingTarget);
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
@@ -185,9 +184,14 @@ contract SimplexFacet {
     /// @dev Only callable by the contract owner.
     function setAdjustor(address adjustor) external {
         AdminLib.validateOwner();
-        if (adjustor == address(0x0)) revert AdjustorIsZeroAddress();
+
         emit AdjustorChanged(msg.sender, SimplexLib.getAdjustor(), adjustor);
         SimplexLib.setAdjustor(adjustor);
+
+        address[] storage tokens = Store.tokenRegistry().tokens;
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            IAdjustor(adjustor).cacheAdjustment(tokens[i]);
+        }
     }
 
     /// @notice Gets the current search params.
