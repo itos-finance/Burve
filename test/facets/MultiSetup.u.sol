@@ -2,19 +2,25 @@
 pragma solidity ^0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
-import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
-import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
-import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
-import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {MockERC4626} from "../mocks/MockERC4626.sol";
+
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
+
+import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
+import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
+
+import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
+import {SimplexDiamond} from "../../src/multi/Diamond.sol";
+import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
+import {StoreManipulatorFacet} from "./StoreManipulatorFacet.u.sol";
+import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
+import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
+import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 
 contract MultiSetupTest is Test {
     uint256 constant INITIAL_MINT_AMOUNT = 1e30;
@@ -27,6 +33,7 @@ contract MultiSetupTest is Test {
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
     LockFacet public lockFacet;
+    StoreManipulatorFacet public storeManipulatorFacet; // testing only
 
     uint16 public closureId;
 
@@ -52,6 +59,27 @@ contract MultiSetupTest is Test {
         simplexFacet = SimplexFacet(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
+
+        _cutStoreManipulatorFacet();
+        storeManipulatorFacet = StoreManipulatorFacet(diamond);
+    }
+
+    function _cutStoreManipulatorFacet() public {
+        IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
+
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = StoreManipulatorFacet.setProtocolEarnings.selector;
+
+        cuts[0] = (
+            IDiamond.FacetCut({
+                facetAddress: address(new StoreManipulatorFacet()),
+                action: IDiamond.FacetCutAction.Add,
+                functionSelectors: selectors
+            })
+        );
+
+        DiamondCutFacet cutFacet = DiamondCutFacet(diamond);
+        cutFacet.diamondCut(cuts, address(0), "");
     }
 
     /// Deploy tokens and install them as vertices in the diamond with an edge.

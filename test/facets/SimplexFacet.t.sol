@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+
 import {AdminLib} from "Commons/Util/Admin.sol";
+
+import {MAX_TOKENS} from "../../src/multi/Constants.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {Simplex} from "../../src/multi/Simplex.sol";
 import {SearchParams} from "../../src/multi/Value.sol";
+import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
 
 contract SimplexFacetTest is MultiSetupTest {
     function setUp() public {
@@ -13,6 +18,130 @@ contract SimplexFacetTest is MultiSetupTest {
         _newDiamond();
         _newTokens(3);
         vm.stopPrank();
+    }
+
+    // -- withdraw tests ----
+
+    function testWithdrawRegisteredTokenWithEarnedFeesAndDonation() public {
+        vm.startPrank(owner);
+
+        // simulate earned fees and donation
+        IERC20 token = IERC20(tokens[0]);
+        deal(address(token), diamond, 8e18);
+
+        uint256[MAX_TOKENS] memory protocolEarnings;
+        protocolEarnings[0] = 7e18;
+        storeManipulatorFacet.setProtocolEarnings(protocolEarnings);
+
+        // record balances
+        uint256 ownerBalance = token.balanceOf(owner);
+        uint256 protocolBalance = token.balanceOf(diamond);
+        assertGe(protocolBalance, 7e18);
+
+        // withdraw
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.FeesWithdrawn(address(token), 8e18, 7e18);
+        simplexFacet.withdraw(address(token));
+
+        // check balances
+        assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
+        assertEq(token.balanceOf(diamond), 0);
+
+        // check protocol earnings
+        protocolEarnings = SimplexLib.protocolEarnings();
+        assertEq(protocolEarnings[0], 0);
+
+        vm.stopPrank();
+    }
+
+    function testWithdrawRegisteredTokenWithEarnedFees() public {
+        vm.startPrank(owner);
+
+        // simulate earned fees
+        IERC20 token = IERC20(tokens[0]);
+        deal(address(token), diamond, 7e18);
+
+        uint256[MAX_TOKENS] memory protocolEarnings;
+        protocolEarnings[0] = 7e18;
+        storeManipulatorFacet.setProtocolEarnings(protocolEarnings);
+
+        // record balances
+        uint256 ownerBalance = token.balanceOf(owner);
+        uint256 protocolBalance = token.balanceOf(diamond);
+        assertGe(protocolBalance, 7e18);
+
+        // withdraw
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.FeesWithdrawn(address(token), 7e18, 7e18);
+        simplexFacet.withdraw(address(token));
+
+        // check balances
+        assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
+        assertEq(token.balanceOf(diamond), 0);
+
+        // check protocol earnings
+        protocolEarnings = SimplexLib.protocolEarnings();
+        assertEq(protocolEarnings[0], 0);
+
+        vm.stopPrank();
+    }
+
+    function testWithdrawRegisteredTokenWithoutEarnedFees() public {
+        vm.startPrank(owner);
+
+        // simulate donation
+        IERC20 token = IERC20(tokens[0]);
+        deal(address(token), diamond, 1e18);
+
+        // record balances
+        uint256 ownerBalance = token.balanceOf(owner);
+        uint256 protocolBalance = token.balanceOf(diamond);
+        assertGe(protocolBalance, 1e18);
+
+        // withdraw
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.FeesWithdrawn(address(token), 1e18, 0);
+        simplexFacet.withdraw(address(token));
+
+        // check balances
+        assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
+        assertEq(token.balanceOf(diamond), 0);
+
+        vm.stopPrank();
+    }
+
+    function testWithdrawUnregisteredToken() public {
+        vm.startPrank(owner);
+
+        // simulate donation
+        MockERC20 unregisteredToken = new MockERC20(
+            "Unregistered",
+            "UNREG",
+            18
+        );
+        deal(address(unregisteredToken), diamond, 10e18);
+
+        // record balances
+        uint256 ownerBalance = unregisteredToken.balanceOf(owner);
+        uint256 protocolBalance = unregisteredToken.balanceOf(diamond);
+        assertGe(protocolBalance, 10e18);
+
+        // withdraw
+        simplexFacet.withdraw(address(unregisteredToken));
+
+        // check balances
+        assertEq(
+            unregisteredToken.balanceOf(owner),
+            ownerBalance + protocolBalance
+        );
+        assertEq(unregisteredToken.balanceOf(diamond), 0);
+
+        vm.stopPrank();
+    }
+
+    function testRevertWithdrawNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.withdraw(tokens[0]);
     }
 
     // -- searchParams tests ----
