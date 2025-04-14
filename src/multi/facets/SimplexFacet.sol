@@ -28,7 +28,7 @@ contract SimplexFacet {
         VertexId vid,
         VaultType vaultType
     );
-    event FeesWithdrawn(address indexed token, uint256 amount);
+    event FeesWithdrawn(address indexed token, uint256 amount, uint256 earned);
     event DefaultEdgeSet(
         uint128 amplitude,
         int24 lowTick,
@@ -160,7 +160,7 @@ contract SimplexFacet {
         if (TokenRegLib.isRegistered(token)) {
             uint8 idx = TokenRegLib.getIdx(token);
             uint256 earned = SimplexLib.protocolGive(idx);
-            emit FeesWithdrawn(token, earned);
+            emit FeesWithdrawn(token, balance, earned);
         }
 
         if (balance > 0) {
@@ -196,19 +196,7 @@ contract SimplexFacet {
         );
     }
 
-    /*     /// Withdraw fees earned by the protocol.
-    function withdrawFees(address token, uint256 amount) external {
-        AdminLib.validateOwner();
-        // Normally tokens supporting the AMM ALWAYS resides in the vaults.
-        // The only exception is
-        // 1. When fees are earned by the protocol.
-        // 2. When someone accidentally sends tokens to this address
-        // 3. When someone donates.
-        // Therefore we can just withdraw from this contract to resolve all three.
-        TransferHelper.safeTransfer(token, msg.sender, amount);
-        emit FeesWithdrawn(token, amount);
-    }
-
+    /* 
     function setAdjustor(IAdjustor adj) external {
         AdminLib.validateOwner();
         Store.load().adjustor = adj;

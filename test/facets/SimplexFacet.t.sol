@@ -22,6 +22,38 @@ contract SimplexFacetTest is MultiSetupTest {
 
     // -- withdraw tests ----
 
+    function testWithdrawRegisteredTokenWithEarnedFeesAndDonation() public {
+        vm.startPrank(owner);
+
+        // simulate earned fees and donation
+        IERC20 token = IERC20(tokens[0]);
+        deal(address(token), diamond, 8e18);
+
+        uint256[MAX_TOKENS] memory protocolEarnings;
+        protocolEarnings[0] = 7e18;
+        storeManipulatorFacet.setProtocolEarnings(protocolEarnings);
+
+        // record balances
+        uint256 ownerBalance = token.balanceOf(owner);
+        uint256 protocolBalance = token.balanceOf(diamond);
+        assertGe(protocolBalance, 7e18);
+
+        // withdraw
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.FeesWithdrawn(address(token), 8e18, 7e18);
+        simplexFacet.withdraw(address(token));
+
+        // check balances
+        assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
+        assertEq(token.balanceOf(diamond), 0);
+
+        // check protocol earnings
+        protocolEarnings = SimplexLib.protocolEarnings();
+        assertEq(protocolEarnings[0], 0);
+
+        vm.stopPrank();
+    }
+
     function testWithdrawRegisteredTokenWithEarnedFees() public {
         vm.startPrank(owner);
 
@@ -40,7 +72,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.FeesWithdrawn(address(token), 7e18);
+        emit SimplexFacet.FeesWithdrawn(address(token), 7e18, 7e18);
         simplexFacet.withdraw(address(token));
 
         // check balances
@@ -68,7 +100,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.FeesWithdrawn(address(token), 0);
+        emit SimplexFacet.FeesWithdrawn(address(token), 1e18, 0);
         simplexFacet.withdraw(address(token));
 
         // check balances
