@@ -188,7 +188,7 @@ contract SimplexFacet {
         emit AdjustorChanged(msg.sender, SimplexLib.getAdjustor(), adjustor);
         SimplexLib.setAdjustor(adjustor);
 
-        address[] storage tokens = Store.tokenRegistry().tokens;
+        address[] memory tokens = Store.tokenRegistry().tokens;
         for (uint8 i = 0; i < tokens.length; ++i) {
             IAdjustor(adjustor).cacheAdjustment(tokens[i]);
         }
