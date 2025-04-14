@@ -218,16 +218,6 @@ contract SimplexFacet {
         );
     }
 
-    /* 
-    function setAdjustor(IAdjustor adj) external {
-        AdminLib.validateOwner();
-        Store.load().adjustor = adj;
-        address[] storage tokens = Store.tokenRegistry().tokens;
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            adj.cacheAdjustment(tokens[i]);
-        }
-    } */
-
     function setName(
         string calldata newName,
         string calldata newSymbol
