@@ -305,6 +305,38 @@ contract SimplexFacetTest is MultiSetupTest {
         simplexFacet.setBGTExchanger(bgtExchanger);
     }
 
+    // -- initTarget tests ----
+
+    function testGetInitTarget() public {
+        assertEq(simplexFacet.getInitTarget(), 1e18);
+    }
+
+    function testSetInitTarget() public {
+        vm.startPrank(owner);
+
+        // set init target 1e6
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.InitTargetChanged(owner, 1e18, 1e6);
+        simplexFacet.setInitTarget(1e6);
+
+        // set init target 0
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.InitTargetChanged(owner, 1e6, 0);
+        simplexFacet.setInitTarget(0);
+
+        // set init target 1e18
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.InitTargetChanged(owner, 0, 1e18);
+        simplexFacet.setInitTarget(1e18);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetInitTargetNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setInitTarget(1e6);
+    }
+
     // -- searchParams tests ----
 
     function testGetSearchParams() public {

@@ -164,6 +164,28 @@ contract SimplexTest is Test {
         assertEq(SimplexLib.getBGTExchanger(), bgtExchanger);
     }
 
+    // -- initTarget tests ----
+
+    function testGetInitTargetDefault() public {
+        assertEq(SimplexLib.getInitTarget(), 0);
+    }
+
+    function testGetInitTargetInit() public {
+        SimplexLib.init(address(0x0));
+        assertEq(SimplexLib.getInitTarget(), 1e18);
+    }
+
+    function testSetInitTarget() public {
+        SimplexLib.setInitTarget(2e18);
+        assertEq(SimplexLib.getInitTarget(), 2e18);
+
+        SimplexLib.setInitTarget(0);
+        assertEq(SimplexLib.getInitTarget(), 0);
+
+        SimplexLib.setInitTarget(1e6);
+        assertEq(SimplexLib.getInitTarget(), 1e6);
+    }
+
     // -- searchParam tests ----
 
     function testGetSearchParamsDefault() public {

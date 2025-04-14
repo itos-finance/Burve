@@ -58,6 +58,12 @@ contract SimplexFacet {
         uint256 fromEsX128,
         uint256 toEsX128
     );
+    /// Emitted when the init target is changed.
+    event InitTargetChanged(
+        address indexed admin,
+        uint256 fromInitTarget,
+        uint256 toInitTarget
+    );
     /// Emitted when search params are changed.
     event SearchParamsChanged(
         address indexed admin,
@@ -256,6 +262,22 @@ contract SimplexFacet {
             bgtExchanger
         );
         SimplexLib.setBGTExchanger(bgtExchanger);
+    }
+
+    /// @notice Gets the current init target.
+    function getInitTarget() external view returns (uint256) {
+        return SimplexLib.getInitTarget();
+    }
+
+    /// @notice Sets the init target.
+    function setInitTarget(uint256 initTarget) external {
+        AdminLib.validateOwner();
+        emit InitTargetChanged(
+            msg.sender,
+            SimplexLib.getInitTarget(),
+            initTarget
+        );
+        SimplexLib.setInitTarget(initTarget);
     }
 
     /// @notice Gets the current search params.
