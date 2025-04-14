@@ -258,6 +258,53 @@ contract SimplexFacetTest is MultiSetupTest {
         simplexFacet.setAdjustor(address(0));
     }
 
+    // -- BGT exchanger tests ----
+
+    function testGetBGTExchanger() public {
+        assertEq(simplexFacet.getBGTExchanger(), address(0x0));
+    }
+
+    function testSetBGTExchanger() public {
+        vm.startPrank(owner);
+
+        // set exchanger A
+        address bgtExchangerA = makeAddr("bgtExchangerA");
+        vm.expectEmit(true, true, true, true);
+        emit SimplexFacet.BGTExchangerChanged(
+            owner,
+            address(0x0),
+            bgtExchangerA
+        );
+        simplexFacet.setBGTExchanger(bgtExchangerA);
+
+        // set exchanger B
+        address bgtExchangerB = makeAddr("bgtExchangerB");
+        vm.expectEmit(true, true, true, true);
+        emit SimplexFacet.BGTExchangerChanged(
+            owner,
+            bgtExchangerA,
+            bgtExchangerB
+        );
+        simplexFacet.setBGTExchanger(bgtExchangerB);
+
+        vm.stopPrank();
+    }
+
+    function testRevertBGTExchangerIsZeroAddress() public {
+        vm.startPrank(owner);
+
+        vm.expectRevert(SimplexFacet.BGTExchangerIsZeroAddress.selector);
+        simplexFacet.setBGTExchanger(address(0x0));
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetBGTExchangerNotOwner() public {
+        address bgtExchanger = makeAddr("bgtExchanger");
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setBGTExchanger(bgtExchanger);
+    }
+
     // -- searchParams tests ----
 
     function testGetSearchParams() public {
