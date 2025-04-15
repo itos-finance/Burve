@@ -21,7 +21,8 @@ contract BGTExchanger is IBGTExchanger {
     error NoExchangePermissions();
     error InsufficientOwed();
 
-    constructor(address bgtToken) {
+    constructor(address _bgtToken) {
+        bgtToken = _bgtToken;
         AdminLib.initOwner(msg.sender);
     }
 
