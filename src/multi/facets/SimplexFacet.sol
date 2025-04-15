@@ -243,6 +243,10 @@ contract SimplexFacet {
 
     /// @notice Sets the BGT exchanger
     /// @dev Only callable by the contract owner.
+    /// Migration to the next BGT exchanger should be completed before calling this function.
+    /// 1. Set the previous BGT exchanger as the backup on the next BGT exchanger.
+    /// 2. Add this contract as an allowed exchanger on the next BGT exchanger.
+    /// 3. Send the balance on the previous BGT exchanger to the next BGT exchanger.
     function setBGTExchanger(address bgtExchanger) external {
         AdminLib.validateOwner();
         if (bgtExchanger == address(0x0)) revert BGTExchangerIsZeroAddress();
