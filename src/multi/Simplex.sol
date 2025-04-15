@@ -133,6 +133,16 @@ library SimplexLib {
         Store.simplex().adjustor = adjustor;
     }
 
+    /// @notice Gets the current BGT exchanger.
+    function getBGTExchanger() internal view returns (address) {
+        return Store.simplex().bgtEx;
+    }
+
+    /// @notice Sets the BGT exchanger.
+    function setBGTExchanger(address bgtExchanger) internal {
+        Store.simplex().bgtEx = bgtExchanger;
+    }
+
     /// @notice Gets the current search params.
     function getSearchParams() internal view returns (SearchParams memory) {
         return Store.simplex().searchParams;

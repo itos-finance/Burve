@@ -152,6 +152,18 @@ contract SimplexTest is Test {
         assertEq(SimplexLib.getAdjustor(), adjustor);
     }
 
+    // -- BGT exchanger tests ----
+
+    function testGetBGTExchanger() public {
+        assertEq(SimplexLib.getBGTExchanger(), address(0x0));
+    }
+
+    function testSetBGTExchanger() public {
+        address bgtExchanger = makeAddr("bgtExchanger");
+        SimplexLib.setBGTExchanger(bgtExchanger);
+        assertEq(SimplexLib.getBGTExchanger(), bgtExchanger);
+    }
+
     // -- searchParam tests ----
 
     function testGetSearchParamsDefault() public {
