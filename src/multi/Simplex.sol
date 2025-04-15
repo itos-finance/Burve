@@ -7,6 +7,8 @@ import {Store} from "./Store.sol";
 import {TokenRegLib} from "./Token.sol";
 import {ValueLib, SearchParams} from "./Value.sol";
 
+/** TODO: NEEDS TESTS for bgtexchange */
+
 // Stores information unchanged between all closures.
 struct Simplex {
     string name;

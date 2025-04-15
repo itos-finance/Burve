@@ -247,4 +247,20 @@ contract ValueFacet is ReentrancyGuardTransient {
         Store.vertex(vid).withdraw(cid, amount, false);
         TransferHelper.safeTransfer(token, recipient, amount);
     }
+
+    /// Return the held value balance and earnings by an address in a given closure.
+    function queryValue(
+        address owner,
+        uint16 closureId
+    )
+        external
+        returns (
+            uint256 value,
+            uint256 bgtValue,
+            uint256[MAX_TOKENS] memory earnings,
+            uint256 bgtEarnings
+        )
+    {
+        return Store.assets().query(owner, ClosureId.wrap(closureId));
+    }
 }
