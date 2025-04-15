@@ -158,11 +158,17 @@ library AssetBookImpl {
         AssetBook storage self,
         address recipient,
         ClosureId cid
-    ) internal returns (uint256[MAX_TOKENS] memory feeBalances) {
+    )
+        internal
+        returns (uint256[MAX_TOKENS] memory feeBalances, uint256 bgtBalance)
+    {
+        collect(self, recipient, cid);
         Asset storage a = self.assets[recipient][cid];
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             feeBalances[i] = a.collectedBalances[i];
             a.collectedBalances[i] = 0;
         }
+        bgtBalance = a.bgtBalance;
+        a.bgtBalance = 0;
     }
 }

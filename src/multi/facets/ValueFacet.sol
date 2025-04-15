@@ -5,14 +5,13 @@ import {SafeCast} from "Commons/Math/Cast.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
-import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
-import {Vertex} from "../vertex/Vertex.sol";
 import {Store} from "../Store.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {AssetBook} from "../Asset.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {SearchParams} from "../Value.sol";
+import {IBGTExchanger} from "../../integrations/BGTExchange/IBGTExchanger.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -262,5 +261,36 @@ contract ValueFacet is ReentrancyGuardTransient {
         )
     {
         return Store.assets().query(owner, ClosureId.wrap(closureId));
+    }
+
+    function collectEarnings(
+        uint256 recipient,
+        uint16 closureId
+    )
+        external
+        returns (uint256[MAX_TOKENS] collectedBalances, uint256 collectedBgt)
+    {
+        uint256[MAX_TOKENS] collectedShares;
+        (collectedShares, collectedBgt) = Store.assets().claimFees(
+            msg.sender,
+            ClosureId.wrap(closureId)
+        );
+        IBGTExchanger(bgtEx).withdraw(recipient, collectedBgt);
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (collectedShares[i] > 0) {
+                VertexId vid = VertexLib.newId(i);
+                // Real amounts.
+                collectedBalances[i] = ReserveLib.withdraw(
+                    vid,
+                    collectedShares[i]
+                );
+                TransferHelper.safeTransfer(
+                    tokenReg.tokens[i],
+                    recipient,
+                    collectedBalances[i]
+                );
+            }
+        }
     }
 }

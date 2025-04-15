@@ -65,6 +65,7 @@ library ClosureImpl {
     /// Token balances have to stay between 0 and double the target value.
     error TokenBalanceOutOfBounds(
         ClosureId cid,
+        uint8 idx,
         uint256 attemptedBalance,
         uint256 minBalance,
         uint256 maxBalance
@@ -749,6 +750,7 @@ library ClosureImpl {
         if (newBalance < minX || twiceTarget < newBalance)
             revert TokenBalanceOutOfBounds(
                 self.cid,
+                idx,
                 newBalance,
                 minX,
                 twiceTarget
