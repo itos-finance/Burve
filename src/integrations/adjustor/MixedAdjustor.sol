@@ -18,6 +18,8 @@ contract MixedAdjustor is IAdjustor {
         defAdj = address(new NullAdjustor());
     }
 
+    /* Admin */
+
     function setAdjustor(address token, address adjustor) external {
         AdminLib.validateOwner();
         adjAddr[token] = adjustor;
@@ -27,6 +29,8 @@ contract MixedAdjustor is IAdjustor {
         AdminLib.validateOwner();
         defAdj = adjustor;
     }
+
+    /* IAdjustor */
 
     function toNominal(
         address token,
