@@ -143,6 +143,16 @@ library SimplexLib {
         Store.simplex().bgtEx = bgtExchanger;
     }
 
+    /// @notice Gets the current init target.
+    function getInitTarget() internal view returns (uint256) {
+        return Store.simplex().initTarget;
+    }
+
+    /// @notice Sets the init target.
+    function setInitTarget(uint256 initTarget) internal {
+        Store.simplex().initTarget = initTarget;
+    }
+
     /// @notice Gets the current search params.
     function getSearchParams() internal view returns (SearchParams memory) {
         return Store.simplex().searchParams;
