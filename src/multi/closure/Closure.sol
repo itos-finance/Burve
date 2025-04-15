@@ -171,7 +171,7 @@ library ClosureImpl {
         // Now we have the missing value and the currently fair balance for our vertex.
         uint256 finalAmount;
         {
-            uint256 veX128 = SimplexLib.getEs()[valIter.vIdx];
+            uint256 veX128 = SimplexLib.getEX128(valIter.vIdx);
             uint256 currentValueX128 = ValueLib.v(
                 self.targetX128,
                 veX128,
@@ -259,7 +259,7 @@ library ClosureImpl {
         uint256 fairVBalance = iterSingleValueDiff(self, valIter, false);
         removedAmount = self.balances[valIter.vIdx] - fairVBalance;
         // Now we have the addedValue which we can remove, and the fair balance for our vertex.
-        uint256 veX128 = SimplexLib.getEs()[valIter.vIdx];
+        uint256 veX128 = SimplexLib.getEX128(valIter.vIdx);
         uint256 currentValueX128 = ValueLib.v(
             self.targetX128,
             veX128,
@@ -299,7 +299,7 @@ library ClosureImpl {
         addEarnings(self, idx, tax);
         amount -= tax;
         // Use the ValueLib's newton's method to solve for the value added and update target.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         self.setBalance(idx, self.balances[idx] + amount);
         uint256 newTargetX128;
         {
@@ -336,7 +336,7 @@ library ClosureImpl {
         addEarnings(self, idx, tax);
         amount += tax;
         // Use the ValueLib's newton's method to solve for the value removed and update target.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         self.setBalance(idx, self.balances[idx] - amount);
         uint256 newTargetX128;
         {
@@ -372,7 +372,7 @@ library ClosureImpl {
         trimBalance(self, inVid);
         trimBalance(self, outVid);
         // The value in this pool won't change.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
         uint8 inIdx = inVid.idx();
         uint256 tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
@@ -426,7 +426,7 @@ library ClosureImpl {
         trimBalance(self, inVid);
         trimBalance(self, outVid);
         // The value in this pool won't change.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         uint8 inIdx = inVid.idx();
         uint8 outIdx = outVid.idx();
         // Calculate the value removed by the out token.
@@ -522,7 +522,7 @@ library ClosureImpl {
         uint256 inAmount
     ) internal view returns (uint256 outAmount) {
         // The value in this pool won't change.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
         uint8 inIdx = inVid.idx();
         uint256 tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
@@ -567,7 +567,7 @@ library ClosureImpl {
         VertexId outVid,
         uint256 outAmount
     ) internal view returns (uint256 inAmount) {
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         uint8 inIdx = inVid.idx();
         uint8 outIdx = outVid.idx();
         // Calculate the value removed by the out token.
@@ -762,7 +762,7 @@ library ClosureImpl {
         SingleValueIter memory valIter,
         bool roundUp
     ) internal view returns (uint256 vertexBalance) {
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEs();
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!self.cid.contains(i)) continue;
             uint256 fairBalance = FullMath.mulX128(

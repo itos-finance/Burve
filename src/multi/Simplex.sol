@@ -88,14 +88,24 @@ library SimplexLib {
         }
     }
 
-    function setE(uint8 idx, uint256 eX128) internal {
+    /// @notice Gets the efficiency factors for all tokens.
+    function getEsX128() internal view returns (uint256[MAX_TOKENS] storage) {
+        return Store.simplex().esX128;
+    }
+
+    /// @notice Gets the efficiency factor for a given token by their index.
+    /// @param idx The index of the token.
+    function getEX128(uint8 idx) internal view returns (uint256) {
+        return Store.simplex().esX128[idx];
+    }
+
+    /// @notice Sets the efficiency factor for a given token by their index.
+    /// @param idx The index of the token.
+    /// @param eX128 The efficiency factor to set.
+    function setEX128(uint8 idx, uint256 eX128) internal {
         Simplex storage s = Store.simplex();
         s.esX128[idx] = eX128;
         s.minXPerTX128[idx] = ValueLib.calcMinXPerTX128(eX128);
-    }
-
-    function getEs() internal view returns (uint256[MAX_TOKENS] storage) {
-        return Store.simplex().esX128;
     }
 
     function bgtExchange(
