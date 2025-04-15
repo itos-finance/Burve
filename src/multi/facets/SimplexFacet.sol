@@ -5,6 +5,7 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
@@ -35,6 +36,12 @@ contract SimplexFacet {
         int24 highTick,
         uint24 fee,
         uint8 feeProtocol
+    );
+    /// Emitted when the adjustor is changed.
+    event AdjustorChanged(
+        address indexed admin,
+        address fromAdjustor,
+        address toAdjustor
     );
     /// Emitted when search params are changed.
     event SearchParamsChanged(
@@ -168,6 +175,25 @@ contract SimplexFacet {
         }
     }
 
+    /// @notice Gets the current adjustor.
+    function getAdjustor() external view returns (address) {
+        return SimplexLib.getAdjustor();
+    }
+
+    /// @notice Sets the adjustor.
+    /// @dev Only callable by the contract owner.
+    function setAdjustor(address adjustor) external {
+        AdminLib.validateOwner();
+
+        emit AdjustorChanged(msg.sender, SimplexLib.getAdjustor(), adjustor);
+        SimplexLib.setAdjustor(adjustor);
+
+        address[] memory tokens = Store.tokenRegistry().tokens;
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            IAdjustor(adjustor).cacheAdjustment(tokens[i]);
+        }
+    }
+
     /// @notice Gets the current search params.
     function getSearchParams()
         external
@@ -195,16 +221,6 @@ contract SimplexFacet {
             params.targetSlippageX128
         );
     }
-
-    /* 
-    function setAdjustor(IAdjustor adj) external {
-        AdminLib.validateOwner();
-        Store.load().adjustor = adj;
-        address[] storage tokens = Store.tokenRegistry().tokens;
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            adj.cacheAdjustment(tokens[i]);
-        }
-    } */
 
     function setName(
         string calldata newName,

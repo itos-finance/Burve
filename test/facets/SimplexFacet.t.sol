@@ -5,12 +5,14 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 
+import {IAdjustor} from "../../src/integrations/adjustor/IAdjustor.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {SearchParams} from "../../src/multi/Value.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
+import {NullAdjustor} from "../../src/integrations/adjustor/NullAdjustor.sol";
 
 contract SimplexFacetTest is MultiSetupTest {
     function setUp() public {
@@ -78,7 +80,6 @@ contract SimplexFacetTest is MultiSetupTest {
         // check balances
         assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
         assertEq(token.balanceOf(diamond), 0);
-
         // check protocol earnings
         protocolEarnings = SimplexLib.protocolEarnings();
         assertEq(protocolEarnings[0], 0);
@@ -142,6 +143,79 @@ contract SimplexFacetTest is MultiSetupTest {
     function testRevertWithdrawNotOwner() public {
         vm.expectRevert(AdminLib.NotOwner.selector);
         simplexFacet.withdraw(tokens[0]);
+    }
+
+    // -- adjustor tests ----
+
+    function testGetAdjustorDefault() public {
+        assertNotEq(simplexFacet.getAdjustor(), address(0x0));
+    }
+
+    function testSetAdjustor() public {
+        vm.startPrank(owner);
+
+        // set adjustor A
+        address adjustorA = address(new NullAdjustor());
+
+        // check caching
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            vm.expectCall(
+                adjustorA,
+                abi.encodeCall(IAdjustor.cacheAdjustment, (tokens[i]))
+            );
+        }
+
+        // check change event
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.AdjustorChanged(
+            owner,
+            simplexFacet.getAdjustor(),
+            adjustorA
+        );
+
+        simplexFacet.setAdjustor(adjustorA);
+        assertEq(simplexFacet.getAdjustor(), adjustorA);
+
+        // set adjustor B
+        address adjustorB = address(new NullAdjustor());
+
+        // check caching
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            vm.expectCall(
+                adjustorB,
+                abi.encodeCall(IAdjustor.cacheAdjustment, (tokens[i]))
+            );
+        }
+
+        // check change event
+        vm.expectEmit(true, false, false, true);
+        emit SimplexFacet.AdjustorChanged(owner, adjustorA, adjustorB);
+
+        simplexFacet.setAdjustor(adjustorB);
+        assertEq(simplexFacet.getAdjustor(), adjustorB);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetAdjustorDoesNotImplementIAdjustor() public {
+        // setAdjustor does not verify the entire interface
+        // this will pass / fail for an address if they implement / don't implement cacheAdjustment
+        vm.startPrank(owner);
+        vm.expectRevert();
+        simplexFacet.setAdjustor(makeAddr("adjustor"));
+        vm.stopPrank();
+    }
+
+    function testRevertSetAdjustorIsZeroAddress() public {
+        vm.startPrank(owner);
+        vm.expectRevert();
+        simplexFacet.setAdjustor(address(0));
+        vm.stopPrank();
+    }
+
+    function testRevertSetAdjustorNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setAdjustor(address(0));
     }
 
     // -- searchParams tests ----
