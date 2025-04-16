@@ -17,6 +17,7 @@ import {StoreManipulatorFacet} from "./StoreManipulatorFacet.u.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
+import {VaultFacet} from "../../src/multi/facets/VaultFacet.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {IBGTExchanger, BGTExchanger} from "../../src/integrations/BGTExchange/BGTExchanger.sol";
 
@@ -29,6 +30,7 @@ contract MultiSetupTest is Test {
     address public diamond;
     ValueFacet public valueFacet;
     ValueTokenFacet public valueTokenFacet;
+    VaultFacet public vaultFacet;
     SimplexFacet public simplexFacet;
     SwapFacet public swapFacet;
     LockFacet public lockFacet;
@@ -59,6 +61,7 @@ contract MultiSetupTest is Test {
 
         valueFacet = ValueFacet(diamond);
         valueTokenFacet = ValueTokenFacet(diamond);
+        vaultFacet = VaultFacet(diamond);
         simplexFacet = SimplexFacet(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
@@ -70,8 +73,9 @@ contract MultiSetupTest is Test {
     function _cutStoreManipulatorFacet() public {
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
 
-        bytes4[] memory selectors = new bytes4[](1);
+        bytes4[] memory selectors = new bytes4[](2);
         selectors[0] = StoreManipulatorFacet.setProtocolEarnings.selector;
+        selectors[1] = StoreManipulatorFacet.getVertex.selector;
 
         cuts[0] = (
             IDiamond.FacetCut({

@@ -12,7 +12,11 @@ import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {SearchParams} from "../../src/multi/Value.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
+import {TokenRegLib} from "../../src/multi/Token.sol";
 import {NullAdjustor} from "../../src/integrations/adjustor/NullAdjustor.sol";
+import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
+import {Vertex} from "../../src/multi/vertex/Vertex.sol";
+import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
 
 /* For SimplexFacetVertexTest */
 import {VaultType, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
@@ -29,6 +33,51 @@ contract SimplexFacetTest is MultiSetupTest {
         _newDiamond();
         _newTokens(3);
         vm.stopPrank();
+    }
+
+    // -- addVertex tests ----
+
+    function testAddVertex() public {
+        vm.startPrank(owner);
+
+        address token = address(new MockERC20("token", "t", 18));
+        address vault = makeAddr("vault");
+        VertexId vid = VertexLib.newId(3);
+
+        vm.expectEmit(true, true, false, true);
+        emit SimplexFacet.VertexAdded(token, vault, vid, VaultType.E4626);
+        simplexFacet.addVertex(token, vault, VaultType.E4626);
+
+        // check vertex
+        Vertex memory v = storeManipulatorFacet.getVertex(vid);
+        assertEq(VertexId.unwrap(v.vid), VertexId.unwrap(vid));
+        assertEq(v._isLocked, false);
+
+        // check vault
+        (address activeVault, address backupVault) = vaultFacet.viewVaults(
+            token
+        );
+        assertEq(activeVault, vault);
+        assertEq(backupVault, address(0x0));
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddVertexTokenAlreadyRegistered() public {
+        vm.startPrank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenRegLib.TokenAlreadyRegistered.selector,
+                tokens[0]
+            )
+        );
+        simplexFacet.addVertex(tokens[0], address(vaults[0]), VaultType.E4626);
+        vm.stopPrank();
+    }
+
+    function testRevertAddVertexNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.addVertex(tokens[0], address(vaults[0]), VaultType.E4626);
     }
 
     // -- withdraw tests ----
