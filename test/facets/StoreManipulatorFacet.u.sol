@@ -24,9 +24,6 @@ contract StoreManipulatorFacet {
         c.valueStaked = valueStaked;
         c.bgtValueStaked = bgtValueStaked;
         c.balances = balances;
-        // for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-        //     balances[i] = c.balances[i];
-        // }
     }
 
     function setClosureFees(

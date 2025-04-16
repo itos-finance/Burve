@@ -47,3 +47,49 @@ contract AdjustmentTest is MultiSetupTest {
         // double check balances before and after for decimal accuracy.
     }
 }
+
+/*
+contract SimplexFacetAdjustorTest is MultiSetupTest {
+    function setUp() public {
+        _newDiamond();
+        _newTokens(2);
+
+        // Add a 6 decimal token.
+        tokens.push(address(new MockERC20("Test Token 3", "TEST3", 6)));
+        vaults.push(
+            IERC4626(
+                address(new MockERC4626(ERC20(tokens[2]), "vault 3", "V3"))
+            )
+        );
+        simplexFacet.addVertex(tokens[2], address(vaults[2]), VaultType.E4626);
+
+        _fundAccount(address(this));
+    }
+
+    /// Test that switching the adjustor actually works on setAdjustment by testing
+    /// the liquidity value of the same deposit.
+    function testSetAdjustor() public {
+        uint128[] memory amounts = new uint128[](3);
+        amounts[0] = 1e18;
+        amounts[1] = 1e18;
+        amounts[2] = 1e6;
+        // Init liq, the initial "value" in the pool.
+        uint256 initLiq = liqFacet.addLiq(address(this), 0x7, amounts);
+
+        amounts[1] = 0;
+        amounts[2] = 0;
+        // Adding this still gives close to a third of the "value" in the pool.
+        uint256 withAdjLiq = liqFacet.addLiq(address(this), 0x7, amounts);
+        assertApproxEqRel(withAdjLiq, initLiq / 3, 1e16); // Off by 1%
+
+        // But if we switch the adjustor. Now it's worth less, although not that much less
+        // because even though the balance of token2 is low, its value goes off peg and goes much higher.
+        // Therefore it ends up with roughly 1/5th of the pool's value now instead of something closer to 1/4.
+        IAdjustor nAdj = new NullAdjustor();
+        simplexFacet.setAdjustor(nAdj);
+        amounts[0] = 0;
+        amounts[1] = 1e18; // Normally this would be close to withAdjLiq.
+        uint256 noAdjLiq = liqFacet.addLiq(address(this), 0x7, amounts);
+        assertApproxEqRel(noAdjLiq, (initLiq + withAdjLiq) / 5, 1e16); // Off by 1%
+    }
+} */

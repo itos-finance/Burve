@@ -188,7 +188,8 @@ contract SimplexFacet {
 
     /* Admin Function */
 
-    /// Add a token into this simplex.
+    /// @notice Adds a vertex.
+    /// @dev Only callable by the contract owner.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
 
@@ -204,6 +205,8 @@ contract SimplexFacet {
         emit VertexAdded(token, vault, vid, vType);
     }
 
+    /// @notice Adds a closure.
+    /// @dev Only callable by the contract owner.
     function addClosure(
         uint16 _cid,
         uint128 startingTarget,
@@ -227,24 +230,26 @@ contract SimplexFacet {
             baseFeeX128,
             protocolTakeX128
         );
+
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue;
-            // Validate the vertex first.
-            Vertex storage v = Store.vertex(VertexLib.newId(i));
+
             address token = tokenReg.tokens[i];
             uint256 realNeeded = AdjustorLib.toReal(
                 token,
                 neededBalances[i],
                 true
             );
+
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
                 address(this),
                 realNeeded
             );
-            v.deposit(cid, realNeeded);
+
+            Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
     }
 
