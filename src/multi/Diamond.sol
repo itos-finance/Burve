@@ -120,9 +120,9 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[11] = SimplexFacet.getSearchParams.selector;
             simplexSelectors[12] = SimplexFacet.setSearchParams.selector;
             simplexSelectors[13] = SimplexFacet.withdraw.selector;
-            simplexSelectors[14] = SimplexFacet.getClosure.selector;
+            simplexSelectors[14] = SimplexFacet.getClosureValue.selector;
             simplexSelectors[15] = SimplexFacet.getClosureFees.selector;
-            simplexSelectors[16] = SimplexFacet.setFees.selector;
+            simplexSelectors[16] = SimplexFacet.setClosureFees.selector;
             simplexSelectors[17] = SimplexFacet.getNumVertices.selector;
             simplexSelectors[18] = SimplexFacet.getTokens.selector;
             simplexSelectors[19] = SimplexFacet.getName.selector;

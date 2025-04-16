@@ -32,7 +32,71 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.startPrank(owner);
         _newDiamond();
         _newTokens(3);
+        _initializeClosure(0x7);
         vm.stopPrank();
+    }
+
+    // -- addClosure tests ----
+
+    function testAddClosureSingleVertex() public {
+        vm.startPrank(owner);
+
+        IERC20 token = IERC20(tokens[0]);
+
+        uint128 startingTarget = 2e18;
+        uint256 baseFeeX128 = 1e10;
+        uint256 protocolTakeX128 = 1e6;
+
+        // deal owner required tokens and approve transfer
+        deal(tokens[0], owner, startingTarget);
+        IERC20(token).approve(address(diamond), startingTarget);
+
+        // balances before
+        uint256 balanceOwner = token.balanceOf(owner);
+        uint256 balanceVault = token.balanceOf(address(vaults[0]));
+
+        // check the owner transfers to the diamond before sending to the vault
+        vm.expectCall(
+            address(token),
+            abi.encodeCall(token.transferFrom, (owner, diamond, startingTarget))
+        );
+
+        // add closure
+        simplexFacet.addClosure(
+            0x1,
+            startingTarget,
+            baseFeeX128,
+            protocolTakeX128
+        );
+
+        // check balances
+        assertEq(token.balanceOf(owner), balanceOwner - startingTarget);
+        assertEq(
+            token.balanceOf(address(vaults[0])),
+            balanceVault + startingTarget
+        );
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddClosureInsufficientStartingTarget() public {
+        vm.startPrank(owner);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SimplexFacet.InsufficientStartingTarget.selector,
+                1e6,
+                1e18
+            )
+        );
+        simplexFacet.addClosure(0x1, 1e6, 1e10, 1e6);
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddClosureNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.addClosure(0x1, 1e8, 1e10, 1e6);
     }
 
     // -- addVertex tests ----
@@ -502,6 +566,122 @@ contract SimplexFacetTest is MultiSetupTest {
     function testRevertSetNameNotOwner() public {
         vm.expectRevert(AdminLib.NotOwner.selector);
         simplexFacet.setName("name", "symbol");
+    }
+
+    // -- getClosureValue tests ----
+
+    function testGetClosureValueDefault() public {
+        (
+            uint8 n,
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        ) = simplexFacet.getClosureValue(0x7);
+        assertEq(n, 3);
+        assertEq(targetX128, 0);
+        // assertEq(valueStaked, 0);
+        // assertEq(bgtValueStaked, 0);
+        // for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+        //     assertEq(balances[i], 0);
+        // }
+    }
+
+    function testGetClosureValue() public {}
+
+    // -- closureFees tests ----
+
+    function testGetClosureFeesDefault() public view {
+        (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        ) = simplexFacet.getClosureFees(0x7);
+
+        // check fees
+        assertEq(baseFeeX128, 0);
+        assertEq(protocolTakeX128, 0);
+        assertEq(bgtPerBgtValueX128, 0);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(earningsPerValueX128[i], 0);
+            assertEq(unexchangedPerBgtValueX128[i], 0);
+        }
+    }
+
+    function testGetClosureFees() public {
+        uint16 closureId = 0x7;
+
+        // overwrite closure in storage
+        uint256 _baseFeeX128 = 1;
+        uint256 _protocolTakeX128 = 2;
+        uint256[MAX_TOKENS] memory _earningsPerValueX128;
+        uint256 _bgtPerBgtValueX128 = 3;
+        uint256[MAX_TOKENS] memory _unexchangedPerBgtValueX128;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            _earningsPerValueX128[i] = 10e8 + i;
+            _unexchangedPerBgtValueX128[i] = 20e8 + i;
+        }
+        storeManipulatorFacet.setClosureFees(
+            closureId,
+            _baseFeeX128,
+            _protocolTakeX128,
+            _earningsPerValueX128,
+            _bgtPerBgtValueX128,
+            _unexchangedPerBgtValueX128
+        );
+
+        // get closure fees
+        (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        ) = simplexFacet.getClosureFees(0x7);
+
+        // check fees
+        assertEq(_baseFeeX128, baseFeeX128);
+        assertEq(_protocolTakeX128, protocolTakeX128);
+        assertEq(_bgtPerBgtValueX128, bgtPerBgtValueX128);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(_earningsPerValueX128[i], earningsPerValueX128[i]);
+            assertEq(
+                _unexchangedPerBgtValueX128[i],
+                unexchangedPerBgtValueX128[i]
+            );
+        }
+    }
+
+    function testSetClosureFees() public {
+        // set fees
+        vm.startPrank(owner);
+        simplexFacet.setClosureFees(0x7, 150, 250);
+        vm.stopPrank();
+
+        // get fees
+        (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        ) = simplexFacet.getClosureFees(0x7);
+
+        // check fees
+        assertEq(baseFeeX128, 150);
+        assertEq(protocolTakeX128, 250);
+        assertEq(bgtPerBgtValueX128, 0);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(earningsPerValueX128[i], 0);
+            assertEq(unexchangedPerBgtValueX128[i], 0);
+        }
+    }
+
+    function testRevertSetClosureFeesNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setClosureFees(0x7, 150, 250);
     }
 }
 

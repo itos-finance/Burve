@@ -19,7 +19,11 @@ import {VertexId, VertexLib} from "../vertex/Id.sol";
 contract SimplexFacet {
     /// Thrown when setting the BGT exchanger if the provided address is the zero address.
     error BGTExchangerIsZeroAddress();
-    error InsufficientStartingTarget(uint128 startingTarget);
+    /// Thrown when adding a closure if the specified starting target is less than the required init target.
+    error InsufficientStartingTarget(
+        uint128 startingTarget,
+        uint256 initTarget
+    );
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
 
@@ -91,12 +95,13 @@ contract SimplexFacet {
     }
 
     /// @notice Get everything value-related about a closure.
-    function getClosure(
+    function getClosureValue(
         uint16 closureId
     )
         external
         view
         returns (
+            uint8 n,
             uint256 targetX128,
             uint256[MAX_TOKENS] memory balances,
             uint256 valueStaked,
@@ -104,6 +109,7 @@ contract SimplexFacet {
         )
     {
         Closure storage c = Store.closure(ClosureId.wrap(closureId));
+        n = c.n;
         targetX128 = c.targetX128;
         valueStaked = c.valueStaked;
         bgtValueStaked = c.bgtValueStaked;
@@ -205,13 +211,16 @@ contract SimplexFacet {
         uint128 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
+
         ClosureId cid = ClosureId.wrap(_cid);
         // We fetch the raw storage because Store.closure would check the closure for initialization.
         Closure storage c = Store.load().closures[cid];
-        require(
-            startingTarget >= Store.simplex().initTarget,
-            InsufficientStartingTarget(startingTarget)
-        );
+
+        uint256 initTarget = Store.simplex().initTarget;
+        if (startingTarget < initTarget) {
+            revert InsufficientStartingTarget(startingTarget, initTarget);
+        }
+
         uint256[MAX_TOKENS] storage neededBalances = c.init(
             cid,
             startingTarget,
@@ -389,15 +398,18 @@ contract SimplexFacet {
         emit NewName(newName, newSymbol);
     }
 
-    function setFees(
-        uint16 closure,
+    /// @notice Sets fees for a given closureId.
+    function setClosureFees(
+        uint16 closureId,
         uint128 baseFeeX128,
         uint128 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
-        Closure storage c = Store.closure(ClosureId.wrap(closure));
+
+        Closure storage c = Store.closure(ClosureId.wrap(closureId));
         c.baseFeeX128 = baseFeeX128;
         c.protocolTakeX128 = protocolTakeX128;
-        emit NewFees(closure, baseFeeX128, protocolTakeX128);
+
+        emit NewFees(closureId, baseFeeX128, protocolTakeX128);
     }
 }

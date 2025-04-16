@@ -73,9 +73,11 @@ contract MultiSetupTest is Test {
     function _cutStoreManipulatorFacet() public {
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
 
-        bytes4[] memory selectors = new bytes4[](2);
-        selectors[0] = StoreManipulatorFacet.setProtocolEarnings.selector;
-        selectors[1] = StoreManipulatorFacet.getVertex.selector;
+        bytes4[] memory selectors = new bytes4[](4);
+        selectors[0] = StoreManipulatorFacet.setClosureValue.selector;
+        selectors[1] = StoreManipulatorFacet.setClosureFees.selector;
+        selectors[2] = StoreManipulatorFacet.setProtocolEarnings.selector;
+        selectors[3] = StoreManipulatorFacet.getVertex.selector;
 
         cuts[0] = (
             IDiamond.FacetCut({
