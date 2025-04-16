@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {BurveFacets, InitLib} from "../src/multi/InitLib.sol";
-import {SimplexDiamond} from "../src/multi/Diamond.sol";
+import {BurveDiamond} from "../src/multi/Diamond.sol";
 
 contract DeployBurveDiamond is Script {
     function run() external {
@@ -12,7 +12,7 @@ contract DeployBurveDiamond is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         BurveFacets memory facets = InitLib.deployFacets();
-        SimplexDiamond diamond = new SimplexDiamond(facets);
+        BurveDiamond diamond = new BurveDiamond(facets);
         console2.log("Burve deployed at:", address(diamond));
 
         vm.stopBroadcast();

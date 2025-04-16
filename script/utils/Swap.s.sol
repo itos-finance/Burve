@@ -1,46 +1,48 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-/*
+
 import "./BaseScript.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
 
 contract Swap is BaseScript {
-    uint128 constant MIN_SQRT_PRICE_X96 = uint128(1 << 96) / 1000;
-    uint128 constant MAX_SQRT_PRICE_X96 = uint128(1000 << 96);
-
     function run() external {
         // Load configuration from environment
         address recipient = vm.envOr("RECIPIENT", _getSender());
-        address inToken = vm.envAddress("IN_TOKEN");
-        address outToken = vm.envAddress("OUT_TOKEN");
-        int256 amountSpecified = int256(vm.envUint("AMOUNT")); // Positive for exact input, negative for exact output
-        uint160 sqrtPriceLimitX96 = uint160(
-            vm.envOr("SQRT_PRICE_LIMIT", MIN_SQRT_PRICE_X96 + 1)
-        );
+        uint16 closureId = uint16(vm.envOr("CLOSURE_ID", uint256(0)));
+        address tokenIn = vm.envOr("TOKEN_IN", address(0));
+        address tokenOut = vm.envOr("TOKEN_OUT", address(0));
+        uint256 amountIn = vm.envOr("AMOUNT_IN", uint256(0));
+        uint256 minAmountOut = vm.envOr("MIN_AMOUNT_OUT", uint256(0));
 
         // Start broadcasting
         vm.startBroadcast(_getPrivateKey());
 
-        // If amount is positive (exact input), mint and approve input tokens
-        if (amountSpecified > 0) {
-            _mintAndApprove(inToken, _getSender(), uint256(amountSpecified));
-        }
+        console2.log("\nPreparing to swap:");
+        console2.log("Closure ID:", closureId);
+        console2.log("Token In:", tokenIn);
+        console2.log("Token Out:", tokenOut);
+        console2.log("Amount In:", amountIn);
+        console2.log("Min Amount Out:", minAmountOut);
+        console2.log("Recipient:", recipient);
 
-        // Perform swap
-        (uint256 amountIn, uint256 amountOut) = swapFacet.swap(
+        // Mint and approve the input token
+        _mintAndApprove(tokenIn, _getSender(), amountIn);
+
+        // Perform the swap
+        (uint256 actualIn, uint256 actualOut) = swapFacet.swap(
             recipient,
-            inToken,
-            outToken,
-            amountSpecified,
-            sqrtPriceLimitX96
+            tokenIn,
+            tokenOut,
+            int256(amountIn), // Positive for exact input
+            minAmountOut,
+            closureId
         );
 
-        console2.log("Swap executed:");
-        console2.log("Input Token:", inToken);
-        console2.log("Output Token:", outToken);
-        console2.log("Amount In:", amountIn);
-        console2.log("Amount Out:", amountOut);
+        // Log the results
+        console2.log("\nSwap completed successfully:");
+        console2.log("Actual Amount In:", actualIn);
+        console2.log("Actual Amount Out:", actualOut);
 
         vm.stopBroadcast();
     }
 }
- */
