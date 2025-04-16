@@ -186,6 +186,11 @@ contract SimplexFacet {
         return TokenRegLib.numVertices();
     }
 
+    /// @notice Gets the index of a registered token by address.
+    function getIdx(address token) external view returns (uint8) {
+        return TokenRegLib.getIdx(token);
+    }
+
     /* Admin Function */
 
     /// @notice Adds a vertex.

@@ -671,12 +671,6 @@ contract SimplexFacetTest is MultiSetupTest {
         simplexFacet.setSearchParams(sp);
     }
 
-    // -- getNumVertices tests ----
-
-    function testGetNumVertices() public view {
-        assertEq(simplexFacet.getNumVertices(), tokens.length);
-    }
-
     // getTokens tests ----
 
     function testGetTokens() public view {
@@ -684,6 +678,30 @@ contract SimplexFacetTest is MultiSetupTest {
         for (uint8 i = 0; i < tokens.length; ++i) {
             assertEq(_tokens[i], tokens[i]);
         }
+    }
+
+    // -- getNumVertices tests ----
+
+    function testGetNumVertices() public view {
+        assertEq(simplexFacet.getNumVertices(), tokens.length);
+    }
+
+    // -- getIdx tests ----
+
+    function testGetIdx() public view {
+        assertEq(simplexFacet.getIdx(tokens[0]), 0);
+        assertEq(simplexFacet.getIdx(tokens[1]), 1);
+        assertEq(simplexFacet.getIdx(tokens[2]), 2);
+    }
+
+    function testRevertGetIdxTokenNotFound() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenRegLib.TokenNotFound.selector,
+                address(0xA)
+            )
+        );
+        simplexFacet.getIdx(address(0xA));
     }
 
     // -- name tests ----
