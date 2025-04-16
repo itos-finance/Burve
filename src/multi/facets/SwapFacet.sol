@@ -5,11 +5,11 @@ import {Store} from "../Store.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
 import {AdjustorLib} from "../Adjustor.sol";
+import {FullMath} from "../../FullMath.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
-import {console2 as console} from "forge-std/console2.sol";
 
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal (meaning they should be around 1 to 1).
@@ -57,6 +57,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
         uint256 valueExchangedX128;
+        uint256 realTax;
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
             uint256 nominalIn = AdjustorLib.toNominal(
@@ -65,12 +66,16 @@ contract SwapFacet is ReentrancyGuardTransient {
                 false
             );
             uint256 nominalOut;
-            (nominalOut, valueExchangedX128) = c.swapInExact(
+            uint256 nominalTax;
+            (nominalOut, nominalTax, valueExchangedX128) = c.swapInExact(
                 inVid,
                 outVid,
                 nominalIn
             );
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
+            // Figure out the tax in real terms. This is cheaper than another adjust call.
+            // Round up to protect the vertex balance invariant.
+            realTax = FullMath.mulDiv(inAmount, nominalTax, nominalIn);
             require(
                 outAmount >= amountLimit,
                 SlippageSurpassed(amountLimit, outAmount, true)
@@ -83,30 +88,31 @@ contract SwapFacet is ReentrancyGuardTransient {
                 true
             );
             uint256 nominalIn;
-            (nominalIn, valueExchangedX128) = c.swapOutExact(
+            uint256 nominalTax;
+            (nominalIn, nominalTax, valueExchangedX128) = c.swapOutExact(
                 inVid,
                 outVid,
                 nominalOut
             );
             inAmount = AdjustorLib.toReal(inVid.idx(), nominalIn, true);
+            realTax = FullMath.mulDiv(inAmount, nominalTax, nominalIn);
             if (amountLimit != 0) {
                 require(
                     inAmount <= amountLimit,
                     SlippageSurpassed(amountLimit, inAmount, false)
                 );
             }
-            console.log(inAmount, outAmount);
         }
         if (inAmount > 0) {
+            // Get the tokens
             TransferHelper.safeTransferFrom(
                 inToken,
                 msg.sender,
                 address(this),
                 inAmount
             );
-            console.log("transfered, now depositing");
-            Store.vertex(inVid).deposit(cid, inAmount);
-            console.log("withdrawn");
+            c.addEarnings(inVid, realTax);
+            Store.vertex(inVid).deposit(cid, inAmount - realTax);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
             require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);

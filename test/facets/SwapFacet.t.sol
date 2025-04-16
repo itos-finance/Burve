@@ -508,6 +508,7 @@ contract SwapFacetTest is MultiSetupTest {
 
         // Now check the fees went to the right places.
         uint256 totalEarnings = actualIn - simIn;
+        // TODO: Check why fee earnings aren't exact.
         assertEq((totalEarnings << 128) / actualIn, 1 << 126); // The fees were indeed the right rate.
         // Half has gone to the protocol.
         assertEq(simplexFacet.protocolEarnings()[2], totalEarnings / 2);
