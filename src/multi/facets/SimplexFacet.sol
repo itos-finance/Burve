@@ -79,7 +79,7 @@ contract SimplexFacet {
 
     /* Getters */
 
-    /// Get an identifier for this Simplex
+    /// @notice Gets the name and symbol for the value token.
     function getName()
         external
         view
@@ -374,6 +374,8 @@ contract SimplexFacet {
         );
     }
 
+    /// @notice Sets the name and symbol for the value token.
+    /// @dev Only callable by the contract owner.
     function setName(
         string calldata newName,
         string calldata newSymbol

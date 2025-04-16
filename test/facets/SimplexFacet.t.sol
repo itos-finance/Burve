@@ -474,11 +474,34 @@ contract SimplexFacetTest is MultiSetupTest {
         assertEq(simplexFacet.getNumVertices(), tokens.length);
     }
 
+    // getTokens tests ----
+
     function testGetTokens() public view {
         address[] memory _tokens = simplexFacet.getTokens();
         for (uint8 i = 0; i < tokens.length; ++i) {
             assertEq(_tokens[i], tokens[i]);
         }
+    }
+
+    // -- name tests ----
+
+    function testSetName() public {
+        vm.startPrank(owner);
+
+        vm.expectEmit(false, false, false, true);
+        emit SimplexFacet.NewName("name", "symbol");
+        simplexFacet.setName("name", "symbol");
+
+        (string memory name, string memory symbol) = simplexFacet.getName();
+        assertEq(name, "name");
+        assertEq(symbol, "symbol");
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetNameNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setName("name", "symbol");
     }
 }
 
