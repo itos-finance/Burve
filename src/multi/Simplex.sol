@@ -44,10 +44,14 @@ library SimplexLib {
     // A method to change initTarget
     // A method to change adjustor.
 
-    function init(address adjustor) internal {
+    function init(
+        string memory name,
+        string memory symbol,
+        address adjustor
+    ) internal {
         Simplex storage s = Store.simplex();
-        s.name = "N/A";
-        s.symbol = "N/A";
+        s.name = name;
+        s.symbol = symbol;
         s.adjustor = adjustor;
         s.initTarget = 1e18; // reasonable default
         // Default to 10x efficient: price range is [0.84, 1.21].
