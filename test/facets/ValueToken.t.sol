@@ -22,7 +22,7 @@ contract ValueTokenTest is MultiSetupTest {
         _fundAccount(bob);
     }
 
-    function test_ValueTokenNameAndSymbol() public {
+    function test_ValueTokenNameAndSymbol() public view {
         // The name and symbol should be constructed from the simplex name and symbol
         // which are set to "N/A" during diamond initialization
         string memory expectedName = string.concat("brvValue", "N/A");

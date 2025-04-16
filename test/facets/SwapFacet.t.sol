@@ -253,7 +253,7 @@ contract SwapFacetTest is MultiSetupTest {
 
     function testSwapAndRemoveLiquidity() public {
         uint256 swapAmount = 10e18;
-        uint128 depositAmount = 200e18;
+        uint128 depositAmount = 400e18; // 200 for each token, init was 100 for each token.
         uint256 init0 = token0.balanceOf(alice);
         uint256 init1 = token1.balanceOf(alice);
 
@@ -277,7 +277,7 @@ contract SwapFacetTest is MultiSetupTest {
         valueFacet.removeValue(alice, 0x3, depositAmount, 0);
 
         uint256 valueRatioX128 = (uint256(depositAmount) << 128) /
-            (depositAmount + 100e18);
+            (depositAmount + 200e18);
         console.log(inAmount, outAmount, valueRatioX128);
         uint256 excess0 = token0.balanceOf(alice) - init0;
         assertEq(excess0, FullMath.mulX128(valueRatioX128, inAmount, false));

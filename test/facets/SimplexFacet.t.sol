@@ -147,14 +147,14 @@ contract SimplexFacetTest is MultiSetupTest {
 
     // -- esX128 tests ----
 
-    function testEsX128Default() public {
+    function testEsX128Default() public view {
         uint256[MAX_TOKENS] memory esX128 = simplexFacet.getEsX128();
         for (uint256 i = 0; i < MAX_TOKENS; i++) {
             assertEq(esX128[i], 10 << 128);
         }
     }
 
-    function testGetEX128Default() public {
+    function testGetEX128Default() public view {
         uint256 esX128 = simplexFacet.getEX128(tokens[0]);
         assertEq(esX128, 10 << 128);
 
@@ -187,7 +187,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
     // -- adjustor tests ----
 
-    function testGetAdjustorDefault() public {
+    function testGetAdjustorDefault() public view {
         assertNotEq(simplexFacet.getAdjustor(), address(0x0));
     }
 
@@ -260,7 +260,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
     // -- BGT exchanger tests ----
 
-    function testGetBGTExchanger() public {
+    function testGetBGTExchanger() public view {
         assertEq(simplexFacet.getBGTExchanger(), address(0x0));
     }
 
@@ -307,7 +307,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
     // -- initTarget tests ----
 
-    function testGetInitTarget() public {
+    function testGetInitTarget() public view {
         assertEq(simplexFacet.getInitTarget(), 1e18);
     }
 
@@ -339,7 +339,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
     // -- searchParams tests ----
 
-    function testGetSearchParams() public {
+    function testGetSearchParams() public view {
         SearchParams memory sp = simplexFacet.getSearchParams();
         assertEq(sp.maxIter, 5);
         assertEq(sp.deMinimusX128, 100);

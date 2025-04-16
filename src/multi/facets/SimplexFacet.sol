@@ -74,8 +74,58 @@ contract SimplexFacet {
 
     /* Getters */
 
+    /// @notice Get everything value-related about a closure.
+    function getClosure(
+        uint16 closureId
+    )
+        external
+        view
+        returns (
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        )
+    {
+        Closure storage c = Store.closure(ClosureId.wrap(closureId));
+        targetX128 = c.targetX128;
+        valueStaked = c.valueStaked;
+        bgtValueStaked = c.bgtValueStaked;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            balances[i] = c.balances[i];
+        }
+    }
+
+    /// @notice Get everything fee-related about a closure.
+    function getClosureFees(
+        uint16 closureId
+    )
+        external
+        view
+        returns (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        )
+    {
+        Closure storage c = Store.closure(ClosureId.wrap(closureId));
+        baseFeeX128 = c.baseFeeX128;
+        protocolTakeX128 = c.protocolTakeX128;
+        bgtPerBgtValueX128 = c.bgtPerBgtValueX128;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            earningsPerValueX128[i] = c.earningsPerValueX128[i];
+            unexchangedPerBgtValueX128[i] = c.unexchangedPerBgtValueX128[i];
+        }
+    }
+
     /// @notice Gets earned protocol fees that have yet to be collected.
-    function protocolEarnings() external returns (uint256[MAX_TOKENS] memory) {
+    function protocolEarnings()
+        external
+        view
+        returns (uint256[MAX_TOKENS] memory)
+    {
         return SimplexLib.protocolEarnings();
     }
 

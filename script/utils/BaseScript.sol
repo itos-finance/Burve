@@ -6,7 +6,7 @@ import {Vm, VmSafe} from "forge-std/Vm.sol";
 import {console2} from "forge-std/console2.sol";
 import {MockERC20} from "../../test/mocks/MockERC20.sol";
 import {MockERC4626} from "../../test/mocks/MockERC4626.sol";
-import {BurveDiamond} from "../../src/multi/Diamond.sol";
+import {SimplexDiamond as BurveDiamond} from "../../src/multi/Diamond.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
