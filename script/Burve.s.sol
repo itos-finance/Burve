@@ -12,7 +12,7 @@ contract DeployBurveDiamond is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         BurveFacets memory facets = InitLib.deployFacets();
-        BurveDiamond diamond = new BurveDiamond(facets);
+        BurveDiamond diamond = new BurveDiamond(facets, "ValueToken", "BVT");
         console2.log("Burve deployed at:", address(diamond));
 
         vm.stopBroadcast();

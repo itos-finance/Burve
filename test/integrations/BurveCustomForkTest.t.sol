@@ -67,7 +67,7 @@ contract BurveCustomForkTest is ForkableTest, Auto165 {
         rUsdVault = IERC4626(vm.envAddress("DOLOMITE_rUSD_VAULT"));
 
         // Deploy the diamond and facets
-        BurveFacets memory burveFacets = InitLib.deployFacets();
+        BurveFacets memory burveFacets = InitLib.deployFacets("ValueToken", "BVT");
         diamond = new SimplexDiamond(burveFacets);
 
         // Cast the diamond address to the facet interfaces

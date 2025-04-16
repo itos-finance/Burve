@@ -24,21 +24,23 @@ abstract contract BaseScript is Script {
     VaultFacet public vaultFacet;
     ValueTokenFacet public valueTokenFacet;
 
-    // Mock tokens
-    MockERC20 public usdc;
-    MockERC20 public usdt;
-    MockERC20 public dai;
-    MockERC20 public weth;
-
-    // Mock vaults
-    MockERC4626 public usdcVault;
-    MockERC4626 public usdtVault;
-    MockERC4626 public daiVault;
-    MockERC4626 public wethVault;
+    // Dynamic arrays for tokens and vaults
+    MockERC20[] public tokens;
+    MockERC4626[] public vaults;
 
     function setUp() public virtual {
-        // Load deployed addresses from environment
-        address diamondAddr = vm.envAddress("DIAMOND_ADDRESS");
+        // Read deployment.json
+        string memory json = vm.readFile("script/deployment.json");
+
+        // Parse diamond address with better error handling
+        string memory diamondStr = vm.parseJsonString(json, ".diamond");
+        require(
+            bytes(diamondStr).length > 0,
+            "Diamond address not found in JSON"
+        );
+        address diamondAddr = vm.parseAddress(diamondStr);
+
+        // Initialize core contracts
         diamond = BurveDiamond(payable(diamondAddr));
         valueFacet = ValueFacet(diamondAddr);
         swapFacet = SwapFacet(diamondAddr);
@@ -47,22 +49,42 @@ abstract contract BaseScript is Script {
         vaultFacet = VaultFacet(diamondAddr);
         valueTokenFacet = ValueTokenFacet(diamondAddr);
 
-        // Mock tokens
-        usdc = MockERC20(vm.envAddress("USDC_ADDRESS"));
-        usdt = MockERC20(vm.envAddress("USDT_ADDRESS"));
-        dai = MockERC20(vm.envAddress("DAI_ADDRESS"));
-        weth = MockERC20(vm.envAddress("WETH_ADDRESS"));
+        // Parse tokens array with better error handling
+        string[] memory tokenAddrs = vm.parseJsonStringArray(json, ".tokens");
+        require(tokenAddrs.length > 0, "No tokens found in JSON");
 
-        // Mock vaults
-        usdcVault = MockERC4626(vm.envAddress("USDC_VAULT_ADDRESS"));
-        usdtVault = MockERC4626(vm.envAddress("USDT_VAULT_ADDRESS"));
-        daiVault = MockERC4626(vm.envAddress("DAI_VAULT_ADDRESS"));
-        wethVault = MockERC4626(vm.envAddress("WETH_VAULT_ADDRESS"));
+        // Initialize tokens
+        for (uint256 i = 0; i < tokenAddrs.length; i++) {
+            require(
+                bytes(tokenAddrs[i]).length > 0,
+                "Empty token address found"
+            );
+            tokens.push(MockERC20(vm.parseAddress(tokenAddrs[i])));
+        }
+
+        // Parse vaults array with better error handling
+        string[] memory vaultAddrs = vm.parseJsonStringArray(json, ".vaults");
+        require(vaultAddrs.length > 0, "No vaults found in JSON");
+
+        // Initialize vaults
+        for (uint256 i = 0; i < vaultAddrs.length; i++) {
+            require(
+                bytes(vaultAddrs[i]).length > 0,
+                "Empty vault address found"
+            );
+            vaults.push(MockERC4626(vm.parseAddress(vaultAddrs[i])));
+        }
+
+        // Log setup
+        console2.log("Setup complete with:");
+        console2.log("Diamond:", diamondAddr);
+        console2.log("Tokens:", tokens.length);
+        console2.log("Vaults:", vaults.length);
     }
 
     // Helper function to get the appropriate private key
     function _getPrivateKey() internal view returns (uint256) {
-        return vm.envUint("PRIVATE_KEY");
+        return vm.envUint("DEPLOYER_PRIVATE_KEY");
     }
 
     // Helper function to get the appropriate sender address
@@ -82,19 +104,31 @@ abstract contract BaseScript is Script {
 
     // Helper to get token address by index
     function _getTokenByIndex(uint8 index) internal view returns (address) {
-        if (index == 0) return address(usdc);
-        if (index == 1) return address(usdt);
-        if (index == 2) return address(dai);
-        if (index == 3) return address(weth);
-        revert("Invalid token index");
+        require(index < tokens.length, "Invalid token index");
+        return address(tokens[index]);
     }
 
     // Helper to get vault address by index
     function _getVaultByIndex(uint8 index) internal view returns (address) {
-        if (index == 0) return address(usdcVault);
-        if (index == 1) return address(usdtVault);
-        if (index == 2) return address(daiVault);
-        if (index == 3) return address(wethVault);
-        revert("Invalid vault index");
+        require(index < vaults.length, "Invalid vault index");
+        return address(vaults[index]);
+    }
+
+    // Helper to get number of tokens
+    function _getNumTokens() internal view returns (uint256) {
+        return tokens.length;
+    }
+
+    // Helper to mint tokens based on closure ID
+    function _mintTokensForClosure(
+        uint16 closureId,
+        address to,
+        uint256 amount
+    ) internal {
+        for (uint8 i = 0; i < tokens.length; i++) {
+            if ((1 << i) & closureId > 0) {
+                _mintAndApprove(address(tokens[i]), to, amount);
+            }
+        }
     }
 }

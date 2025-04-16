@@ -5,10 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
-
 import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
-
 import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
@@ -23,8 +21,9 @@ import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {IBGTExchanger, BGTExchanger} from "../../src/integrations/BGTExchange/BGTExchanger.sol";
 
 contract MultiSetupTest is Test {
-    uint256 public constant INITIAL_MINT_AMOUNT = 1e30;
-    uint128 public constant INITIAL_VALUE = 1_000_000e18;
+    // Note: removed the constant tag so we can override INITAL_VALUE in interiting tests
+    uint256 public INITIAL_MINT_AMOUNT = 1e30;
+    uint128 public INITIAL_VALUE = 1_000_000e18;
 
     /* Diamond */
     address public diamond;
@@ -39,6 +38,7 @@ contract MultiSetupTest is Test {
 
     /* Integrations */
     IBGTExchanger public bgtEx;
+    MockERC20 ibgt;
 
     /* Test Tokens */
     /// Two mock erc20s for convenience. These are guaranteed to be sorted.
@@ -55,7 +55,7 @@ contract MultiSetupTest is Test {
     /// Deploy the diamond and facets
     function _newDiamond() internal {
         BurveFacets memory bFacets = InitLib.deployFacets();
-        diamond = address(new SimplexDiamond(bFacets));
+        diamond = address(new SimplexDiamond(bFacets, "ValueToken", "BVT"));
 
         valueFacet = ValueFacet(diamond);
         valueTokenFacet = ValueTokenFacet(diamond);
@@ -162,18 +162,18 @@ contract MultiSetupTest is Test {
     /// Creates a bgt token, funds the initial mint to the bgtexchanger, sets the rates at 1 to 1,
     /// and installs it onto the diamond.
     /// Feel free to use the owner to set the rate however you'd like.
-    function installBGTExchanger() internal {
-        MockERC20 bgt = new MockERC20("TestBGT", "TBGT", 18);
-        bgtEx = BGTExchanger(address(bgt));
-        bgt.mint(owner, INITIAL_MINT_AMOUNT);
-        bgt.approve(address(bgtEx), type(uint256).max);
+    function _installBGTExchanger() internal {
+        ibgt = new MockERC20("TestBGT", "iBGT", 18);
+        bgtEx = new BGTExchanger(address(ibgt));
+        ibgt.mint(owner, INITIAL_MINT_AMOUNT);
+        ibgt.approve(address(bgtEx), type(uint256).max);
         bgtEx.fund(INITIAL_MINT_AMOUNT);
         bgtEx.addExchanger(diamond);
         for (uint256 i = 0; i < tokens.length; ++i) {
             bgtEx.setRate(tokens[i], 1 << 128);
         }
-        // TODO
-        // simplexFacet.setBGTExchanger(bgtEx)
+
+        simplexFacet.setBGTExchanger(address(bgtEx));
     }
 
     /// Call this last since it messes with prank.

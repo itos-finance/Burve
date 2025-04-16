@@ -456,7 +456,7 @@ contract SimplexFacetTest is Test {
         vm.startPrank(owner);
 
         // Deploy the diamond and facets
-        BurveFacets memory facets = InitLib.deployFacets();
+        BurveFacets memory facets = InitLib.deployFacets("Test Value Token", "TVT");
         diamond = new SimplexDiamond(facets);
 
         edgeFacet = EdgeFacet(address(diamond));

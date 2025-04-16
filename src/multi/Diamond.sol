@@ -4,16 +4,13 @@ pragma solidity ^0.8.27;
 import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
 import {LibDiamond} from "Commons/Diamond/libraries/LibDiamond.sol";
 import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
-
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
-
 import {IDiamondCut} from "Commons/Diamond/interfaces/IDiamondCut.sol";
 import {IDiamondLoupe} from "Commons/Diamond/interfaces/IDiamondLoupe.sol";
 import {DiamondLoupeFacet} from "Commons/Diamond/facets/DiamondLoupeFacet.sol";
 import {IERC173} from "Commons/ERC/interfaces/IERC173.sol";
 import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
-
 import {Store} from "./Store.sol";
 import {BurveFacets} from "./InitLib.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
@@ -28,9 +25,13 @@ import {SimplexLib} from "./Simplex.sol";
 error FunctionNotFound(bytes4 _functionSelector);
 
 contract SimplexDiamond is IDiamond {
-    constructor(BurveFacets memory facets) {
+    constructor(
+        BurveFacets memory facets,
+        string memory name,
+        string memory symbol
+    ) {
         AdminLib.initOwner(msg.sender);
-        SimplexLib.init(facets.adjustor);
+        SimplexLib.init(name, symbol, facets.adjustor);
 
         FacetCut[] memory cuts = new FacetCut[](9);
 
@@ -76,11 +77,15 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory valueSelectors = new bytes4[](4);
+            bytes4[] memory valueSelectors = new bytes4[](8);
             valueSelectors[0] = ValueFacet.addValue.selector;
             valueSelectors[1] = ValueFacet.addValueSingle.selector;
-            valueSelectors[2] = ValueFacet.removeValue.selector;
-            valueSelectors[3] = ValueFacet.removeValueSingle.selector;
+            valueSelectors[2] = ValueFacet.addSingleForValue.selector;
+            valueSelectors[3] = ValueFacet.removeValue.selector;
+            valueSelectors[4] = ValueFacet.removeValueSingle.selector;
+            valueSelectors[5] = ValueFacet.removeSingleForValue.selector;
+            valueSelectors[6] = ValueFacet.queryValue.selector;
+            valueSelectors[7] = ValueFacet.collectEarnings.selector;
             cuts[3] = FacetCut({
                 facetAddress: facets.valueFacet,
                 action: FacetCutAction.Add,
@@ -161,8 +166,8 @@ contract SimplexDiamond is IDiamond {
 
         {
             bytes4[] memory selectors = new bytes4[](11);
-            selectors[0] = ERC20.name.selector;
-            selectors[1] = ERC20.symbol.selector;
+            selectors[0] = ValueTokenFacet.name.selector;
+            selectors[1] = ValueTokenFacet.symbol.selector;
             selectors[2] = ERC20.decimals.selector;
             selectors[3] = ERC20.totalSupply.selector;
             selectors[4] = ERC20.balanceOf.selector;

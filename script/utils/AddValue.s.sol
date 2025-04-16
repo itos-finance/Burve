@@ -9,8 +9,8 @@ contract AddValue is BaseScript {
     function run() external {
         // Load configuration from environment
         address recipient = vm.envOr("RECIPIENT", _getSender());
-        uint16 closureId = uint16(vm.envOr("CLOSURE_ID", uint256(0)));
-        uint128 valueAmount = uint128(vm.envOr("VALUE", uint256(0)));
+        uint16 closureId = uint16(vm.envOr("CLOSURE_ID", uint256(5)));
+        uint128 valueAmount = uint128(vm.envOr("VALUE", uint256(100e18)));
         uint128 bgtValue = uint128(vm.envOr("BGT_VALUE", uint256(valueAmount))); // Default to full value if not specified
 
         // Start broadcasting
@@ -21,6 +21,8 @@ contract AddValue is BaseScript {
         console2.log("Value to add:", valueAmount);
         console2.log("BGT Value:", bgtValue);
         console2.log("Recipient:", recipient);
+
+        _mintTokensForClosure(5, _getSender(), 1_000e18);
 
         // Add value to the closure
         uint256[MAX_TOKENS] memory requiredBalances = valueFacet.addValue(

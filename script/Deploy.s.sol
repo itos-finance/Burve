@@ -7,7 +7,7 @@ import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {InitLib, BurveFacets} from "../src/multi/InitLib.sol";
-import {SimplexDiamond} from "../src/multi/Diamond.sol";
+import {SimplexDiamond as BurveDiamond} from "../src/multi/Diamond.sol";
 import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
 import {LockFacet} from "../src/multi/facets/LockFacet.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
@@ -16,8 +16,13 @@ import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
 import {ValueFacet} from "../src/multi/facets/ValueFacet.sol";
 import {ValueTokenFacet} from "../src/multi/facets/ValueTokenFacet.sol";
 import {VaultType} from "../src/multi/vertex/VaultProxy.sol";
+import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
+import {NullAdjustor} from "../src/integrations/adjustor/NullAdjustor.sol";
 
 contract DeployBurve is Script {
+    /* Deployer */
+    address deployerAddr;
+
     uint256 constant INITIAL_MINT_AMOUNT = 1e30;
     uint128 constant INITIAL_VALUE = 1_000_000e18;
 
@@ -30,23 +35,37 @@ contract DeployBurve is Script {
     LockFacet public lockFacet;
 
     /* Test Tokens */
-    MockERC20 public token0;
-    MockERC20 public token1;
     address[] public tokens;
     MockERC4626[] public vaults;
 
     function run() public {
+        deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy the diamond and facets
-        _newDiamond();
+        BurveFacets memory facets = InitLib.deployFacets();
+        diamond = address(new BurveDiamond(facets, "ValueToken", "BVT"));
+        console2.log("Burve deployed at:", diamond);
+
+        valueFacet = ValueFacet(diamond);
+        valueTokenFacet = ValueTokenFacet(diamond);
+        simplexFacet = SimplexFacet(diamond);
+        swapFacet = SwapFacet(diamond);
+        lockFacet = LockFacet(diamond);
 
         // Deploy tokens and install them as vertices
-        _newTokens(2);
+        _newTokens(3);
+
+        IAdjustor nAdj = new NullAdjustor();
+        simplexFacet.setAdjustor(address(nAdj));
 
         // Initialize a closure with both tokens
         _initializeClosure(3);
+        _initializeClosure(4);
+        _initializeClosure(5);
+        _initializeClosure(6);
+        _initializeClosure(7);
 
         vm.stopBroadcast();
 
@@ -101,18 +120,6 @@ contract DeployBurve is Script {
         return json;
     }
 
-    /// Deploy the diamond and facets
-    function _newDiamond() internal {
-        BurveFacets memory bFacets = InitLib.deployFacets();
-        diamond = address(new SimplexDiamond(bFacets));
-
-        valueFacet = ValueFacet(diamond);
-        valueTokenFacet = ValueTokenFacet(diamond);
-        simplexFacet = SimplexFacet(diamond);
-        swapFacet = SwapFacet(diamond);
-        lockFacet = LockFacet(diamond);
-    }
-
     /// Deploy tokens and install them as vertices in the diamond with an edge.
     function _newTokens(uint8 numTokens) internal {
         // Setup test tokens
@@ -129,12 +136,14 @@ contract DeployBurve is Script {
             );
         }
 
-        // Ensure token0 address is less than token1
-        if (tokens[0] > tokens[1])
-            (tokens[0], tokens[1]) = (tokens[1], tokens[0]);
-
-        token0 = MockERC20(tokens[0]);
-        token1 = MockERC20(tokens[1]);
+        // Sort the entire tokens array
+        for (uint256 i = 0; i < tokens.length; i++) {
+            for (uint256 j = i + 1; j < tokens.length; j++) {
+                if (tokens[i] > tokens[j]) {
+                    (tokens[i], tokens[j]) = (tokens[j], tokens[i]);
+                }
+            }
+        }
 
         // Add vaults and vertices
         for (uint256 i = 0; i < tokens.length; ++i) {
@@ -160,7 +169,7 @@ contract DeployBurve is Script {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
-                MockERC20(tokens[i]).mint(msg.sender, INITIAL_VALUE);
+                MockERC20(tokens[i]).mint(deployerAddr, INITIAL_VALUE);
                 MockERC20(tokens[i]).approve(
                     address(diamond),
                     type(uint256).max
