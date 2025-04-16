@@ -31,9 +31,13 @@ contract SwapFacet is ReentrancyGuardTransient {
         bool isOut
     );
 
+    /// Non-empty input for an empty output. Undesirable for the swapper.
+    error VacuousSwap();
+
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
     /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
+    /// However, if amountLimit is zero, it is not enforced.
     /// @param _cid The closure we choose to swap through.
     function swap(
         address recipient,
@@ -46,6 +50,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         // Validates the tokens.
         VertexId inVid = VertexLib.newId(inToken);
         VertexId outVid = VertexLib.newId(outToken);
+        require(!inVid.isEq(outVid), VacuousSwap()); // The user just ends up paying.
         // Validates the closure.
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
@@ -71,10 +76,12 @@ contract SwapFacet is ReentrancyGuardTransient {
             );
             uint256 nominalIn = c.swapOutExact(inVid, outVid, nominalOut);
             inAmount = AdjustorLib.toReal(inVid.idx(), nominalIn, true);
-            require(
-                inAmount <= amountLimit,
-                SlippageSurpassed(amountLimit, inAmount, false)
-            );
+            if (amountLimit != 0) {
+                require(
+                    inAmount <= amountLimit,
+                    SlippageSurpassed(amountLimit, inAmount, false)
+                );
+            }
         }
         if (inAmount > 0) {
             TransferHelper.safeTransferFrom(
@@ -85,6 +92,7 @@ contract SwapFacet is ReentrancyGuardTransient {
             );
             Store.vertex(inVid).deposit(cid, inAmount);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
+            require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
         }
 

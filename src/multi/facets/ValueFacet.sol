@@ -12,6 +12,7 @@ import {TransferHelper} from "../../TransferHelper.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {SearchParams} from "../Value.sol";
 import {IBGTExchanger} from "../../integrations/BGTExchange/IBGTExchanger.sol";
+import {ReserveLib} from "../vertex/Reserve.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -96,7 +97,7 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Add exactly this much value to the given closure by providing a single token.
-    /// @param maxRequired Revert if required balance is greater than this.
+    /// @param maxRequired Revert if required balance is greater than this. (0 indicates no restriction).
     function addValueSingle(
         address recipient,
         uint16 _closureId,
@@ -112,7 +113,8 @@ contract ValueFacet is ReentrancyGuardTransient {
         VertexId vid = VertexLib.newId(token); // Validates token.
         uint256 nominalRequired = c.addValueSingle(value, bgtValue, vid);
         requiredBalance = AdjustorLib.toReal(token, nominalRequired, true);
-        require(requiredBalance <= maxRequired, PastSlippageBounds());
+        if (maxRequired > 0)
+            require(requiredBalance <= maxRequired, PastSlippageBounds());
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,
@@ -219,7 +221,7 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     /// Remove exactly this much of the given token for value in the given closure.
-    /// @param maxValue Revert if valueGiven is larger than this.
+    /// @param maxValue Revert if valueGiven is larger than this. (Not enforced if zero.)
     function removeSingleForValue(
         address recipient,
         uint16 _closureId,
@@ -240,7 +242,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             search
         );
         require(valueGiven > 0, DeMinimisDeposit());
-        require(valueGiven <= maxValue, PastSlippageBounds());
+        if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
         Store.assets().remove(recipient, cid, valueGiven, bgtValue);
         // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, amount, false);
@@ -253,6 +255,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint16 closureId
     )
         external
+        view
         returns (
             uint256 value,
             uint256 bgtValue,
@@ -264,18 +267,25 @@ contract ValueFacet is ReentrancyGuardTransient {
     }
 
     function collectEarnings(
-        uint256 recipient,
+        address recipient,
         uint16 closureId
     )
         external
-        returns (uint256[MAX_TOKENS] collectedBalances, uint256 collectedBgt)
+        returns (
+            uint256[MAX_TOKENS] memory collectedBalances,
+            uint256 collectedBgt
+        )
     {
-        uint256[MAX_TOKENS] collectedShares;
+        uint256[MAX_TOKENS] memory collectedShares;
         (collectedShares, collectedBgt) = Store.assets().claimFees(
             msg.sender,
             ClosureId.wrap(closureId)
         );
-        IBGTExchanger(bgtEx).withdraw(recipient, collectedBgt);
+        if (collectedBgt > 0)
+            IBGTExchanger(Store.simplex().bgtEx).withdraw(
+                recipient,
+                collectedBgt
+            );
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (collectedShares[i] > 0) {

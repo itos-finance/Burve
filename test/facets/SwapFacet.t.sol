@@ -1,444 +1,221 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-// TODO: make a fresh swap test, but use MultiSetup.u.sol.
-
-/* import {BurveFacets, InitLib} from "../../src/InitLib.sol";
-import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {EdgeFacet} from "../../src/multi/facets/EdgeFacet.sol";
-import {ViewFacet} from "../../src/multi/facets/ViewFacet.sol";
-import {LiqFacet} from "../../src/multi/facets/LiqFacet.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {MultiSetupTest} from "./MultiSetup.u.sol";
+import {console2 as console} from "forge-std/console2.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {ClosureImpl} from "../../src/multi/closure/Closure.sol";
+import {ValueLib} from "../../src/multi/Value.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
-import {ClosureId, newClosureId} from "../../src/multi/Closure.sol";
-import {VaultType} from "../../src/multi/VaultProxy.sol";
-import {Store} from "../../src/multi/Store.sol";
-import {Edge} from "../../src/multi/Edge.sol";
-import {MockERC4626} from "../mocks/MockERC4626.sol"; */
+import {FullMath} from "../../src/FullMath.sol";
 
-contract SwapFacetTest is Test {
-    /*     SimplexDiamond public diamond;
-    EdgeFacet public edgeFacet;
-    LiqFacet public liqFacet;
-    SimplexFacet public simplexFacet;
-    SwapFacet public swapFacet;
-    ViewFacet public viewFacet;
-
-    MockERC20 public token0;
-    MockERC20 public token1;
-
-    MockERC4626 public mockVault0;
-    MockERC4626 public mockVault1;
-
-    uint256 eveShares0;
-    uint256 eveShares1;
-
-    address public owner = makeAddr("owner");
-    address public alice = makeAddr("alice");
-    address public bob = makeAddr("bob");
-    address public eve = makeAddr("eve");
-
-    uint16 public closureId;
-    uint256 constant INITIAL_MINT_AMOUNT = 1000000e18;
-    uint256 constant INITIAL_LIQUIDITY_AMOUNT = 100000e18;
-
-    uint160 constant MIN_SQRT_RATIO = 4295128739;
-    uint160 constant MAX_SQRT_RATIO =
-        1461446703485210103287273052203988822378723970342;
-
-    uint160 MIN_SQRT_RATIO_LIMIT = MIN_SQRT_RATIO + 1;
-    uint160 MAX_SQRT_RATIO_LIMIT = MAX_SQRT_RATIO - 1;
-
-    // Price impact thresholds
-    uint256 constant SMALL_SWAP_IMPACT_THRESHOLD = 2e16; // 2%
-    uint256 constant LARGE_SWAP_IMPACT_THRESHOLD = 2e17; // 20%
-
+contract SwapFacetTest is MultiSetupTest {
     function setUp() public {
         vm.startPrank(owner);
-
-        // Deploy the diamond and facets
-        BurveFacets memory facets = InitLib.deployFacets();
-        diamond = new SimplexDiamond(facets);
-
-        edgeFacet = EdgeFacet(address(diamond));
-        liqFacet = LiqFacet(address(diamond));
-        simplexFacet = SimplexFacet(address(diamond));
-        swapFacet = SwapFacet(address(diamond));
-        viewFacet = ViewFacet(address(diamond));
-
-        // Setup test tokens
-        token0 = new MockERC20("Test Token 0", "TEST0", 18);
-        token1 = new MockERC20("Test Token 1", "TEST1", 18);
-
-        // Ensure token0 address is less than token1
-        if (address(token0) > address(token1)) {
-            (token0, token1) = (token1, token0);
-        }
-
-        mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
-        mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
-
-        // Add vertices
-        simplexFacet.addVertex(
-            address(token0),
-            address(mockVault0),
-            VaultType.E4626
-        );
-        simplexFacet.addVertex(
-            address(token1),
-            address(mockVault1),
-            VaultType.E4626
-        );
-
-        // Setup closure
-        address[] memory tokens = new address[](2);
-        tokens[0] = address(token0);
-        tokens[1] = address(token1);
-        closureId = ClosureId.unwrap(viewFacet.getClosureId(tokens));
-
-        // Setup edge
-        edgeFacet.setEdge(
-            address(token0),
-            address(token1),
-            100, // what should the ampliude be set to
-            -46063,
-            46063
-        );
-
-        vm.stopPrank();
-
-        // Fund test accounts
-        _fundTestAccounts();
-
-        // Setup initial liquidity
-        _setupInitialLiquidity();
-    }
-
-    function _fundTestAccounts() internal {
-        // Fund alice and bob with initial amounts
-        token0.mint(alice, INITIAL_MINT_AMOUNT);
-        token1.mint(alice, INITIAL_MINT_AMOUNT);
-        token0.mint(bob, INITIAL_MINT_AMOUNT);
-        token1.mint(bob, INITIAL_MINT_AMOUNT);
-        token0.mint(eve, INITIAL_MINT_AMOUNT);
-        token1.mint(eve, INITIAL_MINT_AMOUNT);
-
-        // Approve diamond for all test accounts
-        vm.startPrank(alice);
-        token0.approve(address(diamond), type(uint256).max);
-        token1.approve(address(diamond), type(uint256).max);
-        vm.stopPrank();
-
-        vm.startPrank(bob);
-        token0.approve(address(diamond), type(uint256).max);
-        token1.approve(address(diamond), type(uint256).max);
-        vm.stopPrank();
-
-        vm.startPrank(eve);
-        token0.approve(address(diamond), type(uint256).max);
-        token1.approve(address(diamond), type(uint256).max);
-        vm.stopPrank();
-    }
-
-    function _setupInitialLiquidity() internal {
-        vm.startPrank(eve);
-        uint128[] memory amounts0 = new uint128[](2);
-        amounts0[0] = uint128(INITIAL_LIQUIDITY_AMOUNT);
-        amounts0[1] = 0;
-        eveShares0 = liqFacet.addLiq(alice, closureId, amounts0);
-
-        uint128[] memory amounts1 = new uint128[](2);
-        amounts1[0] = 0;
-        amounts1[1] = uint128(INITIAL_LIQUIDITY_AMOUNT);
-        eveShares1 = liqFacet.addLiq(alice, closureId, amounts1);
+        _newDiamond();
+        _newTokens(3);
+        _initializeClosure(0x7, 100e18);
+        _initializeClosure(0x3, 100e18);
+        _fundAccount(alice);
+        _fundAccount(bob);
         vm.stopPrank();
     }
 
     function testExactInputSwap() public {
         uint256 swapAmount = 1e18;
-        uint256 bobToken0Before = token0.balanceOf(bob);
-        uint256 bobToken1Before = token1.balanceOf(bob);
+        uint256 beforeBalance0 = token0.balanceOf(alice);
+        uint256 beforeBalance1 = token1.balanceOf(alice);
 
-        vm.startPrank(bob);
-        swapFacet.swap(
-            bob, // recipient
-            address(token0), // tokenIn
-            address(token1), // tokenOut
+        vm.startPrank(alice);
+        (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
+            alice, // recipient
+            tokens[0], // tokenIn
+            tokens[1], // tokenOut
             int256(swapAmount), // positive for exact input
-            MIN_SQRT_RATIO + 1 // no price limit
+            0, // no price limit{}
+            0x3
         );
         vm.stopPrank();
 
+        assertEq(inAmount, swapAmount);
+
         // Verify token0 was taken
         assertEq(
-            token0.balanceOf(bob),
-            bobToken0Before - swapAmount,
+            token0.balanceOf(alice),
+            beforeBalance0 - inAmount,
             "Incorrect token0 balance after swap"
         );
 
         // Verify some token1 was received
-        assertGt(
-            token1.balanceOf(bob),
-            bobToken1Before,
+        assertEq(
+            token1.balanceOf(alice),
+            beforeBalance1 + outAmount,
             "Should have received token1"
         );
     }
 
     function testExactOutputSwap() public {
-        uint256 outputAmount = 1000e18;
-        uint256 bobToken0Before = token0.balanceOf(bob);
-        uint256 bobToken1Before = token1.balanceOf(bob);
+        uint256 swapAmount = 80e18; // 80% of the pool.
+        uint256 beforeBalance0 = token0.balanceOf(alice);
+        uint256 beforeBalance1 = token1.balanceOf(alice);
 
-        vm.startPrank(bob);
-        swapFacet.swap(
-            bob, // recipient
-            address(token0), // tokenIn
-            address(token1), // tokenOut
-            -int256(outputAmount), // negative for exact output
-            MIN_SQRT_RATIO_LIMIT // price limit
+        vm.startPrank(alice);
+        (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
+            alice, // recipient
+            tokens[0], // tokenIn
+            tokens[1], // tokenOut
+            -int256(swapAmount), // negative for exact out
+            type(uint256).max, // no price limit
+            0x3
         );
         vm.stopPrank();
 
-        // Verify exact token1 was received
+        assertEq(outAmount, swapAmount);
+
+        // Verify token0 was taken
         assertEq(
-            token1.balanceOf(bob),
-            bobToken1Before + outputAmount,
-            "Should have received exact token1 amount"
+            token0.balanceOf(alice),
+            beforeBalance0 - inAmount,
+            "Incorrect token0 balance after swap"
         );
 
-        // Verify some token0 was taken
-        assertLt(
-            token0.balanceOf(bob),
-            bobToken0Before,
-            "Should have spent token0"
+        // Verify some token1 was received
+        assertEq(
+            token1.balanceOf(alice),
+            beforeBalance1 + outAmount,
+            "Should have received token1"
         );
     }
 
     function testSwapWithPriceLimit() public {
-        uint256 swapAmount = 1000e18;
-        uint160 sqrtPriceLimit = 79928162514264337593543950336; // ~1:1 price
-
-        // Get initial price from edge using actual balances
-        uint256 balance0 = token0.balanceOf(address(mockVault0));
-        uint256 balance1 = token1.balanceOf(address(mockVault1));
-        uint256 priceX128Before = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
-        );
-
+        // We error if we receive less than expected.
         vm.startPrank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SwapFacet.SlippageSurpassed.selector,
+                1e18,
+                998185117967332123,
+                true
+            )
+        );
+        swapFacet.swap(bob, address(token1), address(token0), 1e18, 1e18, 0x3); // We can't possibly swap 1 to 1.
+        // But of course no problem swapping for slightly less.
         swapFacet.swap(
             bob,
             address(token1),
             address(token0),
-            int256(swapAmount),
-            sqrtPriceLimit
-        );
-        vm.stopPrank();
-
-        // Get final price using updated balances
-        balance0 = token0.balanceOf(address(mockVault0));
-        balance1 = token1.balanceOf(address(mockVault1));
-        uint256 priceX128After = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
+            1e18,
+            .99e18,
+            0x3
         );
 
-        // Verify price changed but didn't exceed limit
-        assertGt(
-            priceX128After,
-            priceX128Before,
-            "Price should increase for token1->token0 swap"
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SwapFacet.SlippageSurpassed.selector,
+                2e18,
+                2014618544250459525,
+                false
+            )
         );
-    }
-
-    function testSmallSwapPriceImpact() public {
-        uint256 swapAmount = INITIAL_LIQUIDITY_AMOUNT / 100; // 1% of pool liquidity
-        uint256 bobToken0Before = token0.balanceOf(bob);
-        uint256 bobToken1Before = token1.balanceOf(bob);
-
-        // Get initial price using actual balances
-        uint256 balance0 = token0.balanceOf(address(mockVault0));
-        uint256 balance1 = token1.balanceOf(address(mockVault1));
-        uint256 priceX128Before = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
-        );
-
-        vm.startPrank(bob);
+        swapFacet.swap(bob, address(token1), address(token0), -2e18, 2e18, 0x3); // We can't possibly swap 1 to 1.
+        // But of course no problem swapping for slightly less.
         swapFacet.swap(
             bob,
-            address(token0),
             address(token1),
-            int256(swapAmount),
-            MIN_SQRT_RATIO_LIMIT
+            address(token0),
+            -2e18,
+            2.015e18,
+            0x3
         );
         vm.stopPrank();
-
-        // Get final price using updated balances
-        balance0 = token0.balanceOf(address(mockVault0));
-        balance1 = token1.balanceOf(address(mockVault1));
-        uint256 priceX128After = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
-        );
-
-        // Calculate price impact
-        uint256 priceImpact = ((
-            priceX128After > priceX128Before
-                ? priceX128After - priceX128Before
-                : priceX128Before - priceX128After
-        ) * 1e18) / priceX128Before;
-
-        assertLt(
-            priceImpact,
-            SMALL_SWAP_IMPACT_THRESHOLD,
-            "Small swap should have minimal price impact"
-        );
-
-        // Verify output amount is close to input amount (minimal slippage)
-        uint256 token1Received = token1.balanceOf(bob) - bobToken1Before;
-        assertApproxEqRel(
-            token1Received,
-            swapAmount,
-            SMALL_SWAP_IMPACT_THRESHOLD,
-            "Small swap should have minimal slippage"
-        );
     }
 
-    function testLargeSwapImpact() public {
-        uint256 largeSwapAmount = INITIAL_LIQUIDITY_AMOUNT / 2; // 50% of pool liquidity
-        uint256 bobToken0Before = token0.balanceOf(bob);
-        uint256 bobToken1Before = token1.balanceOf(bob);
-
-        // Get initial price using actual balances
-        uint256 balance0 = token0.balanceOf(address(mockVault0));
-        uint256 balance1 = token1.balanceOf(address(mockVault1));
-        uint256 priceX128Before = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
+    function testOversizedSwap() public {
+        // Given the efficiency factor of 10, t / 11 is the minimum balance.
+        vm.startPrank(alice);
+        uint256 smallX = 8333333333333333333;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ValueLib.XTooSmall.selector,
+                smallX,
+                smallX + 1
+            )
         );
-
-        vm.startPrank(bob);
         swapFacet.swap(
-            bob,
-            address(token0),
-            address(token1),
-            int256(largeSwapAmount),
-            MIN_SQRT_RATIO_LIMIT
+            alice,
+            tokens[0],
+            tokens[1],
+            -100e18 + int256(smallX),
+            0,
+            0x7
         );
+        // And the opposite side is true as well. Even if we didn't fail there,
+        // we would have failed on the other end because we would have had to deposit too much.
+        uint256 stillTooSmall = 9e18;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ClosureImpl.TokenBalanceOutOfBounds.selector,
+                ClosureId.wrap(0x7),
+                0,
+                209041394335511982570,
+                smallX + 1,
+                200e18
+            )
+        );
+        swapFacet.swap(
+            alice,
+            tokens[0],
+            tokens[1],
+            -100e18 + int256(stillTooSmall),
+            0,
+            0x7
+        );
+
         vm.stopPrank();
-
-        // Get final price using updated balances
-        balance0 = token0.balanceOf(address(mockVault0));
-        balance1 = token1.balanceOf(address(mockVault1));
-        uint256 priceX128After = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
-        );
-
-        // Calculate price impact
-        uint256 priceImpact = ((
-            priceX128After > priceX128Before
-                ? priceX128After - priceX128Before
-                : priceX128Before - priceX128After
-        ) * 1e18) / priceX128Before;
-
-        assertGt(
-            priceImpact,
-            SMALL_SWAP_IMPACT_THRESHOLD,
-            "Large swap should have significant price impact"
-        );
-
-        // Verify output amount shows significant slippage
-        uint256 token1Received = token1.balanceOf(bob) - bobToken1Before;
-        assertLt(
-            token1Received,
-            largeSwapAmount,
-            "Large swap should have significant slippage"
-        );
     }
+
+    // Test swap symmetry, swap back and forth gets the same. thing. And also
+    // implies the exact in and exact out are symmetric.
 
     function testSequentialSwapsIncreasePriceImpact() public {
-        uint256 swapAmount = INITIAL_LIQUIDITY_AMOUNT / 10; // 10% each swap
-
-        // Get initial price using actual balances
-        uint256 balance0 = token0.balanceOf(address(mockVault0));
-        uint256 balance1 = token1.balanceOf(address(mockVault1));
-        uint256 initialPriceX128 = viewFacet.getPriceX128(
-            address(token0),
-            address(token1),
-            uint128(balance0),
-            uint128(balance1)
-        );
-        uint256 lastPriceX128 = initialPriceX128;
-
-        // Perform multiple swaps
-        for (uint i = 0; i < 3; i++) {
-            vm.startPrank(bob);
-            swapFacet.swap(
-                bob,
-                address(token0),
-                address(token1),
+        uint256 swapAmount = 1e12;
+        vm.startPrank(alice);
+        uint256 outAmount = swapAmount;
+        for (uint8 i = 0; i < 10; ++i) {
+            (, uint256 newOutAmount) = swapFacet.swap(
+                alice,
+                tokens[0],
+                tokens[1],
                 int256(swapAmount),
-                MIN_SQRT_RATIO_LIMIT
+                0,
+                0x7
             );
-            vm.stopPrank();
-
-            // Get new price using updated balances
-            balance0 = token0.balanceOf(address(mockVault0));
-            balance1 = token1.balanceOf(address(mockVault1));
-            uint256 newPriceX128 = viewFacet.getPriceX128(
-                address(token0),
-                address(token1),
-                uint128(balance0),
-                uint128(balance1)
+            assertLt(newOutAmount, outAmount);
+            outAmount = newOutAmount;
+        }
+        uint256 inAmount = 0;
+        for (uint8 i = 0; i < 10; ++i) {
+            (uint256 newInAmount, ) = swapFacet.swap(
+                alice,
+                tokens[1],
+                tokens[0],
+                -int256(swapAmount),
+                0,
+                0x7
             );
-
-            // Calculate price impact for this swap
-            uint256 swapImpact = ((
-                newPriceX128 > lastPriceX128
-                    ? newPriceX128 - lastPriceX128
-                    : lastPriceX128 - newPriceX128
-            ) * 1e18) / lastPriceX128;
-
-            // Each subsequent swap should have larger price impact
-            if (i > 0) {
-                uint256 lastImpact = ((
-                    lastPriceX128 > initialPriceX128
-                        ? lastPriceX128 - initialPriceX128
-                        : initialPriceX128 - lastPriceX128
-                ) * 1e18) / initialPriceX128;
-                assertGt(
-                    lastImpact,
-                    swapImpact,
-                    "Sequential swaps should have increasing price impact"
-                );
-            }
-
-            lastPriceX128 = newPriceX128;
+            assertGt(newInAmount, inAmount);
+            inAmount = newInAmount;
         }
     }
 
     function testSwapRevertZeroAmount() public {
         vm.startPrank(bob);
-        vm.expectRevert(); // Should revert for zero amount
-        swapFacet.swap(bob, address(token0), address(token1), 0, 0);
+        // If you swap nothing and get nothing, that's fine i guess.
+        swapFacet.swap(bob, address(token0), address(token1), 0, 0, 0x3);
+        // But if you swap something and get nothing, that doesn't seem desirable.
+        vm.expectRevert(); // Should revert for zero amount out.
+        swapFacet.swap(bob, address(token0), address(token1), 1, 0, 0x3);
         vm.stopPrank();
     }
 
@@ -452,13 +229,14 @@ contract SwapFacetTest is Test {
             address(invalidToken),
             address(token1),
             int256(1000e18),
-            0
+            0,
+            0x3
         );
         vm.stopPrank();
     }
 
     function testSwapToSelf() public {
-        uint256 swapAmount = 1000e18;
+        uint256 swapAmount = 10e18;
 
         vm.startPrank(bob);
         vm.expectRevert(); // Should revert when trying to swap a token for itself
@@ -467,128 +245,136 @@ contract SwapFacetTest is Test {
             address(token0),
             address(token0),
             int256(swapAmount),
-            0
+            0,
+            0x3
         );
         vm.stopPrank();
     }
 
     function testSwapAndRemoveLiquidity() public {
-        uint256 swapAmount = INITIAL_LIQUIDITY_AMOUNT / 10;
-        uint256 depositAmount = INITIAL_LIQUIDITY_AMOUNT / 2;
-        console2.log("deposit amount", depositAmount);
+        uint256 swapAmount = 10e18;
+        uint128 depositAmount = 200e18;
+        uint256 init0 = token0.balanceOf(alice);
+        uint256 init1 = token1.balanceOf(alice);
+
+        // First add liquidity.
+        vm.prank(alice);
+        valueFacet.addValue(alice, 0x3, depositAmount, 0);
 
         // First swap
-        vm.startPrank(bob);
-        swapFacet.swap(
+        vm.prank(bob);
+        (uint256 inAmount, uint256 outAmount) = swapFacet.swap(
             bob,
             address(token0),
             address(token1),
             int256(swapAmount),
-            MIN_SQRT_RATIO_LIMIT
+            0,
+            0x3
         );
-        vm.stopPrank();
 
         // Then remove liquidity
+        vm.prank(alice);
+        valueFacet.removeValue(alice, 0x3, depositAmount, 0);
+
+        uint256 valueRatioX128 = (uint256(depositAmount) << 128) /
+            (depositAmount + 100e18);
+        console.log(inAmount, outAmount, valueRatioX128);
+        uint256 excess0 = token0.balanceOf(alice) - init0;
+        assertEq(excess0, FullMath.mulX128(valueRatioX128, inAmount, false));
+        uint256 lesser1 = init1 - token1.balanceOf(alice);
+        assertEq(lesser1, FullMath.mulX128(valueRatioX128, outAmount, false));
+    }
+
+    function testSwapWithDifferentLiq() public {
+        int256 swapAmount = 3e16;
+        // We setup two closures which should swap the same with the same target
+        // and same token balances even if one has one more token.
         vm.startPrank(alice);
-        uint128[] memory amounts0 = new uint128[](2);
-        amounts0[0] = uint128(depositAmount);
-        amounts0[1] = 0;
-        uint256 shares0 = liqFacet.addLiq(alice, closureId, amounts0);
-
-        uint128[] memory amounts1 = new uint128[](2);
-        amounts1[0] = 0;
-        amounts1[1] = uint128(depositAmount);
-        uint256 shares1 = liqFacet.addLiq(alice, closureId, amounts1);
-
-        uint256 token0Before = token0.balanceOf(alice);
-        uint256 token1Before = token1.balanceOf(alice);
-
-        liqFacet.removeLiq(alice, closureId, shares0);
-        liqFacet.removeLiq(alice, closureId, shares1);
-
-        // Verify tokens returned proportionally
-        assertGt(
-            token0.balanceOf(alice) - token0Before,
-            token1.balanceOf(alice) - token1Before,
-            "Should receive more token0 than token1 due to the swap pushing the price"
+        (uint256 in3, uint256 out3) = swapFacet.swap(
+            alice,
+            tokens[0],
+            tokens[1],
+            swapAmount,
+            0,
+            0x3
         );
+        (uint256 in7, uint256 out7) = swapFacet.swap(
+            alice,
+            tokens[0],
+            tokens[1],
+            swapAmount,
+            0,
+            0x7
+        );
+        assertEq(out3, out7, "0");
+
+        // Now if we add more liq to 0x7, the swap gets tighter.
+        valueFacet.addValue(alice, 0x7, 7e17, 0); // Not even adding a lot.
+        (in3, out3) = swapFacet.swap(
+            alice,
+            tokens[0],
+            tokens[1],
+            swapAmount,
+            0,
+            0x3
+        );
+        (in7, out7) = swapFacet.swap(
+            alice,
+            tokens[0],
+            tokens[1],
+            swapAmount,
+            0,
+            0x7
+        );
+        assertGt(out7, out3, "1");
+
+        // If we add equal value now, the swap back will be the same.
+        valueFacet.addValue(alice, 0x3, 7e17, 0);
+        (in3, out3) = swapFacet.swap(
+            alice,
+            tokens[1],
+            tokens[0],
+            -swapAmount,
+            0,
+            0x3
+        );
+        (in7, out7) = swapFacet.swap(
+            alice,
+            tokens[1],
+            tokens[0],
+            -swapAmount,
+            0,
+            0x7
+        );
+        assertEq(in3, in7, "2");
+
+        // If we add equivalent liquidity to just the two tokens of interest in 0x7,
+        // we get roughly the same result.
+        valueFacet.addValue(alice, 0x3, 88e22, 0);
+        valueFacet.addValueSingle(alice, 0x7, 44e22, 0, tokens[0], 0);
+        valueFacet.addValueSingle(alice, 0x7, 44e22, 0, tokens[1], 0);
+        swapAmount = 3e21;
+        (in3, out3) = swapFacet.swap(
+            alice,
+            tokens[1],
+            tokens[0],
+            swapAmount,
+            0,
+            0x3
+        );
+        (in7, out7) = swapFacet.swap(
+            alice,
+            tokens[1],
+            tokens[0],
+            swapAmount,
+            0,
+            0x7
+        );
+        assertEq(out3, out7, "3");
         vm.stopPrank();
     }
 
-    function testConcurrentUsersOperations() public {
-        address charlie = makeAddr("charlie");
-        address dave = makeAddr("dave");
-
-        // Fund additional users
-        token0.mint(charlie, INITIAL_MINT_AMOUNT);
-        token1.mint(charlie, INITIAL_MINT_AMOUNT);
-        token0.mint(dave, INITIAL_MINT_AMOUNT);
-        token1.mint(dave, INITIAL_MINT_AMOUNT);
-
-        vm.startPrank(charlie);
-        token0.approve(address(diamond), type(uint256).max);
-        token1.approve(address(diamond), type(uint256).max);
-        vm.stopPrank();
-
-        vm.startPrank(dave);
-        token0.approve(address(diamond), type(uint256).max);
-        token1.approve(address(diamond), type(uint256).max);
-        vm.stopPrank();
-
-        // Multiple users perform operations
-        uint256 amount = INITIAL_LIQUIDITY_AMOUNT / 10;
-
-        // Charlie adds liquidity
-        vm.startPrank(charlie);
-        uint128[] memory amounts0 = new uint128[](2);
-        amounts0[0] = uint128(amount);
-        amounts0[1] = 0;
-        liqFacet.addLiq(charlie, closureId, amounts0);
-
-        uint128[] memory amounts1 = new uint128[](2);
-        amounts1[0] = 0;
-        amounts1[1] = uint128(amount);
-        liqFacet.addLiq(charlie, closureId, amounts1);
-        vm.stopPrank();
-
-        // Bob swaps
-        vm.startPrank(bob);
-        swapFacet.swap(
-            bob,
-            address(token0),
-            address(token1),
-            int256(amount),
-            MIN_SQRT_RATIO_LIMIT
-        );
-        vm.stopPrank();
-
-        // Dave adds liquidity
-        vm.startPrank(dave);
-        uint128[] memory amounts2 = new uint128[](2);
-        amounts2[0] = uint128(amount);
-        amounts2[1] = 0;
-        liqFacet.addLiq(dave, closureId, amounts2);
-
-        uint128[] memory amounts3 = new uint128[](2);
-        amounts3[0] = 0;
-        amounts3[1] = uint128(amount);
-        liqFacet.addLiq(dave, closureId, amounts3);
-        vm.stopPrank();
-
-        // Alice removes liquidity
-        vm.startPrank(alice);
-        uint128[] memory amounts4 = new uint128[](2);
-        amounts4[0] = uint128(amount);
-        amounts4[1] = 0;
-        uint256 shares0 = liqFacet.addLiq(alice, closureId, amounts4);
-
-        uint128[] memory amounts5 = new uint128[](2);
-        amounts5[0] = 0;
-        amounts5[1] = uint128(amount);
-        uint256 shares1 = liqFacet.addLiq(alice, closureId, amounts5);
-
-        liqFacet.removeLiq(alice, closureId, shares0);
-        liqFacet.removeLiq(alice, closureId, shares1);
-        vm.stopPrank();
-    } */
+    function testSwapWithFees() public {
+        assertTrue(false);
+    }
 }

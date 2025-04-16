@@ -30,6 +30,8 @@ library ValueLib {
     uint256 public constant ONEX128 = 1 << 128;
     uint256 public constant TWOX128 = 2 << 128;
 
+    error XTooSmall(uint256 requestedX, uint256 minimumX);
+
     error TSolutionNotFound(
         uint256 tX128,
         int256 ftX128,
@@ -84,15 +86,19 @@ library ValueLib {
         valueX128 = etX128 + 2 * tX128;
         uint256 denomX128 = (_x << 128) + etX128;
         uint256 sqrtNumX128 = etX128 + tX128;
+        uint256 subtract;
         if (roundUp) {
-            valueX128 -= FullMath.mulDivRoundingUp(
+            subtract = FullMath.mulDivRoundingUp(
                 sqrtNumX128,
                 sqrtNumX128,
                 denomX128
             );
         } else {
-            valueX128 -= FullMath.mulDiv(sqrtNumX128, sqrtNumX128, denomX128);
+            subtract = FullMath.mulDiv(sqrtNumX128, sqrtNumX128, denomX128);
         }
+        if (subtract > valueX128)
+            revert XTooSmall(_x, (tX128 / (eX128 + TWOX128)) + 1);
+        valueX128 -= subtract;
     }
 
     /// Calculate the difference in value between two token balances.

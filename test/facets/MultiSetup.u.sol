@@ -139,28 +139,33 @@ contract MultiSetupTest is Test {
         }
     }
 
-    /// Initalize a zero fee closure with the initial value amount.
+    /// Initalize a zero fee closure with the default initial value amount.
     function _initializeClosure(uint16 cid) internal {
+        _initializeClosure(cid, INITIAL_VALUE);
+    }
+
+    /// Initalize a zero fee closure with the initial value amount.
+    function _initializeClosure(uint16 cid, uint128 initValue) internal {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
-                MockERC20(tokens[i]).mint(owner, INITIAL_VALUE);
+                MockERC20(tokens[i]).mint(owner, initValue);
                 MockERC20(tokens[i]).approve(
                     address(diamond),
                     type(uint256).max
                 );
             }
         }
-        simplexFacet.addClosure(cid, INITIAL_VALUE, 0, 0);
+        simplexFacet.addClosure(cid, initValue, 0, 0);
     }
 
     /// Creates a bgt token, funds the initial mint to the bgtexchanger, sets the rates at 1 to 1,
     /// and installs it onto the diamond.
     /// Feel free to use the owner to set the rate however you'd like.
     function installBGTExchanger() internal {
-        MockERC20 bgt = new MockERC20("TestBGT", "TBGT");
+        MockERC20 bgt = new MockERC20("TestBGT", "TBGT", 18);
         bgtEx = BGTExchanger(address(bgt));
-        bgt.mint(owner, INITAL_MINT_AMOUNT);
+        bgt.mint(owner, INITIAL_MINT_AMOUNT);
         bgt.approve(address(bgtEx), type(uint256).max);
         bgtEx.fund(INITIAL_MINT_AMOUNT);
         bgtEx.addExchanger(diamond);
