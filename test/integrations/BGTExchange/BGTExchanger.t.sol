@@ -46,7 +46,7 @@ contract BGTExchangerTest is Test {
 
     // -- constructor tests ----
 
-    function testCreate() public {
+    function testCreate() public view {
         assertEq(bgtExchanger.bgtToken(), address(ibgt));
     }
 

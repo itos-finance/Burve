@@ -111,7 +111,6 @@ contract BGTExchanger is IBGTExchanger {
             address(this),
             amount
         );
-        bgtBalance += amount;
     }
 
     /// @inheritdoc IBGTExchanger
