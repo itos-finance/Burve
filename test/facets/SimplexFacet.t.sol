@@ -473,6 +473,13 @@ contract SimplexFacetTest is MultiSetupTest {
     function testGetNumVertices() public view {
         assertEq(simplexFacet.getNumVertices(), tokens.length);
     }
+
+    function testGetTokens() public view {
+        address[] memory _tokens = simplexFacet.getTokens();
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            assertEq(_tokens[i], tokens[i]);
+        }
+    }
 }
 
 contract SimplexFacetVertexTest is MultiSetupTest {

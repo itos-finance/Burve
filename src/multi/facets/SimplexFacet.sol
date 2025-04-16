@@ -154,16 +154,6 @@ contract SimplexFacet {
     }
 
     /// TODO move to new view facet
-    /// Fetch the list of tokens registered in this simplex.
-    function getTokens() external view returns (address[] memory tokens) {
-        address[] storage _t = Store.tokenRegistry().tokens;
-        tokens = new address[](_t.length);
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            tokens[i] = _t[i];
-        }
-    }
-
-    /// TODO move to new view facet
     /// Fetch the vertex index of the given token addresses.
     /// Returns a negative value if the token is not present.
     function getIndexes(
@@ -179,6 +169,11 @@ contract SimplexFacet {
         }
     }
     */
+
+    /// @notice Gets the list of registered tokens.
+    function getTokens() external view returns (address[] memory) {
+        return Store.tokenRegistry().tokens;
+    }
 
     /// @notice Gets the number of currently installed vertices
     function getNumVertices() external view returns (uint8) {
@@ -384,9 +379,11 @@ contract SimplexFacet {
         string calldata newSymbol
     ) external {
         AdminLib.validateOwner();
+
         Simplex storage s = Store.simplex();
         s.name = newName;
         s.symbol = newSymbol;
+
         emit NewName(newName, newSymbol);
     }
 
