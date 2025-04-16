@@ -17,7 +17,7 @@ contract FixedAdjustor is IAdjustor {
     }
 
     // Admin
-    function setAdjustment(address token, uint256 _adjX128) internal {
+    function setAdjustment(address token, uint256 _adjX128) external {
         AdminLib.validateOwner();
         adjsX128[token] = _adjX128;
         invAdjsX128[token] = FullMath.mulDivX256(1, _adjX128, false);

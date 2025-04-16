@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import {Test} from "forge-std/Test.sol";
 
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
-import {SearchParams} from "../../src/multi/Value.sol";
+import {ValueLib, SearchParams} from "../../src/multi/Value.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
 import {Store} from "../../src/multi/Store.sol";
 
@@ -58,6 +58,132 @@ contract SimplexTest is Test {
         amount = SimplexLib.protocolGive(1);
         assertEq(amount, 10e8);
         assertEq(simplex.protocolEarnings[1], 0);
+    }
+
+    // -- esX128 tests ----
+
+    function testGetEsX128Default() public {
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
+        for (uint256 i = 0; i < MAX_TOKENS; i++) {
+            assertEq(esX128[i], 0);
+        }
+
+        Simplex storage simplex = Store.simplex();
+        for (uint256 i = 0; i < MAX_TOKENS; i++) {
+            assertEq(simplex.esX128[i], 0);
+            assertEq(simplex.minXPerTX128[i], 0);
+        }
+    }
+
+    function testGetEsX128Init() public {
+        SimplexLib.init(address(0x0));
+
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
+        for (uint256 i = 0; i < MAX_TOKENS; i++) {
+            assertEq(esX128[i], 10 << 128);
+        }
+
+        Simplex storage simplex = Store.simplex();
+        for (uint256 i = 0; i < MAX_TOKENS; i++) {
+            assertEq(simplex.esX128[i], 10 << 128);
+            assertEq(
+                simplex.minXPerTX128[i],
+                ValueLib.calcMinXPerTX128(10 << 128)
+            );
+        }
+    }
+
+    function testGetEX128Default() public {
+        uint256 esX128 = SimplexLib.getEX128(0);
+        assertEq(esX128, 0);
+
+        esX128 = SimplexLib.getEX128(1);
+        assertEq(esX128, 0);
+    }
+
+    function testGetEX128Init() public {
+        SimplexLib.init(address(0x0));
+
+        uint256 esX128 = SimplexLib.getEX128(0);
+        assertEq(esX128, 10 << 128);
+
+        esX128 = SimplexLib.getEX128(1);
+        assertEq(esX128, 10 << 128);
+    }
+
+    function testSetEX128() public {
+        SimplexLib.setEX128(0, 20 << 128);
+        SimplexLib.setEX128(1, 30 << 128);
+        SimplexLib.setEX128(2, 40 << 128);
+
+        assertEq(SimplexLib.getEX128(0), 20 << 128);
+        assertEq(SimplexLib.getEX128(1), 30 << 128);
+        assertEq(SimplexLib.getEX128(2), 40 << 128);
+
+        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
+        assertEq(esX128[0], 20 << 128);
+        assertEq(esX128[1], 30 << 128);
+        assertEq(esX128[2], 40 << 128);
+
+        Simplex storage simplex = Store.simplex();
+        assertEq(simplex.esX128[0], 20 << 128);
+        assertEq(simplex.esX128[1], 30 << 128);
+        assertEq(simplex.esX128[2], 40 << 128);
+        assertEq(simplex.minXPerTX128[0], ValueLib.calcMinXPerTX128(20 << 128));
+        assertEq(simplex.minXPerTX128[1], ValueLib.calcMinXPerTX128(30 << 128));
+        assertEq(simplex.minXPerTX128[2], ValueLib.calcMinXPerTX128(40 << 128));
+    }
+
+    // -- adjustor tests ----
+
+    function testGetAdjustorDefault() public {
+        assertEq(SimplexLib.getAdjustor(), address(0x0));
+    }
+
+    function testGetAdjustorInit() public {
+        address adjustor = makeAddr("initAdjustor");
+        SimplexLib.init(adjustor);
+        assertEq(SimplexLib.getAdjustor(), adjustor);
+    }
+
+    function testSetAdjustor() public {
+        address adjustor = makeAddr("setAdjustor");
+        SimplexLib.setAdjustor(adjustor);
+        assertEq(SimplexLib.getAdjustor(), adjustor);
+    }
+
+    // -- BGT exchanger tests ----
+
+    function testGetBGTExchanger() public {
+        assertEq(SimplexLib.getBGTExchanger(), address(0x0));
+    }
+
+    function testSetBGTExchanger() public {
+        address bgtExchanger = makeAddr("bgtExchanger");
+        SimplexLib.setBGTExchanger(bgtExchanger);
+        assertEq(SimplexLib.getBGTExchanger(), bgtExchanger);
+    }
+
+    // -- initTarget tests ----
+
+    function testGetInitTargetDefault() public {
+        assertEq(SimplexLib.getInitTarget(), 0);
+    }
+
+    function testGetInitTargetInit() public {
+        SimplexLib.init(address(0x0));
+        assertEq(SimplexLib.getInitTarget(), 1e18);
+    }
+
+    function testSetInitTarget() public {
+        SimplexLib.setInitTarget(2e18);
+        assertEq(SimplexLib.getInitTarget(), 2e18);
+
+        SimplexLib.setInitTarget(0);
+        assertEq(SimplexLib.getInitTarget(), 0);
+
+        SimplexLib.setInitTarget(1e6);
+        assertEq(SimplexLib.getInitTarget(), 1e6);
     }
 
     // -- searchParam tests ----

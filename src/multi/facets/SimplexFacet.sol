@@ -5,6 +5,7 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
+import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
@@ -17,6 +18,8 @@ import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 
 contract SimplexFacet {
+    /// Thrown when setting the BGT exchanger if the provided address is the zero address.
+    error BGTExchangerIsZeroAddress();
     error InsufficientStartingTarget(uint128 startingTarget);
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
@@ -35,6 +38,31 @@ contract SimplexFacet {
         int24 highTick,
         uint24 fee,
         uint8 feeProtocol
+    );
+    /// Emitted when the adjustor is changed.
+    event AdjustorChanged(
+        address indexed admin,
+        address fromAdjustor,
+        address toAdjustor
+    );
+    /// Emitted when the BGT exchanger is changed.
+    event BGTExchangerChanged(
+        address indexed admin,
+        address indexed fromExchanger,
+        address indexed toExchanger
+    );
+    /// Emitted when the efficiency factor for a token is changed.
+    event EfficiencyFactorChanged(
+        address indexed admin,
+        address indexed token,
+        uint256 fromEsX128,
+        uint256 toEsX128
+    );
+    /// Emitted when the init target is changed.
+    event InitTargetChanged(
+        address indexed admin,
+        uint256 fromInitTarget,
+        uint256 toInitTarget
     );
     /// Emitted when search params are changed.
     event SearchParamsChanged(
@@ -168,6 +196,90 @@ contract SimplexFacet {
         }
     }
 
+    /// @notice Gets the efficiency factors for all tokens.
+    function getEsX128() external view returns (uint256[MAX_TOKENS] memory) {
+        return SimplexLib.getEsX128();
+    }
+
+    /// @notice Gets the efficiency factor for a given token.
+    /// @param token The address of the token.
+    function getEX128(address token) external view returns (uint256) {
+        return SimplexLib.getEX128(TokenRegLib.getIdx(token));
+    }
+
+    /// @notice Sets the efficiency factor for a given token.
+    /// @param token The address of the token.
+    /// @param eX128 The efficiency factor to set.
+    /// @dev Only callable by the contract owner.
+    function setEX128(address token, uint256 eX128) external {
+        AdminLib.validateOwner();
+        uint8 idx = TokenRegLib.getIdx(token);
+        emit EfficiencyFactorChanged(
+            msg.sender,
+            token,
+            SimplexLib.getEX128(idx),
+            eX128
+        );
+        SimplexLib.setEX128(idx, eX128);
+    }
+
+    /// @notice Gets the current adjustor.
+    function getAdjustor() external view returns (address) {
+        return SimplexLib.getAdjustor();
+    }
+
+    /// @notice Sets the adjustor.
+    /// @dev Only callable by the contract owner.
+    function setAdjustor(address adjustor) external {
+        AdminLib.validateOwner();
+
+        emit AdjustorChanged(msg.sender, SimplexLib.getAdjustor(), adjustor);
+        SimplexLib.setAdjustor(adjustor);
+
+        address[] memory tokens = Store.tokenRegistry().tokens;
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            IAdjustor(adjustor).cacheAdjustment(tokens[i]);
+        }
+    }
+
+    /// @notice Gets the current BGT exchanger.
+    function getBGTExchanger() external view returns (address) {
+        return SimplexLib.getBGTExchanger();
+    }
+
+    /// @notice Sets the BGT exchanger
+    /// @dev Only callable by the contract owner.
+    /// Migration to the next BGT exchanger should be completed before calling this function.
+    /// 1. Set the previous BGT exchanger as the backup on the next BGT exchanger.
+    /// 2. Add this contract as an allowed exchanger on the next BGT exchanger.
+    /// 3. Send the balance on the previous BGT exchanger to the next BGT exchanger.
+    function setBGTExchanger(address bgtExchanger) external {
+        AdminLib.validateOwner();
+        if (bgtExchanger == address(0x0)) revert BGTExchangerIsZeroAddress();
+        emit BGTExchangerChanged(
+            msg.sender,
+            SimplexLib.getBGTExchanger(),
+            bgtExchanger
+        );
+        SimplexLib.setBGTExchanger(bgtExchanger);
+    }
+
+    /// @notice Gets the current init target.
+    function getInitTarget() external view returns (uint256) {
+        return SimplexLib.getInitTarget();
+    }
+
+    /// @notice Sets the init target.
+    function setInitTarget(uint256 initTarget) external {
+        AdminLib.validateOwner();
+        emit InitTargetChanged(
+            msg.sender,
+            SimplexLib.getInitTarget(),
+            initTarget
+        );
+        SimplexLib.setInitTarget(initTarget);
+    }
+
     /// @notice Gets the current search params.
     function getSearchParams()
         external
@@ -195,16 +307,6 @@ contract SimplexFacet {
             params.targetSlippageX128
         );
     }
-
-    /* 
-    function setAdjustor(IAdjustor adj) external {
-        AdminLib.validateOwner();
-        Store.load().adjustor = adj;
-        address[] storage tokens = Store.tokenRegistry().tokens;
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            adj.cacheAdjustment(tokens[i]);
-        }
-    } */
 
     function setName(
         string calldata newName,

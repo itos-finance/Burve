@@ -88,14 +88,24 @@ library SimplexLib {
         }
     }
 
-    function setE(uint8 idx, uint256 eX128) internal {
+    /// @notice Gets the efficiency factors for all tokens.
+    function getEsX128() internal view returns (uint256[MAX_TOKENS] storage) {
+        return Store.simplex().esX128;
+    }
+
+    /// @notice Gets the efficiency factor for a given token by their index.
+    /// @param idx The index of the token.
+    function getEX128(uint8 idx) internal view returns (uint256) {
+        return Store.simplex().esX128[idx];
+    }
+
+    /// @notice Sets the efficiency factor for a given token by their index.
+    /// @param idx The index of the token.
+    /// @param eX128 The efficiency factor to set.
+    function setEX128(uint8 idx, uint256 eX128) internal {
         Simplex storage s = Store.simplex();
         s.esX128[idx] = eX128;
         s.minXPerTX128[idx] = ValueLib.calcMinXPerTX128(eX128);
-    }
-
-    function getEs() internal view returns (uint256[MAX_TOKENS] storage) {
-        return Store.simplex().esX128;
     }
 
     function bgtExchange(
@@ -113,15 +123,43 @@ library SimplexLib {
         unspent = amount - spentAmount;
     }
 
+    /// @notice Gets the current adjustor.
+    function getAdjustor() internal view returns (address) {
+        return Store.simplex().adjustor;
+    }
+
+    /// @notice Sets the adjustor.
+    function setAdjustor(address adjustor) internal {
+        Store.simplex().adjustor = adjustor;
+    }
+
+    /// @notice Gets the current BGT exchanger.
+    function getBGTExchanger() internal view returns (address) {
+        return Store.simplex().bgtEx;
+    }
+
+    /// @notice Sets the BGT exchanger.
+    function setBGTExchanger(address bgtExchanger) internal {
+        Store.simplex().bgtEx = bgtExchanger;
+    }
+
+    /// @notice Gets the current init target.
+    function getInitTarget() internal view returns (uint256) {
+        return Store.simplex().initTarget;
+    }
+
+    /// @notice Sets the init target.
+    function setInitTarget(uint256 initTarget) internal {
+        Store.simplex().initTarget = initTarget;
+    }
+
     /// @notice Gets the current search params.
     function getSearchParams() internal view returns (SearchParams memory) {
-        Simplex storage simplex = Store.simplex();
-        return simplex.searchParams;
+        return Store.simplex().searchParams;
     }
 
     /// @notice Sets the search params.
     function setSearchParams(SearchParams calldata params) internal {
-        Simplex storage simplex = Store.simplex();
-        simplex.searchParams = params;
+        Store.simplex().searchParams = params;
     }
 }
