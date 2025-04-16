@@ -13,6 +13,7 @@ import {AdjustorLib} from "../Adjustor.sol";
 import {SearchParams} from "../Value.sol";
 import {IBGTExchanger} from "../../integrations/BGTExchange/IBGTExchanger.sol";
 import {ReserveLib} from "../vertex/Reserve.sol";
+import {FullMath} from "../../FullMath.sol";
 
 /*
  @notice The facet for minting and burning liquidity. We will have helper contracts
@@ -111,8 +112,17 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        uint256 nominalRequired = c.addValueSingle(value, bgtValue, vid);
+        (uint256 nominalRequired, uint256 nominalTax) = c.addValueSingle(
+            value,
+            bgtValue,
+            vid
+        );
         requiredBalance = AdjustorLib.toReal(token, nominalRequired, true);
+        uint256 realTax = FullMath.mulDiv(
+            requiredBalance,
+            nominalTax,
+            nominalRequired
+        );
         if (maxRequired > 0)
             require(requiredBalance <= maxRequired, PastSlippageBounds());
         TransferHelper.safeTransferFrom(
@@ -121,7 +131,8 @@ contract ValueFacet is ReentrancyGuardTransient {
             address(this),
             requiredBalance
         );
-        Store.vertex(vid).deposit(cid, requiredBalance);
+        c.addEarnings(vid, realTax);
+        Store.vertex(vid).deposit(cid, requiredBalance - realTax);
         Store.assets().add(recipient, cid, value, bgtValue);
     }
 
@@ -144,17 +155,21 @@ contract ValueFacet is ReentrancyGuardTransient {
             address(this),
             amount
         );
-        Store.vertex(vid).deposit(cid, amount);
         SearchParams memory search = Store.simplex().searchParams;
         uint256 bgtValue;
-        (valueReceived, bgtValue) = c.addTokenForValue(
+        uint256 nominalTax;
+        uint256 nominalIn = AdjustorLib.toNominal(token, amount, false); // Round down value deposited.
+        (valueReceived, bgtValue, nominalTax) = c.addTokenForValue(
             vid,
-            AdjustorLib.toNominal(token, amount, false), // Round down value deposited.
+            nominalIn,
             bgtPercentX256,
             search
         );
         require(valueReceived > 0, DeMinimisDeposit());
         require(valueReceived >= minValue, PastSlippageBounds());
+        uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalIn);
+        c.addEarnings(vid, realTax);
+        Store.vertex(vid).deposit(cid, amount - realTax);
         Store.assets().add(recipient, cid, valueReceived, bgtValue);
     }
 
@@ -211,11 +226,22 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        uint256 removedNominal = c.removeValueSingle(value, bgtValue, vid);
-        removedBalance = AdjustorLib.toReal(token, removedNominal, false);
+        (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
+            value,
+            bgtValue,
+            vid
+        );
+        uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
+        Store.vertex(vid).withdraw(cid, realRemoved, false); // TODO should we round up? To make sure we ahve enough for the remove?
+        uint256 realTax = FullMath.mulDiv(
+            removedBalance,
+            nominalTax,
+            removedNominal
+        );
+        c.addEarnings(vid, realTax);
+        removedBalance = realRemoved - realTax; // How much the user actually gets.
         require(removedBalance >= minReceive, PastSlippageBounds());
         // Users can removed locked tokens as it helps derisk this protocol.
-        Store.vertex(vid).withdraw(cid, removedBalance, false);
         TransferHelper.safeTransfer(token, recipient, removedBalance);
         Store.assets().remove(msg.sender, cid, value, bgtValue);
     }
@@ -235,17 +261,22 @@ contract ValueFacet is ReentrancyGuardTransient {
         VertexId vid = VertexLib.newId(token); // Validates token.
         SearchParams memory search = Store.simplex().searchParams;
         uint256 bgtValue;
-        (valueGiven, bgtValue) = c.removeTokenForValue(
+        uint256 nominalTax;
+        uint256 nominalReceive = AdjustorLib.toNominal(token, amount, true); // RoundUp value removed.
+        (valueGiven, bgtValue, nominalTax) = c.removeTokenForValue(
             vid,
-            AdjustorLib.toNominal(token, amount, true), // Round up value removed.
+            nominalReceive,
             bgtPercentX256,
             search
         );
         require(valueGiven > 0, DeMinimisDeposit());
         if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
         Store.assets().remove(recipient, cid, valueGiven, bgtValue);
+        // Round down to avoid removing too much from the vertex.
+        uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
         // Users can removed locked tokens as it helps derisk this protocol.
-        Store.vertex(vid).withdraw(cid, amount, false);
+        Store.vertex(vid).withdraw(cid, amount + realTax, false);
+        c.addEarnings(vid, realTax);
         TransferHelper.safeTransfer(token, recipient, amount);
     }
 
