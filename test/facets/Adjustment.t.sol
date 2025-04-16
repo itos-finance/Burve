@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
-/*
+
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
@@ -22,124 +22,28 @@ contract AdjustmentTest is MultiSetupTest {
             )
         );
         simplexFacet.addVertex(tokens[2], address(vaults[2]), VaultType.E4626);
-
         _fundAccount(address(this));
+        _initializeClosure(0x7, 100e24);
     }
 
-    function testInitLiq() public {
-        // Mint some liquidity. We should put them in equal proportion according to their decimals.
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
-        amounts[2] = 100e6;
-        liqFacet.addLiq(address(this), 0x7, amounts);
-
-        uint160 sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertEq(sqrtPX96, 1 << 96);
-
-        // Had we minted with equal balances, 3 would be cheap.
-        amounts[0] = 0;
-        amounts[1] = 0;
-        amounts[2] = 100e18 - 100e6;
-        liqFacet.addLiq(address(this), 0x7, amounts);
-        // This will lower the third tokens price.
-        sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        if (tokens[2] < tokens[0]) {
-            assertLt(sqrtPX96, 1 << 96);
-        } else {
-            assertGt(sqrtPX96, 1 << 96);
-        }
+    function testInitLiq() public view {
+        // Check the initial liquidity minted is in "equal" proportion according to the decimal.
+        assertEq(MockERC20(tokens[0]).balanceOf(address(vaults[0])), 100e24);
+        assertEq(MockERC20(tokens[1]).balanceOf(address(vaults[1])), 100e24);
+        assertEq(MockERC20(tokens[2]).balanceOf(address(vaults[2])), 100e12);
     }
 
-    function testAddedShares() public {
-        // Mint some liquidity. We should put them in equal proportion according to their decimals.
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 1e18;
-        amounts[1] = 1e18;
-        amounts[2] = 1e6;
-        uint256 initLiq = liqFacet.addLiq(address(this), 0x7, amounts);
-
-        // These three mints should all be of roughly equal value.
-        amounts[0] = 1e12;
-        amounts[1] = 0;
-        amounts[2] = 0;
-        uint256 added0 = liqFacet.addLiq(address(this), 0x7, amounts);
-        amounts[0] = 0;
-        amounts[1] = 1e12;
-        amounts[2] = 0;
-        uint256 added1 = liqFacet.addLiq(address(this), 0x7, amounts);
-        amounts[0] = 0;
-        amounts[1] = 0;
-        amounts[2] = 1;
-        uint256 added2 = liqFacet.addLiq(address(this), 0x7, amounts);
-        assertApproxEqRel(initLiq / 3e6, added0, 1e16); // 1% diff
-        assertApproxEqRel(added0, added1, 1e16); // 1% diff.
-        assertApproxEqRel(added0, added2, 1e16); // 1% diff.
-        assertApproxEqRel(added1, added2, 1e16); // 1% diff.
-        // What appears odd at first is that adding these small amounts together gets successively more shares.
-        // This is because it slightly pushes down the price of the token after they deposit.
-        // So effective the induced slight arb is given to the next person LPing.
-        assertGt(added1, added0);
-        assertGt(added2, added1);
-        // To show this is not a property of the token, we now add 2 again.
-        uint256 added22 = liqFacet.addLiq(address(this), 0x7, amounts);
-        assertLt(added22, added2);
-        assertApproxEqRel(added22, added2, 1e16); // 1% diff.
-        // Being the first to move things out of balance is what causes it.
-        // In fact, at these small balances, the two "firsts" have equal shares.
-        assertEq(added0, added22);
+    function testAdds() public {
+        // Test that valueFacet.addValueSingle and addSingleForValue using 6 decimals on token 2 is the same value as using 18 on token 0.
+        // It'll be roughly the same because the target will change, with each add but they shouldn't be off by 12 decimals of course.
+        // Check balances before and after to double check transfer amounts.
     }
 
     function testSwap() public {
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
-        amounts[2] = 100e6;
-        liqFacet.addLiq(address(this), 0x7, amounts);
-
-        // Our swap should basically be one for one, adjusted.
-        (uint256 x, uint256 y, ) = swapFacet.simSwap(
-            tokens[0],
-            tokens[1],
-            10000,
-            1 << 95
-        );
-        assertApproxEqAbs(x, y, 1); // 1 for rounding.
-
-        (, uint256 refY, ) = swapFacet.simSwap(
-            tokens[0],
-            tokens[1],
-            1e12,
-            1 << 95
-        );
-
-        uint160 limit = tokens[2] < tokens[0] ? 1 << 95 : 1 << 97;
-        (, y) = swapFacet.swap(address(this), tokens[2], tokens[0], 1, limit); // The same as swapping 1e12.
-        assertEq(y, refY);
-        assertApproxEqAbs(y, 1e12, 1e5); // There's some slippage at this amount.
-    }
-
-    function testVault() public {
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 100e18;
-        amounts[1] = 100e18;
-        amounts[2] = 100e5;
-        liqFacet.addLiq(address(this), 0x7, amounts);
-
-        // Balance is currently insufficient.
-        uint160 sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        if (tokens[2] < tokens[0])
-            assertGt(sqrtPX96, 1 << 97); // More valuable, greater than 2.
-        else assertLt(sqrtPX96, 1 << 95); // The price is less than 0.5!
-
-        // Adding some tokens to the vault will skew prices because of the adjustment.
-        TransferHelper.safeTransfer(
-            tokens[2],
-            address(vaults[2]),
-            100e6 - 100e5 + 10 // Due to openzeppelin's ERC4626 conversions, directly sending tokens loses some dust.
-        );
-        sqrtPX96 = swapFacet.getSqrtPrice(tokens[2], tokens[0]);
-        assertEq(sqrtPX96, 1 << 96, "2");
+        // Test that swapping 18 decimals of one token gets us 6 decimals of another,
+        // but the amount limit happens on nominal values so an 18 decimal limit still works
+        // Like this should work even though the actual out amount will be something around 99
+        // swapFacet.swap(alice, tokens[0], tokens[2], 1e14, .98e14, 0x7);
+        // double check balances before and after for decimal accuracy.
     }
 }
-*/

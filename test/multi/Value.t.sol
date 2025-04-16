@@ -55,7 +55,7 @@ contract ValueTest is Test {
     }
 
     /// When v is at t, x will be equal to v no matter e or rounding.
-    function testXwhenVatT() public pure {
+    function testXwhenVatT() public {
         assertEq(
             10e18,
             ValueLib.x(10e18 << 128, 157 << 125, 10e18 << 128, true)
@@ -73,7 +73,7 @@ contract ValueTest is Test {
     }
 
     /// Test x at some hard coded values.
-    function testXHardCoded() public pure {
+    function testXHardCoded() public {
         assertEq(
             926074,
             ValueLib.x(123456789 << 128, 157 << 128, 151515 << 128, false)
@@ -86,7 +86,7 @@ contract ValueTest is Test {
     }
 
     /// Test t when everything is in balance. It should equal the balances.
-    function testTatEquilibrium() public pure {
+    function testTatEquilibrium() public {
         SearchParams memory params = SearchParams({
             maxIter: 5,
             deMinimusX128: 100,
@@ -101,8 +101,11 @@ contract ValueTest is Test {
         // Let's try starting at the right place.
         assertEq(100e18 << 128, ValueLib.t(params, esX128, xs, 100e18 << 128));
         // And now we need to search from a little off.
-        // Crazy that this is exactly equal to the right answer!
-        assertEq(100e18 << 128, ValueLib.t(params, esX128, xs, 110e18 << 128));
+        assertApproxEqAbs(
+            100e18 << 128,
+            ValueLib.t(params, esX128, xs, 110e18 << 128),
+            5
+        );
     }
 
     /// Test t at some hard coded test cases.

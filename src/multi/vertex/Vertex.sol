@@ -6,6 +6,7 @@ import {ReserveLib} from "./Reserve.sol";
 import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {FullMath} from "../../FullMath.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
 /**
  * Vertices supply tokens to the closures. Each tracks the total balance of one token.
@@ -64,6 +65,7 @@ library VertexImpl {
         uint256 value,
         uint256 bgtValue
     ) internal returns (uint256 reserveSharesEarned, uint256 bgtResidual) {
+        console.log("trimming", self.vid.idx());
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         uint256 realBalance = vProxy.balance(cid, false);
         if (targetReal > realBalance)
@@ -77,6 +79,7 @@ library VertexImpl {
             residualReal - bgtResidual
         );
         vProxy.commit();
+        console.log("done trimming", self.vid.idx());
     }
 
     /// Closures deposit a real amount into this Vertex.

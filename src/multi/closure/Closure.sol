@@ -45,6 +45,9 @@ using ClosureImpl for Closure global;
 
 library ClosureImpl {
     uint256 public constant ONEX128 = 1 << 128;
+    // We set a hard limit on the token balance which keeps etX128 in value within 256 bits.
+    // This is a little less than 80 Billion * 10e18.
+    uint256 public constant HARD_BALANCE_CAP = 1 << 96;
     event WarningExcessValueDetected(
         ClosureId cid,
         uint256 maxValue,
@@ -367,7 +370,7 @@ library ClosureImpl {
         VertexId inVid,
         VertexId outVid,
         uint256 inAmount
-    ) internal returns (uint256 outAmount) {
+    ) internal returns (uint256 outAmount, uint256 valueExchangedX128) {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         trimBalance(self, inVid);
@@ -380,12 +383,13 @@ library ClosureImpl {
         addEarnings(self, inIdx, tax);
         inAmount -= tax;
         // Calculate the value added by the in token.
-        uint256 valueAddedX128 = ValueLib.v(
-            self.targetX128,
-            esX128[inIdx],
-            self.balances[inIdx] + inAmount,
-            false
-        ) -
+        valueExchangedX128 =
+            ValueLib.v(
+                self.targetX128,
+                esX128[inIdx],
+                self.balances[inIdx] + inAmount,
+                false
+            ) -
             ValueLib.v(
                 self.targetX128,
                 esX128[inIdx],
@@ -403,7 +407,7 @@ library ClosureImpl {
             self.balances[outIdx],
             true
         );
-        uint256 newOutValueX128 = currentOutValueX128 - valueAddedX128;
+        uint256 newOutValueX128 = currentOutValueX128 - valueExchangedX128;
         uint256 newOutBalance = ValueLib.x(
             self.targetX128,
             esX128[outIdx],
@@ -421,7 +425,7 @@ library ClosureImpl {
         VertexId inVid,
         VertexId outVid,
         uint256 outAmount
-    ) internal returns (uint256 inAmount) {
+    ) internal returns (uint256 inAmount, uint256 valueExchangedX128) {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         trimBalance(self, inVid);
@@ -431,12 +435,13 @@ library ClosureImpl {
         uint8 inIdx = inVid.idx();
         uint8 outIdx = outVid.idx();
         // Calculate the value removed by the out token.
-        uint256 valueRemovedX128 = ValueLib.v(
-            self.targetX128,
-            esX128[outIdx],
-            self.balances[outIdx],
-            true
-        ) -
+        valueExchangedX128 =
+            ValueLib.v(
+                self.targetX128,
+                esX128[outIdx],
+                self.balances[outIdx],
+                true
+            ) -
             ValueLib.v(
                 self.targetX128,
                 esX128[outIdx],
@@ -453,7 +458,7 @@ library ClosureImpl {
             self.balances[inIdx],
             false
         );
-        uint256 newInValueX128 = currentInValueX128 + valueRemovedX128;
+        uint256 newInValueX128 = currentInValueX128 + valueExchangedX128;
         uint256 newInBalance = ValueLib.x(
             self.targetX128,
             esX128[inIdx],
@@ -521,7 +526,9 @@ library ClosureImpl {
         VertexId inVid,
         VertexId outVid,
         uint256 inAmount
-    ) internal view returns (uint256 outAmount) {
+    ) internal view returns (uint256 outAmount, uint256 valueExchangedX128) {
+        require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
+        require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         // The value in this pool won't change.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
@@ -529,12 +536,13 @@ library ClosureImpl {
         uint256 tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
         inAmount -= tax;
         // Calculate the value added by the in token.
-        uint256 valueAddedX128 = ValueLib.v(
-            self.targetX128,
-            esX128[inIdx],
-            self.balances[inIdx] + inAmount,
-            false
-        ) -
+        valueExchangedX128 =
+            ValueLib.v(
+                self.targetX128,
+                esX128[inIdx],
+                self.balances[inIdx] + inAmount,
+                false
+            ) -
             ValueLib.v(
                 self.targetX128,
                 esX128[inIdx],
@@ -551,7 +559,7 @@ library ClosureImpl {
             self.balances[outIdx],
             true
         );
-        uint256 newOutValueX128 = currentOutValueX128 - valueAddedX128;
+        uint256 newOutValueX128 = currentOutValueX128 - valueExchangedX128;
         uint256 newOutBalance = ValueLib.x(
             self.targetX128,
             esX128[outIdx],
@@ -567,17 +575,20 @@ library ClosureImpl {
         VertexId inVid,
         VertexId outVid,
         uint256 outAmount
-    ) internal view returns (uint256 inAmount) {
+    ) internal view returns (uint256 inAmount, uint256 valueExchangedX128) {
+        require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
+        require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         uint8 inIdx = inVid.idx();
         uint8 outIdx = outVid.idx();
         // Calculate the value removed by the out token.
-        uint256 valueRemovedX128 = ValueLib.v(
-            self.targetX128,
-            esX128[outIdx],
-            self.balances[outIdx],
-            true
-        ) -
+        valueExchangedX128 =
+            ValueLib.v(
+                self.targetX128,
+                esX128[outIdx],
+                self.balances[outIdx],
+                true
+            ) -
             ValueLib.v(
                 self.targetX128,
                 esX128[outIdx],
@@ -593,7 +604,7 @@ library ClosureImpl {
             self.balances[inIdx],
             false
         );
-        uint256 newInValueX128 = currentInValueX128 + valueRemovedX128;
+        uint256 newInValueX128 = currentInValueX128 + valueExchangedX128;
         uint256 newInBalance = ValueLib.x(
             self.targetX128,
             esX128[inIdx],
@@ -747,7 +758,11 @@ library ClosureImpl {
             true
         );
         uint256 twiceTarget = self.targetX128 >> 127;
-        if (newBalance < minX || twiceTarget < newBalance)
+        if (
+            newBalance < minX ||
+            twiceTarget < newBalance ||
+            HARD_BALANCE_CAP < newBalance
+        )
             revert TokenBalanceOutOfBounds(
                 self.cid,
                 idx,

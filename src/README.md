@@ -11,8 +11,7 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 
 
 TODO:
-- Add min swap size to avoid gaming de minimus
-- Should we just explicitly check balances are less than like 2^120? Or something, so math is 100% safe? - This would limit t as well.
-
-If there is time, potentially add bid ask from itos?
-Get closure method returns balances, target, fees from closure Id.
+- Add min swap size to avoid gaming de minimus?
+- Value Tests
+- Value Token tests - brian
+- Vertex Trim Balance tests

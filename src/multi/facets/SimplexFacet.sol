@@ -71,8 +71,25 @@ contract SimplexFacet {
         int256 deMinimusX128,
         int256 targetSlippageX128
     );
+    /// Emitted when the fees for a closure are changed.
+    event NewFees(
+        uint16 closure,
+        uint128 baseFeeX128,
+        uint128 protocolTakeX128
+    );
 
     /* Getters */
+
+    /// Get an identifier for this Simplex
+    function getName()
+        external
+        view
+        returns (string memory name, string memory symbol)
+    {
+        Simplex storage s = Store.simplex();
+        name = s.name;
+        symbol = s.symbol;
+    }
 
     /// @notice Get everything value-related about a closure.
     function getClosure(
@@ -362,19 +379,22 @@ contract SimplexFacet {
         string calldata newName,
         string calldata newSymbol
     ) external {
+        AdminLib.validateOwner();
         Simplex storage s = Store.simplex();
         s.name = newName;
         s.symbol = newSymbol;
         emit NewName(newName, newSymbol);
     }
 
-    function getName()
-        external
-        view
-        returns (string memory name, string memory symbol)
-    {
-        Simplex storage s = Store.simplex();
-        name = s.name;
-        symbol = s.symbol;
+    function setFees(
+        uint16 closure,
+        uint128 baseFeeX128,
+        uint128 protocolTakeX128
+    ) external {
+        AdminLib.validateOwner();
+        Closure storage c = Store.closure(ClosureId.wrap(closure));
+        c.baseFeeX128 = baseFeeX128;
+        c.protocolTakeX128 = protocolTakeX128;
+        emit NewFees(closure, baseFeeX128, protocolTakeX128);
     }
 }

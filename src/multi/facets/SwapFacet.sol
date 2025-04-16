@@ -9,6 +9,7 @@ import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal (meaning they should be around 1 to 1).
@@ -21,7 +22,8 @@ contract SwapFacet is ReentrancyGuardTransient {
         address indexed inToken,
         address indexed outToken,
         uint256 inAmount,
-        uint256 outAmount
+        uint256 outAmount,
+        uint256 valueExchangedX128
     ); // Real amounts.
 
     /// Thrown when the amount in/out requested by the swap is larger/smaller than acceptable.
@@ -54,6 +56,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         // Validates the closure.
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
+        uint256 valueExchangedX128;
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
             uint256 nominalIn = AdjustorLib.toNominal(
@@ -61,7 +64,12 @@ contract SwapFacet is ReentrancyGuardTransient {
                 inAmount,
                 false
             );
-            uint256 nominalOut = c.swapInExact(inVid, outVid, nominalIn);
+            uint256 nominalOut;
+            (nominalOut, valueExchangedX128) = c.swapInExact(
+                inVid,
+                outVid,
+                nominalIn
+            );
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
             require(
                 outAmount >= amountLimit,
@@ -74,7 +82,12 @@ contract SwapFacet is ReentrancyGuardTransient {
                 outAmount,
                 true
             );
-            uint256 nominalIn = c.swapOutExact(inVid, outVid, nominalOut);
+            uint256 nominalIn;
+            (nominalIn, valueExchangedX128) = c.swapOutExact(
+                inVid,
+                outVid,
+                nominalOut
+            );
             inAmount = AdjustorLib.toReal(inVid.idx(), nominalIn, true);
             if (amountLimit != 0) {
                 require(
@@ -82,6 +95,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                     SlippageSurpassed(amountLimit, inAmount, false)
                 );
             }
+            console.log(inAmount, outAmount);
         }
         if (inAmount > 0) {
             TransferHelper.safeTransferFrom(
@@ -90,7 +104,9 @@ contract SwapFacet is ReentrancyGuardTransient {
                 address(this),
                 inAmount
             );
+            console.log("transfered, now depositing");
             Store.vertex(inVid).deposit(cid, inAmount);
+            console.log("withdrawn");
             Store.vertex(outVid).withdraw(cid, outAmount, true);
             require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
@@ -102,7 +118,8 @@ contract SwapFacet is ReentrancyGuardTransient {
             inToken,
             outToken,
             inAmount,
-            outAmount
+            outAmount,
+            valueExchangedX128
         );
     }
 
@@ -114,7 +131,15 @@ contract SwapFacet is ReentrancyGuardTransient {
         address outToken,
         int256 amountSpecified,
         uint16 cid
-    ) external view returns (uint256 inAmount, uint256 outAmount) {
+    )
+        external
+        view
+        returns (
+            uint256 inAmount,
+            uint256 outAmount,
+            uint256 valueExchangedX128
+        )
+    {
         // Validates the tokens.
         VertexId inVid = VertexLib.newId(inToken);
         VertexId outVid = VertexLib.newId(outToken);
@@ -126,7 +151,12 @@ contract SwapFacet is ReentrancyGuardTransient {
                 inAmount,
                 false
             );
-            uint256 nominalOut = c.simSwapInExact(inVid, outVid, nominalIn);
+            uint256 nominalOut;
+            (nominalOut, valueExchangedX128) = c.simSwapInExact(
+                inVid,
+                outVid,
+                nominalIn
+            );
             outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
         } else {
             outAmount = uint256(-amountSpecified);
@@ -135,7 +165,12 @@ contract SwapFacet is ReentrancyGuardTransient {
                 outAmount,
                 true
             );
-            uint256 nominalIn = c.simSwapOutExact(inVid, outVid, nominalOut);
+            uint256 nominalIn;
+            (nominalIn, valueExchangedX128) = c.simSwapOutExact(
+                inVid,
+                outVid,
+                nominalOut
+            );
             inAmount = AdjustorLib.toReal(inVid.idx(), nominalIn, true);
         }
     }

@@ -29,10 +29,10 @@ struct Simplex {
 
 /// Convenient methods frequently requested by other parts of the pool.
 library SimplexLib {
-    /// There no logical reason for e to be larger than 1000. This also
+    /// There no logical reason for e to be larger than 2^12. This also
     /// limits the bits to under ten which affords 118 bits for t in ValueLib calculations
     /// which is more than sufficient.
-    uint256 public constant MAX_E_X128 = 1000 << 128;
+    uint256 public constant MAX_E_X128 = 1 << (12 + 128);
 
     /// Thrown when attempting to assign an e that is too large.
     error OversizedEfficiencyAssignment(uint256);
