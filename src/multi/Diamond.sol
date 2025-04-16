@@ -123,7 +123,7 @@ contract SimplexDiamond is IDiamond {
             simplexSelectors[14] = SimplexFacet.getClosure.selector;
             simplexSelectors[15] = SimplexFacet.getClosureFees.selector;
             simplexSelectors[16] = SimplexFacet.setFees.selector;
-            simplexSelectors[17] = SimplexFacet.protocolEarnings.selector;
+            simplexSelectors[17] = SimplexFacet.getNumVertices.selector;
             cuts[5] = FacetCut({
                 facetAddress: facets.simplexFacet,
                 action: FacetCutAction.Add,

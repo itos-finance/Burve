@@ -467,6 +467,12 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.expectRevert(AdminLib.NotOwner.selector);
         simplexFacet.setSearchParams(sp);
     }
+
+    // -- getNumVertices tests ----
+
+    function testGetNumVertices() public view {
+        assertEq(simplexFacet.getNumVertices(), tokens.length);
+    }
 }
 
 contract SimplexFacetVertexTest is MultiSetupTest {

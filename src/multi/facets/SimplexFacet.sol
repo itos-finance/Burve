@@ -178,12 +178,12 @@ contract SimplexFacet {
             }
         }
     }
+    */
 
-    /// TODO move to new view facet
-    /// Get the number of currently installed vertices
-    function numVertices() external view returns (uint8) {
+    /// @notice Gets the number of currently installed vertices
+    function getNumVertices() external view returns (uint8) {
         return TokenRegLib.numVertices();
-    } */
+    }
 
     /* Admin Function */
 
