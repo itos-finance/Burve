@@ -704,6 +704,24 @@ contract SimplexFacetTest is MultiSetupTest {
         simplexFacet.getIdx(address(0xA));
     }
 
+    // -- getVertexId ----
+
+    function testGetVertexId() public view {
+        assertEq(simplexFacet.getVertexId(tokens[0]), 1 << 8);
+        assertEq(simplexFacet.getVertexId(tokens[1]), (1 << 9) + 1);
+        assertEq(simplexFacet.getVertexId(tokens[2]), (1 << 10) + 2);
+    }
+
+    function testRevertGetVertexIdTokenNotFound() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenRegLib.TokenNotFound.selector,
+                address(0xA)
+            )
+        );
+        simplexFacet.getVertexId(address(0xA));
+    }
+
     // -- name tests ----
 
     function testSetName() public {

@@ -151,31 +151,6 @@ contract SimplexFacet {
         return SimplexLib.protocolEarnings();
     }
 
-    /*
-    /// TODO move to new view facet
-    /// Convert your token of interest to the vertex id which you can
-    /// sum with other vertex ids to create a closure Id.
-    function getVertexId(address token) external view returns (uint16 vid) {
-        return VertexId.unwrap(newVertexId(token));
-    }
-
-    /// TODO move to new view facet
-    /// Fetch the vertex index of the given token addresses.
-    /// Returns a negative value if the token is not present.
-    function getIndexes(
-        address[] calldata tokens
-    ) external view returns (int8[] memory idxs) {
-        TokenRegistry storage reg = Store.tokenRegistry();
-        idxs = new int8[](tokens.length);
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            idxs[i] = int8(reg.tokenIdx[tokens[i]]);
-            if (idxs[i] == 0 && reg.tokens[0] != tokens[i]) {
-                idxs[i] = -1;
-            }
-        }
-    }
-    */
-
     /// @notice Gets the list of registered tokens.
     function getTokens() external view returns (address[] memory) {
         return Store.tokenRegistry().tokens;
@@ -189,6 +164,11 @@ contract SimplexFacet {
     /// @notice Gets the index of a registered token by address.
     function getIdx(address token) external view returns (uint8) {
         return TokenRegLib.getIdx(token);
+    }
+
+    /// @notice Gets the vertex Id of a token by address.
+    function getVertexId(address token) external view returns (uint24) {
+        return VertexId.unwrap(VertexLib.newId(token));
     }
 
     /* Admin Function */
