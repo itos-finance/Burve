@@ -163,8 +163,8 @@ contract MultiSetupTest is Test {
     function _initializeClosure(
         uint16 _cid,
         uint128 startingTarget,
-        uint256 baseFeeX128,
-        uint256 protocolTakeX128
+        uint128 baseFeeX128,
+        uint128 protocolTakeX128
     ) internal {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
