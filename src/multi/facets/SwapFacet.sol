@@ -47,7 +47,7 @@ contract SwapFacet is ReentrancyGuardTransient {
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
     /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
-    /// However, if amountLimit is zero, it is not enforced.
+    /// However, if amountLimit is zero, it is not enforced. Note that this is a real value.
     /// @param _cid The closure we choose to swap through.
     function swap(
         address recipient,

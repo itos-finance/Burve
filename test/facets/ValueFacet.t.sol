@@ -144,7 +144,13 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(diffs[3], 0);
 
         // We have no value to remove.
-        vm.expectRevert(AssetBookImpl.InsufficientValue.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetBookImpl.InsufficientValue.selector,
+                0,
+                5e18
+            )
+        );
         valueFacet.removeValueSingle(alice, 0x9, 5e18, 1e18, tokens[0], 0);
         // But alice does.
         initBalances = getBalances(alice);
@@ -338,7 +344,48 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(bgtEarnings, 0);
         earnings1 = earnings[1];
 
-        /// Test deposits earn bgt as we collect fees with bgt value.
+        // Now check that the query reported earnings are accurate with respect to our actual collect.
+        uint256[4] memory initBalances = getBalances(address(this));
+        (
+            uint256[MAX_TOKENS] memory collectedBalances,
+            uint256 collectedBgt
+        ) = valueFacet.collectEarnings(address(this), 0xA);
+        uint256[4] memory finalBalances = getBalances(address(this));
+        int256[4] memory diffs = diffBalances(finalBalances, initBalances);
+        assertEq(collectedBgt, 0);
+
+        assertEq(collectedBalances[1], earnings[1]);
+        assertEq(uint256(diffs[1]), collectedBalances[1]);
+
+        // Now we add some value with bgtValue.
+        valueFacet.addValue(address(this), 0xA, 5e12, 4e12);
+        // We don't quite earn bgt yet without an exchanger.
+        MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+        (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+        assertEq(bgtEarnings, 0);
+        earnings1 = earnings[1];
+
+        vm.startPrank(owner);
+        _installBGTExchanger();
+        vm.stopPrank();
+        // Now when we earn fees, part of it is 1 to 1 exchanged for bgt.
+        MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+        uint256 bgtValueStaked;
+        (valueStaked, bgtValueStaked, earnings, bgtEarnings) = valueFacet
+            .queryValue(address(this), 0xA);
+        assertGt(bgtEarnings, 0);
+        assertApproxEqAbs(bgtEarnings + earnings[1], 2 * earnings1, 2);
+
         /// Test after removing, there are no more fees earned. Test that with query then an add and remove. As in fee claims remain unchanged.
+        valueFacet.removeValue(
+            address(this),
+            0xA,
+            uint128(valueStaked),
+            uint128(bgtValueStaked)
+        );
+        MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+        (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+        assertEq(earnings[1], 0);
+        assertEq(bgtEarnings, 0);
     }
 }
