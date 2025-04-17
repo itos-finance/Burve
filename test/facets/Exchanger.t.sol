@@ -31,7 +31,7 @@ contract ExchangerTest is MultiSetupTest {
         _newDiamond();
         _installBGTExchanger();
         _newTokens(2);
-        _initializeClosure(3);
+        _initializeClosure(3, INITIAL_VALUE, 1 << 127, 1 << 127);
         _fundAccount(alice);
         _fundAccount(bob);
         vm.stopPrank();
@@ -47,7 +47,7 @@ contract ExchangerTest is MultiSetupTest {
         vm.stopPrank();
 
         // Perform swap from token0 to token1
-        uint256 swapAmount = 1e21;
+        uint256 swapAmount = 1e23;
         vm.startPrank(bob);
         swapFacet.swap(
             bob, // recipient

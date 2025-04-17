@@ -159,6 +159,31 @@ contract MultiSetupTest is Test {
         simplexFacet.addClosure(cid, initValue, 0, 0);
     }
 
+    /// Initalize a zero fee closure with the initial value amount.
+    function _initializeClosure(
+        uint16 _cid,
+        uint128 startingTarget,
+        uint256 baseFeeX128,
+        uint256 protocolTakeX128
+    ) internal {
+        // Mint ourselves enough to fund the initial target of the pool.
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            if ((1 << i) & _cid > 0) {
+                MockERC20(tokens[i]).mint(owner, startingTarget);
+                MockERC20(tokens[i]).approve(
+                    address(diamond),
+                    type(uint256).max
+                );
+            }
+        }
+        simplexFacet.addClosure(
+            _cid,
+            startingTarget,
+            baseFeeX128,
+            protocolTakeX128
+        );
+    }
+
     /// Creates a bgt token, funds the initial mint to the bgtexchanger, sets the rates at 1 to 1,
     /// and installs it onto the diamond.
     /// Feel free to use the owner to set the rate however you'd like.

@@ -6,6 +6,8 @@ import {MAX_TOKENS} from "./Constants.sol";
 import {Store} from "./Store.sol";
 import {TokenRegLib} from "./Token.sol";
 import {ValueLib, SearchParams} from "./Value.sol";
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 /** TODO: NEEDS TESTS for bgtexchange */
 
@@ -127,6 +129,7 @@ library SimplexLib {
         if (s.bgtEx == address(0)) return (0, amount);
         address token = TokenRegLib.getToken(idx);
         uint256 spentAmount;
+        SafeERC20.forceApprove(IERC20(token), s.bgtEx, amount);
         (bgtEarned, spentAmount) = IBGTExchanger(s.bgtEx).exchange(
             token,
             uint128(amount) // safe cast since amount cant possibly be more than 1e30
