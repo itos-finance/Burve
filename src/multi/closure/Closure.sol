@@ -73,6 +73,8 @@ library ClosureImpl {
         uint256 minBalance,
         uint256 maxBalance
     );
+    /// Thrown when trying to unstake from a closure with a locked token.
+    error CannotRemoveWithLockedVertex(ClosureId cid);
 
     /// Initialize a closure and add a small balance of each token to get it started. This balance is burned.
     function init(
@@ -247,6 +249,7 @@ library ClosureImpl {
         uint256 bgtValue,
         VertexId vid
     ) internal returns (uint256 removedAmount, uint256 tax) {
+        require(!isAnyLocked(self), CannotRemoveWithLockedVertex(self.cid));
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
         uint256 scaleX128 = ONEX128 -
@@ -337,6 +340,7 @@ library ClosureImpl {
         uint256 bgtPercentX256,
         SearchParams memory searchParams
     ) internal returns (uint256 value, uint256 bgtValue, uint256 tax) {
+        require(!isAnyLocked(self), CannotRemoveWithLockedVertex(self.cid));
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
         uint8 idx = vid.idx();
@@ -497,6 +501,7 @@ library ClosureImpl {
         uint256 bgtValue
     ) internal {
         trimAllBalances(self);
+        require(!isAnyLocked(self), CannotRemoveWithLockedVertex(self.cid));
         // Unstakers can't remove more than deminimus.
         if (self.valueStaked < value + SimplexLib.deMinimusValue())
             revert InsufficientUnstakeAvailable(
@@ -868,5 +873,21 @@ library ClosureImpl {
                     );
             }
         }
+    }
+
+    /// Check if any of the tokens in this closure are locked.
+    function isAnyLocked(
+        Closure storage self
+    ) internal returns (bool isLocked) {
+        for (
+            VertexId vIter = VertexLib.minId();
+            !vIter.isStop();
+            vIter = vIter.inc()
+        ) {
+            if (self.cid.contains(vIter)) {
+                if (Store.vertex(vIter).isLocked()) return true;
+            }
+        }
+        return false;
     }
 }

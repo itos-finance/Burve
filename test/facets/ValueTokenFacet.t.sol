@@ -16,6 +16,7 @@ contract ValueTokenFacetTest is MultiSetupTest {
         _newDiamond();
         _newTokens(2);
         _initializeClosure(3); // Initialize closure with both tokens
+        _initializeClosure(1);
         vm.stopPrank();
 
         _fundAccount(alice);
@@ -46,6 +47,16 @@ contract ValueTokenFacetTest is MultiSetupTest {
         vm.stopPrank();
 
         assertEq(valueTokenFacet.balanceOf(alice), value);
+    }
+
+    function testExcessValue() public {
+        vm.startPrank(alice);
+        valueFacet.addValue(alice, 3, 100, 0);
+        valueTokenFacet.mint(100, 0, 3);
+        vm.expectRevert();
+        // Can't add to value when it is already full.
+        valueTokenFacet.burn(100, 0, 1);
+        vm.stopPrank();
     }
 
     function test_MintValue_RevertWhenTokenValueExceedsValue() public {
@@ -188,5 +199,16 @@ contract ValueTokenFacetTest is MultiSetupTest {
         // Verify final balances
         assertEq(valueTokenFacet.balanceOf(alice), 0);
         assertEq(valueTokenFacet.balanceOf(bob), 0);
+    }
+
+    function test_unstakeFromLock() public {
+        vm.prank(alice);
+        valueFacet.addValue(alice, 3, 100e18, 0);
+        vm.prank(owner);
+        lockFacet.lock(tokens[1]);
+        vm.startPrank(alice);
+        vm.expectRevert();
+        valueTokenFacet.mint(100e18, 0, 3);
+        vm.stopPrank();
     }
 }

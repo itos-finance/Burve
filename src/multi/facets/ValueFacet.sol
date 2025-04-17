@@ -240,7 +240,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         c.addEarnings(vid, realTax);
         removedBalance = realRemoved - realTax; // How much the user actually gets.
         require(removedBalance >= minReceive, PastSlippageBounds());
-        // Users can removed locked tokens as it helps derisk this protocol.
         TransferHelper.safeTransfer(token, recipient, removedBalance);
     }
 
@@ -272,7 +271,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
         // Round down to avoid removing too much from the vertex.
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
-        // Users can removed locked tokens as it helps derisk this protocol.
         Store.vertex(vid).withdraw(cid, amount + realTax, false);
         c.addEarnings(vid, realTax);
         TransferHelper.safeTransfer(token, recipient, amount);
