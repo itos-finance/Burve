@@ -218,11 +218,18 @@ contract ValueFacetTest is MultiSetupTest {
     }
 
     function testAddRemoveSingleForValue() public {
+        vm.startPrank(alice);
         // Simply add and remove.
         valueFacet.addSingleForValue(alice, 0xF, tokens[2], 1e18, 0, 0);
-
-        /// Test that a single value add can't raise by too much. Same with token add.
-        /// Test that a single value remove can't lower by too much. Same with token remove.
+        // Too large
+        vm.expectRevert();
+        valueFacet.addSingleForValue(alice, 0xF, tokens[2], 1e24, 0, 0);
+        valueFacet.addSingleForValue(alice, 0xF, tokens[2], 1e20, 0, 0);
+        // Too large from other token.
+        vm.expectRevert();
+        valueFacet.removeSingleForValue(alice, 0xF, tokens[0], 1e20, 0, 0);
+        valueFacet.removeSingleForValue(alice, 0xF, tokens[0], 1e18, 0, 0);
+        vm.stopPrank();
     }
 
     function testAddRemoveSymmetries() public {
@@ -298,6 +305,48 @@ contract ValueFacetTest is MultiSetupTest {
         assertApproxEqRel(v1, v0, 1, "vvvs");
         assertLt(tokensReceived, tokensSent);
         assertApproxEqRel(tokensReceived, tokensSent, 1e5, "tkvvs");
+    }
+
+    function testSymmetryWithFees() public {
+        // When fees exist, we lose value so we can't remove the same amount anymore.
+        uint256 oneX128 = 1 << 128;
+        vm.prank(owner);
+        simplexFacet.setClosureFees(0xD, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
+        valueFacet.addSingleForValue(
+            address(this),
+            0xD,
+            tokens[2],
+            17e18,
+            0,
+            0
+        );
+        vm.expectRevert();
+        valueFacet.removeSingleForValue(
+            address(this),
+            0xD,
+            tokens[2],
+            17e18 - 1,
+            0,
+            0
+        );
+
+        uint256 tokensSent = valueFacet.addValueSingle(
+            address(this),
+            0xD,
+            13e13,
+            12e12,
+            tokens[2],
+            0
+        );
+        uint256 tokensReceived = valueFacet.removeValueSingle(
+            address(this),
+            0xD,
+            13e13,
+            12e12,
+            tokens[2],
+            0
+        );
+        assertGt(tokensSent, tokensReceived);
     }
 
     /// TODO: Test  that add n* value split among n tokens is the same as m*value split among m tokens.
