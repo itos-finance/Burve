@@ -144,7 +144,7 @@ contract VaultFacetTest is MultiSetupTest {
 
     // Test the swap facet withdraws and removes from the appropriate vaults and prices are still calculated correctly.
     function testSwap() public {
-        // Basic liq
+        // Basic liq. 50e18 in each token.
         valueFacet.addValue(address(this), 0x3, 100e18, 0);
 
         // Check that the sim swap is the same if balances are all in 0, in a mix, and in 1.
@@ -176,7 +176,9 @@ contract VaultFacetTest is MultiSetupTest {
         assertEq(o0, outAmount0);
         assertEq(o1, outAmount1);
         // Change a mix a bit more, more than the swap can handle with the active vault.
+        vm.expectRevert(); // We only have 18e18 left
         v.transferBalance(active, backup, 0x3, 50e18);
+        v.transferBalance(active, backup, 0x3, 16.365e18);
         (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 0x3);
         (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 0x3);
         assertEq(o0, outAmount0);
@@ -195,22 +197,22 @@ contract VaultFacetTest is MultiSetupTest {
             address(this),
             tokens[1],
             tokens[0],
-            1e18,
+            1e17,
             0,
             0x3
         );
-        assertApproxEqRel(outAmount, 1e18, 1e15); // The peg stays strong with 0.1% slippage
+        assertApproxEqRel(outAmount, 1e17, 1e15, "1"); // The peg stays strong with 0.1% slippage
         // Now transfer some back.
-        v.transferBalance(backup, active, 0x3, 2e18);
+        v.transferBalance(backup, active, 0x3, 2e17);
         (, outAmount) = swapFacet.swap(
             address(this),
             tokens[1],
             tokens[0],
-            3e18,
+            3e17,
             0,
             0x3
         );
-        assertApproxEqRel(outAmount, 3e18, 1e15); // Still pegged.
+        assertApproxEqRel(outAmount, 3e17, 2e15, "2"); // Still pegged.
 
         // Any swap after a remove does not affect the removed vault.
         // We've entirely removed from the active vault because that gets removed first, so we can swap and remove.

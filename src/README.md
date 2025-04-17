@@ -12,5 +12,5 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 
 TODO:
 - Value Tests
-- Asset.t.sol
-- ReserveLib tests? - Need vault setup.
+- Asset.t.sol - Easy but takes time. Indirectly tested by value.
+- ReserveLib tests? - Need vault setup. - Not as important as its pretty straight forward and indirectly tested.
