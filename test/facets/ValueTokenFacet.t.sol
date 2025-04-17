@@ -72,22 +72,18 @@ contract ValueTokenFacetTest is MultiSetupTest {
         // First add some value to the closure for alice
         vm.startPrank(alice);
         valueFacet.addValue(alice, 3, uint128(value), uint128(tokenValue));
-        vm.stopPrank();
 
         // First mint some tokens
-        vm.startPrank(alice);
         valueTokenFacet.mint(value, tokenValue, 3);
-        vm.stopPrank();
 
-        // Then burn them
-        vm.startPrank(alice);
+        vm.expectRevert();
+        valueFacet.removeValue(alice, 3, uint128(value), uint128(tokenValue));
+
         valueTokenFacet.burn(value, tokenValue, 3);
-        vm.stopPrank();
 
         assertEq(valueTokenFacet.balanceOf(alice), 0);
 
         // Now remove the value and verify we get back similar amounts
-        vm.startPrank(alice);
         uint256[MAX_TOKENS] memory receivedBalances = valueFacet.removeValue(
             alice,
             3,
