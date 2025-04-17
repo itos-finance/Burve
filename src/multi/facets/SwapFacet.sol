@@ -14,6 +14,11 @@ import {SafeCast} from "Commons/Math/Cast.sol";
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal (meaning they should be around 1 to 1).
 contract SwapFacet is ReentrancyGuardTransient {
+    /// We restrict swaps to be larger than this size as to avoid
+    /// people gaming the deMinimus. Although even then, that's not too big of an issue.
+    /// This is a nominal value.
+    uint128 public constant MIN_SWAP_SIZE = 16e8;
+
     /// We don't report prices because it's not useful since later swaps in other tokens
     /// can change other implied prices in the same hyper-edge.
     event Swap(
@@ -35,6 +40,9 @@ contract SwapFacet is ReentrancyGuardTransient {
 
     /// Non-empty input for an empty output. Undesirable for the swapper.
     error VacuousSwap();
+
+    /// Attempted a swap smaller than the minimum.
+    error BelowMinSwap(uint256 nominalSwapAttempted, uint256 minSwap);
 
     /// Swap one token for another.
     /// @param amountSpecified The exact input when positive, the exact output when negative.
@@ -65,6 +73,10 @@ contract SwapFacet is ReentrancyGuardTransient {
                 inAmount,
                 false
             );
+            require(
+                nominalIn >= MIN_SWAP_SIZE,
+                BelowMinSwap(nominalIn, MIN_SWAP_SIZE)
+            );
             uint256 nominalOut;
             uint256 nominalTax;
             (nominalOut, nominalTax, valueExchangedX128) = c.swapInExact(
@@ -93,6 +105,10 @@ contract SwapFacet is ReentrancyGuardTransient {
                 inVid,
                 outVid,
                 nominalOut
+            );
+            require(
+                nominalIn >= MIN_SWAP_SIZE,
+                BelowMinSwap(nominalIn, MIN_SWAP_SIZE)
             );
             inAmount = AdjustorLib.toReal(inVid.idx(), nominalIn, true);
             realTax = FullMath.mulDiv(inAmount, nominalTax, nominalIn);

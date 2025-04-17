@@ -13,5 +13,4 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 TODO:
 - Add min swap size to avoid gaming de minimus?
 - Value Tests
-- Value Token tests - brian
 - Vertex Trim Balance tests

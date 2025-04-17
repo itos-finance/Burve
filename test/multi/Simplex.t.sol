@@ -62,7 +62,7 @@ contract SimplexTest is Test {
 
     // -- esX128 tests ----
 
-    function testGetEsX128Default() public {
+    function testGetEsX128Default() public view {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         for (uint256 i = 0; i < MAX_TOKENS; i++) {
             assertEq(esX128[i], 0);
@@ -93,7 +93,7 @@ contract SimplexTest is Test {
         }
     }
 
-    function testGetEX128Default() public {
+    function testGetEX128Default() public view {
         uint256 esX128 = SimplexLib.getEX128(0);
         assertEq(esX128, 0);
 
@@ -136,13 +136,13 @@ contract SimplexTest is Test {
 
     // -- adjustor tests ----
 
-    function testGetAdjustorDefault() public {
+    function testGetAdjustorDefault() public view {
         assertEq(SimplexLib.getAdjustor(), address(0x0));
     }
 
     function testGetAdjustorInit() public {
         address adjustor = makeAddr("initAdjustor");
-        SimplexLib.init("ValueToken", "BVT", address(0x0));
+        SimplexLib.init("ValueToken", "BVT", adjustor);
         assertEq(SimplexLib.getAdjustor(), adjustor);
     }
 
@@ -154,7 +154,7 @@ contract SimplexTest is Test {
 
     // -- BGT exchanger tests ----
 
-    function testGetBGTExchanger() public {
+    function testGetBGTExchanger() public view {
         assertEq(SimplexLib.getBGTExchanger(), address(0x0));
     }
 
@@ -166,13 +166,13 @@ contract SimplexTest is Test {
 
     // -- initTarget tests ----
 
-    function testGetInitTargetDefault() public {
+    function testGetInitTargetDefault() public view {
         assertEq(SimplexLib.getInitTarget(), 0);
     }
 
     function testGetInitTargetInit() public {
         SimplexLib.init("ValueToken", "BVT", address(0x0));
-        assertEq(SimplexLib.getInitTarget(), 1e18);
+        assertEq(SimplexLib.getInitTarget(), SimplexLib.DEFAULT_INIT_TARGET);
     }
 
     function testSetInitTarget() public {

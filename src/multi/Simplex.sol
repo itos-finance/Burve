@@ -35,16 +35,10 @@ library SimplexLib {
     /// limits the bits to under ten which affords 118 bits for t in ValueLib calculations
     /// which is more than sufficient.
     uint256 public constant MAX_E_X128 = 1 << (12 + 128);
+    uint128 public constant DEFAULT_INIT_TARGET = 1e12;
 
     /// Thrown when attempting to assign an e that is too large.
     error OversizedEfficiencyAssignment(uint256);
-
-    // TODO:
-    // Need a method for admin to withdraw protocol earnings.
-    // Need a method to set efficiency factors (esX128) for each token.
-    // A method to change bgtExchanger (also need unittests for bgtExchanger, though it's partially setup in MultiSetup)
-    // A method to change initTarget
-    // A method to change adjustor.
 
     function init(
         string memory name,
@@ -55,7 +49,7 @@ library SimplexLib {
         s.name = name;
         s.symbol = symbol;
         s.adjustor = adjustor;
-        s.initTarget = 1e18; // reasonable default
+        s.initTarget = DEFAULT_INIT_TARGET;
         // Default to 10x efficient: price range is [0.84, 1.21].
         for (uint256 i = 0; i < MAX_TOKENS; ++i) {
             s.esX128[i] = 10 << 128;

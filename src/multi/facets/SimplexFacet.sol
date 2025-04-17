@@ -2,7 +2,6 @@
 pragma solidity ^0.8.27;
 
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import {console2} from "forge-std/console2.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
@@ -204,8 +203,8 @@ contract SimplexFacet {
     function addClosure(
         uint16 _cid,
         uint128 startingTarget,
-        uint256 baseFeeX128,
-        uint256 protocolTakeX128
+        uint128 baseFeeX128,
+        uint128 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
         ClosureId cid = ClosureId.wrap(_cid);
@@ -224,6 +223,8 @@ contract SimplexFacet {
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue;
+            // Validate the vertex first.
+            Vertex storage v = Store.vertex(VertexLib.newId(i));
             address token = tokenReg.tokens[i];
             uint256 realNeeded = AdjustorLib.toReal(
                 token,
@@ -236,7 +237,7 @@ contract SimplexFacet {
                 address(this),
                 realNeeded
             );
-            Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
+            v.deposit(cid, realNeeded);
         }
     }
 

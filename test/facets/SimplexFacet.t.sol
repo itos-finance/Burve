@@ -14,6 +14,15 @@ import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
 import {NullAdjustor} from "../../src/integrations/adjustor/NullAdjustor.sol";
 
+/* For SimplexFacetVertexTest */
+import {VaultType, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
+import {TokenRegLib} from "../../src/multi/Token.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
+/* For SimplexFacetClosureTest */
+import {Store} from "../../src/multi/Store.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
+import {VertexLib} from "../../src/multi/vertex/Id.sol";
+
 contract SimplexFacetTest is MultiSetupTest {
     function setUp() public {
         vm.startPrank(owner);
@@ -308,7 +317,7 @@ contract SimplexFacetTest is MultiSetupTest {
     // -- initTarget tests ----
 
     function testGetInitTarget() public view {
-        assertEq(simplexFacet.getInitTarget(), 1e18);
+        assertEq(simplexFacet.getInitTarget(), SimplexLib.DEFAULT_INIT_TARGET);
     }
 
     function testSetInitTarget() public {
@@ -316,7 +325,11 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // set init target 1e6
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.InitTargetChanged(owner, 1e18, 1e6);
+        emit SimplexFacet.InitTargetChanged(
+            owner,
+            SimplexLib.DEFAULT_INIT_TARGET,
+            1e6
+        );
         simplexFacet.setInitTarget(1e6);
 
         // set init target 0
@@ -407,70 +420,20 @@ contract SimplexFacetTest is MultiSetupTest {
     }
 }
 
-/* import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {BurveFacets, InitLib} from "../../src/multi/InitLib.sol";
-import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {VaultType, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
-import {Store} from "../../src/multi/Store.sol";
-import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
-import {TokenRegLib} from "../../src/multi/Token.sol";
-import {MockERC4626} from "../mocks/MockERC4626.sol";
-// Adjustment test imports
-import {MultiSetupTest} from "./MultiSetup.u.sol";
-import {NullAdjustor} from "../../src/integrations/adjustor/NullAdjustor.sol";
-import {IAdjustor} from "../../src/integrations/adjustor/IAdjustor.sol";
-import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
-import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-
-contract SimplexFacetTest is Test {
-    SimplexDiamond public diamond;
-    EdgeFacet public edgeFacet;
-    SimplexFacet public simplexFacet;
-    ViewFacet public viewFacet;
-
-    MockERC20 public token0;
-    MockERC20 public token1;
-    MockERC4626 public mockVault0;
-    MockERC4626 public mockVault1;
-
-    address public owner = makeAddr("owner");
-    address public nonOwner = makeAddr("nonOwner");
-
-    event VertexAdded(
-        address indexed token,
-        address vault,
-        VaultType vaultType
-    );
-    event EdgeUpdated(
-        address indexed token0,
-        address indexed token1,
-        uint256 amplitude,
-        int24 lowTick,
-        int24 highTick
-    );
+contract SimplexFacetVertexTest is MultiSetupTest {
+    MockERC20[] public mockTokens;
+    MockERC4626[] public mockVaults;
 
     function setUp() public {
         vm.startPrank(owner);
-
-        // Deploy the diamond and facets
-        BurveFacets memory facets = InitLib.deployFacets("Test Value Token", "TVT");
-        diamond = new SimplexDiamond(facets);
-
-        edgeFacet = EdgeFacet(address(diamond));
-        simplexFacet = SimplexFacet(address(diamond));
-        viewFacet = ViewFacet(address(diamond));
-
-        // Setup test tokens
-        token0 = new MockERC20("Test Token 0", "TEST0", 18);
-        token1 = new MockERC20("Test Token 1", "TEST1", 18);
-
-        mockVault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
-        mockVault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
-
+        _newDiamond();
         vm.stopPrank();
+
+        mockTokens.push(new MockERC20("Test Token 0", "TEST0", 18));
+        mockTokens.push(new MockERC20("Test Token 1", "TEST1", 18));
+
+        mockVaults.push(new MockERC4626(token0, "Mock Vault 0", "MVLT0"));
+        mockVaults.push(new MockERC4626(token1, "Mock Vault 1", "MVLT1"));
     }
 
     function testAddVertex() public {
@@ -478,15 +441,15 @@ contract SimplexFacetTest is Test {
 
         // Add first vertex
         simplexFacet.addVertex(
-            address(token0),
-            address(mockVault0),
+            address(mockTokens[0]),
+            address(mockVaults[0]),
             VaultType.E4626
         );
 
         // Add second vertex
         simplexFacet.addVertex(
-            address(token1),
-            address(mockVault1),
+            address(mockTokens[1]),
+            address(mockVaults[1]),
             VaultType.E4626
         );
 
@@ -501,7 +464,7 @@ contract SimplexFacetTest is Test {
             abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
         );
         simplexFacet.addVertex(
-            address(token0),
+            address(mockTokens[0]),
             address(0),
             VaultType.UnImplemented
         );
@@ -511,7 +474,7 @@ contract SimplexFacetTest is Test {
             abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
         );
         simplexFacet.addVertex(
-            address(token1),
+            address(mockTokens[1]),
             address(0),
             VaultType.UnImplemented
         );
@@ -520,12 +483,12 @@ contract SimplexFacetTest is Test {
     }
 
     function testAddVertexRevertNonOwner() public {
-        vm.startPrank(nonOwner);
+        vm.startPrank(alice);
 
         vm.expectRevert();
         simplexFacet.addVertex(
-            address(token0),
-            address(mockVault0),
+            address(mockTokens[0]),
+            address(mockVaults[0]),
             VaultType.E4626
         );
 
@@ -537,21 +500,21 @@ contract SimplexFacetTest is Test {
 
         // Add vertex first time
         simplexFacet.addVertex(
-            address(token0),
-            address(mockVault0),
+            address(mockTokens[0]),
+            address(mockVaults[0]),
             VaultType.E4626
         );
 
         // Try to add same vertex again
         vm.expectRevert(
             abi.encodeWithSelector(
-                TokenRegistryImpl.TokenAlreadyRegistered.selector,
-                address(token0)
+                TokenRegLib.TokenAlreadyRegistered.selector,
+                address(mockTokens[0])
             )
         ); // Should revert for duplicate vertex
         simplexFacet.addVertex(
-            address(token0),
-            address(mockVault0),
+            address(mockTokens[0]),
+            address(mockVaults[0]),
             VaultType.E4626
         );
 
@@ -559,47 +522,77 @@ contract SimplexFacetTest is Test {
     }
 }
 
-contract SimplexFacetAdjustorTest is MultiSetupTest {
+contract SimplexFacetClosureTest is MultiSetupTest {
+    uint128 public constant INITT = SimplexLib.DEFAULT_INIT_TARGET;
+
     function setUp() public {
         _newDiamond();
-        _newTokens(2);
-
-        // Add a 6 decimal token.
-        tokens.push(address(new MockERC20("Test Token 3", "TEST3", 6)));
-        vaults.push(
-            IERC4626(
-                address(new MockERC4626(ERC20(tokens[2]), "vault 3", "V3"))
-            )
-        );
-        simplexFacet.addVertex(tokens[2], address(vaults[2]), VaultType.E4626);
-
+        _newTokens(8);
         _fundAccount(address(this));
     }
 
-    /// Test that switching the adjustor actually works on setAdjustment by testing
-    /// the liquidity value of the same deposit.
-    function testSetAdjustor() public {
-        uint128[] memory amounts = new uint128[](3);
-        amounts[0] = 1e18;
-        amounts[1] = 1e18;
-        amounts[2] = 1e6;
-        // Init liq, the initial "value" in the pool.
-        uint256 initLiq = liqFacet.addLiq(address(this), 0x7, amounts);
+    function testAddClosure() public {
+        uint16 cid = 0x1 + 0x24 + 0x64;
+        simplexFacet.addClosure(cid, INITT, 1 << 123, 1 << 125);
+        (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        ) = simplexFacet.getClosureFees(cid);
+        assertEq(baseFeeX128, 1 << 123);
+        assertEq(protocolTakeX128, 1 << 125);
+        assertEq(bgtPerBgtValueX128, 0);
+        for (uint256 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(earningsPerValueX128[i], 0);
+            assertEq(unexchangedPerBgtValueX128[i], 0);
+        }
 
-        amounts[1] = 0;
-        amounts[2] = 0;
-        // Adding this still gives close to a third of the "value" in the pool.
-        uint256 withAdjLiq = liqFacet.addLiq(address(this), 0x7, amounts);
-        assertApproxEqRel(withAdjLiq, initLiq / 3, 1e16); // Off by 1%
-
-        // But if we switch the adjustor. Now it's worth less, although not that much less
-        // because even though the balance of token2 is low, its value goes off peg and goes much higher.
-        // Therefore it ends up with roughly 1/5th of the pool's value now instead of something closer to 1/4.
-        IAdjustor nAdj = new NullAdjustor();
-        simplexFacet.setAdjustor(nAdj);
-        amounts[0] = 0;
-        amounts[1] = 1e18; // Normally this would be close to withAdjLiq.
-        uint256 noAdjLiq = liqFacet.addLiq(address(this), 0x7, amounts);
-        assertApproxEqRel(noAdjLiq, (initLiq + withAdjLiq) / 5, 1e16); // Off by 1%
+        // Try adding a single token closure which is possible!
+        simplexFacet.addClosure(0x32, INITT, 123 << 120, 81 << 121);
     }
-} */
+
+    function testAddClosureWithNonExistentToken() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Store.UninitializedVertex.selector,
+                VertexLib.newId(9)
+            )
+        );
+        simplexFacet.addClosure(1 + (1 << 9), INITT, 1 << 124, 1 << 124);
+    }
+
+    function testAddClosureTargetTooSmall() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SimplexFacet.InsufficientStartingTarget.selector,
+                INITT - 1
+            )
+        );
+        simplexFacet.addClosure(1 + (1 << 8), INITT - 1, 1 << 124, 1 << 124);
+    }
+
+    function testGetNonExistentClosure() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Store.UninitializedClosure.selector,
+                ClosureId.wrap(0x7)
+            )
+        );
+        simplexFacet.getClosure(0x7);
+    }
+
+    function testGetEmptyClosure() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Store.EmptyClosure.selector,
+                ClosureId.wrap(0)
+            )
+        );
+        simplexFacet.getClosure(0x0);
+
+        vm.expectRevert();
+        simplexFacet.addClosure(0x0, INITT, 1 << 124, 1 << 124);
+    }
+}

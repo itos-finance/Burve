@@ -210,13 +210,12 @@ contract SwapFacetTest is MultiSetupTest {
         }
     }
 
-    function testSwapRevertZeroAmount() public {
+    function testSwapRevertLowAmount() public {
         vm.startPrank(bob);
-        // If you swap nothing and get nothing, that's fine i guess.
-        swapFacet.swap(bob, address(token0), address(token1), 0, 0, 0x3);
-        // But if you swap something and get nothing, that doesn't seem desirable.
-        vm.expectRevert(); // Should revert for zero amount out.
-        swapFacet.swap(bob, address(token0), address(token1), 1, 0, 0x3);
+        vm.expectRevert(
+            abi.encodeWithSelector(SwapFacet.BelowMinSwap.selector, 1e8, 16e8)
+        );
+        swapFacet.swap(bob, address(token0), address(token1), 1e8, 0, 0x3);
         vm.stopPrank();
     }
 
