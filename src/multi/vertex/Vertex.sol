@@ -83,6 +83,28 @@ library VertexImpl {
         vProxy.commit();
     }
 
+    /// A few version of trim that just returns the real balances earned.
+    function viewTrim(
+        Vertex storage self,
+        ClosureId cid,
+        uint256 targetReal,
+        uint256 value,
+        uint256 bgtValue
+    )
+        internal
+        view
+        returns (uint256 realTokensEarned, uint256 bgtRealResidual)
+    {
+        VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
+        uint256 realBalance = vProxy.balance(cid, false);
+        if (targetReal > realBalance) {
+            return (0, 0);
+        }
+        uint256 residualReal = realBalance - targetReal;
+        bgtRealResidual = FullMath.mulDiv(residualReal, bgtValue, value);
+        realTokensEarned = residualReal - bgtRealResidual;
+    }
+
     /// Closures deposit a real amount into this Vertex.
     function deposit(
         Vertex storage self,

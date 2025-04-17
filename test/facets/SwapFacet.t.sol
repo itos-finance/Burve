@@ -528,8 +528,8 @@ contract SwapFacetTest is MultiSetupTest {
     function testSimSwapIsTheSame() public {
         vm.startPrank(alice);
         // Add a bunch of random liquidity.
-        valueFacet.addValueSingle(alice, 0x7, 260e18, 12e18, tokens[0], 0);
-        valueFacet.addValueSingle(alice, 0x7, 731e18, 111e18, tokens[1], 0);
+        valueFacet.addValueSingle(alice, 0x7, 220e18, 12e18, tokens[0], 0);
+        valueFacet.addValueSingle(alice, 0x7, 331e18, 111e18, tokens[1], 0);
         valueFacet.addValueSingle(alice, 0x7, 555e18, 99e18, tokens[2], 0);
 
         // A sim swap here gives the same result as the real swap.
