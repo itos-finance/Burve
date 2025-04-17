@@ -44,7 +44,7 @@ library ReserveLib {
         // which then splits the donation across existing deposits from other people using the vault,
         // including the other closures. So there's no way to inflate shares here.
         shares = (balance == 0)
-            ? shares = amount * SHARE_RESOLUTION
+            ? amount * SHARE_RESOLUTION
             : (amount * reserve.shares[idx]) / balance; // No need for mulDiv.
         reserve.shares[idx] += shares;
     }
