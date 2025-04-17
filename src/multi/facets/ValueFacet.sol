@@ -294,16 +294,30 @@ contract ValueFacet is ReentrancyGuardTransient {
             uint256 bgtEarnings
         )
     {
+        ClosureId cid = ClosureId.wrap(closureId);
+        (
+            uint256[MAX_TOKENS] memory realEPVX128,
+            uint256 bpvX128,
+            uint256[MAX_TOKENS] memory upvX128
+        ) = Store.closure(cid).viewTrimAll();
         (value, bgtValue, earnings, bgtEarnings) = Store.assets().query(
             owner,
-            ClosureId.wrap(closureId)
+            cid
         );
+        uint256 nonValue = value - bgtValue;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (earnings[i] > 0) {
                 VertexId vid = VertexLib.newId(i);
                 earnings[i] = ReserveLib.query(vid, earnings[i]);
+                earnings[i] += FullMath.mulX128(
+                    realEPVX128[i],
+                    nonValue,
+                    false
+                );
+                earnings[i] += FullMath.mulX128(upvX128[i], bgtValue, false);
             }
         }
+        bgtEarnings += FullMath.mulX128(bpvX128, bgtValue, false);
     }
 
     function collectEarnings(

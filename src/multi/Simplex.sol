@@ -131,6 +131,21 @@ library SimplexLib {
         unspent = amount - spentAmount;
     }
 
+    function viewBgtExchange(
+        uint8 idx,
+        uint256 amount
+    ) internal view returns (uint256 bgtEarned, uint256 unspent) {
+        Simplex storage s = Store.simplex();
+        if (s.bgtEx == address(0)) return (0, amount);
+        address token = TokenRegLib.getToken(idx);
+        uint256 spentAmount;
+        (bgtEarned, spentAmount) = IBGTExchanger(s.bgtEx).viewExchange(
+            token,
+            uint128(amount) // safe cast since amount cant possibly be more than 1e30
+        );
+        unspent = amount - spentAmount;
+    }
+
     /// @notice Gets the current adjustor.
     function getAdjustor() internal view returns (address) {
         return Store.simplex().adjustor;

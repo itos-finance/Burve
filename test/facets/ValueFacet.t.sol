@@ -329,9 +329,14 @@ contract ValueFacetTest is MultiSetupTest {
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
         assertGt(earnings[1], earnings1);
         assertEq(bgtEarnings, 0);
+        earnings1 = earnings[1];
 
         // We should also collect fees from rehypothecation gains.
         MockERC20(tokens[1]).mint(address(vaults[1]), 3e12);
+        (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+        assertGt(earnings[1], earnings1);
+        assertEq(bgtEarnings, 0);
+        earnings1 = earnings[1];
 
         /// Test deposits earn bgt as we collect fees with bgt value.
         /// Test after removing, there are no more fees earned. Test that with query then an add and remove. As in fee claims remain unchanged.

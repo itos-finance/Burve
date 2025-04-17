@@ -751,7 +751,17 @@ library ClosureImpl {
         }
     }
 
-    /*   function viewTrimAll(Closure storage self) internal returns (uint256) {
+    function viewTrimAll(
+        Closure storage self
+    )
+        internal
+        view
+        returns (
+            uint256[MAX_TOKENS] memory realEarningsPerValueX128,
+            uint256 bgtPerValueX128,
+            uint256[MAX_TOKENS] memory unspentPerValueX128
+        )
+    {
         uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
         for (
             VertexId vIter = VertexLib.minId();
@@ -767,7 +777,7 @@ library ClosureImpl {
                     true
                 );
                 (uint256 earnings, uint256 bgtReal) = Store
-                    .vertex(vid)
+                    .vertex(vIter)
                     .viewTrim(
                         self.cid,
                         realBalance,
@@ -775,29 +785,23 @@ library ClosureImpl {
                         self.bgtValueStaked
                     );
                 // All pools start with non-zero nonbgtvalue
-                self.earningsPerValueX128[idx] +=
+                realEarningsPerValueX128[idx] +=
                     (earnings << 128) /
                     nonBgtValueStaked;
                 if (self.bgtValueStaked > 0) {
                     (uint256 bgtEarned, uint256 unspent) = SimplexLib
-                        .bgtExchange(idx, bgtReal);
-                    self.bgtPerBgtValueX128 +=
-                        (bgtEarned << 128) /
-                        self.bgtValueStaked;
+                        .viewBgtExchange(idx, bgtReal);
+                    bgtPerValueX128 += (bgtEarned << 128) / self.bgtValueStaked;
                     // rare
                     if (unspent > 0) {
-                        uint256 unspentShares = ReserveLib.deposit(
-                            vid,
-                            unspent
-                        );
-                        self.unexchangedPerBgtValueX128[idx] +=
-                            (unspentShares << 128) /
+                        unspentPerValueX128[idx] +=
+                            (unspent << 128) /
                             self.bgtValueStaked;
                     }
                 }
             }
         }
-    } */
+    }
 
     /// When we update the balance, we want to double check it stays within bounds.
     function setBalance(
