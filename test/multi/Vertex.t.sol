@@ -4,12 +4,13 @@ pragma solidity ^0.8.27;
 import {Test, stdError} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
-import {Vertex} from "../../src/multi/vertex/Vertex.sol";
+import {Vertex, VertexImpl} from "../../src/multi/vertex/Vertex.sol";
 import {TokenRegistry, TokenRegLib} from "../../src/multi/Token.sol";
-import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
-import {ClosureId, newClosureId} from "../../src/multi/closure/Id.sol";
+import {VaultType, VaultProxy, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {Store} from "../../src/multi/Store.sol";
 
 contract VertexIdTest is Test {
@@ -28,76 +29,37 @@ contract VertexIdTest is Test {
     }
 }
 
-/*
-
 contract VertexTest is Test {
-    using VertexImpl for Vertex;
-    using TokenRegistryImpl for TokenRegistry;
-
-    // Test state variables
-    Vertex internal vertex;
-    MockERC20 internal token0;
-    MockERC20 internal token1;
-    MockERC20 internal token2;
-    MockERC4626 internal vault0;
-    MockERC4626 internal vault1;
-    MockERC4626 internal vault2;
-    ClosureId[] internal testClosures;
-
-    // Test constants
-    uint256 constant INITIAL_BALANCE = 1000000 ether;
-    uint256 constant TEST_AMOUNT = 100 ether;
+    MockERC20 token;
+    MockERC4626 vault;
 
     function setUp() public {
-        // Deploy mock ERC20 token first
-        token0 = new MockERC20("Test Token 0", "TES0", 18);
-        token1 = new MockERC20("Test Token 1", "TES1", 18);
-        token2 = new MockERC20("Test Token 2", "TES2", 18);
-
-        // Deploy a second mock ERC20
-
-        // Deploy mock ERC4626 vault with the token as underlying
-        vault0 = new MockERC4626(token0, "Mock Vault 0", "MVLT0");
-        vault1 = new MockERC4626(token1, "Mock Vault 1", "MVLT1");
-        vault2 = new MockERC4626(token2, "Mock Vault 2", "MVLT2");
-
-        // Register token in the registry
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        tokenReg.register(address(token0));
-        tokenReg.register(address(token1));
-        tokenReg.register(address(token2));
-
-        // Mint some initial tokens
-        token0.mint(address(this), INITIAL_BALANCE);
-        token1.mint(address(this), INITIAL_BALANCE);
-        token2.mint(address(this), INITIAL_BALANCE);
-
-        // Approve vault to spend tokens
-        token0.approve(address(vault0), type(uint256).max);
-        token1.approve(address(vault1), type(uint256).max);
-        token2.approve(address(vault1), type(uint256).max);
-
-        // Initialize vertex
-        vertex.init(address(token0), address(vault0), VaultType.E4626);
-        Store.vertex((address(token1))).init(
-            address(token1),
-            address(vault1),
-            VaultType.E4626
-        );
-        Store.vertex(newVertexId(address(token2))).init(
-            address(token2),
-            address(vault2),
-            VaultType.E4626
-        );
+        token = new MockERC20("test", "TEST", 18);
+        token.mint(address(this), 1e20);
+        vault = new MockERC4626(ERC20(token), "Vault", "VAULT");
     }
 
-    function testInitialization() public {
-        // Test basic initialization
-        VertexId vid = vertex.vid;
-        assertTrue(
-            vid.isEq(VertexId.wrap(uint16(1 << 8))),
-            "Vertex ID should just be 1 in the hot bit"
+    function testTrimBalance() public {
+        VertexId vid = VertexLib.newId(0);
+        Vertex storage v = Store.load().vertices[vid];
+        ClosureId cid = ClosureId.wrap(0x1);
+        v.init(vid, address(token), address(vault), VaultType.E4626);
+        vm.expectEmit();
+        emit VertexImpl.InsufficientBalance(vid, cid, 1e6, 0);
+        v.trimBalance(cid, 1e6, 100, 50);
+
+        // But if we add some tokens to the vault, then it's fine.
+        VaultProxy memory vProxy = VaultLib.getProxy(vid);
+        vProxy.deposit(cid, 4e6);
+        vProxy.commit();
+        // Now if we trim, we get a bunch.
+        (uint256 regValShares, uint256 bgtResidual) = v.trimBalance(
+            cid,
+            1e6,
+            150,
+            50
         );
+        assertEq(regValShares, 2e6 * 100); // 100 for the reserve share resolution.
+        assertEq(bgtResidual, 1e6); // no 100 since its a real balance that gets exchanged.
     }
 }
-*/

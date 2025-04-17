@@ -56,7 +56,7 @@ library VertexImpl {
     /// return the shares moved so the closure can add it as earnings to its depositors.
     /// @dev The shares earned are MOVED TO THE RESERVE.
     /// @param targetReal The amount of tokens the cid expects to have in this token.
-    /// @return reserveSharesEarned - The amount of shares moved to the reserve which non-bgt values can claim later.
+    /// @return reserveSharesEarned - The amount of shares moved to the reserve for non-bgt values to claim later.
     /// @return bgtResidual - The real token amounts earned by the bgt values which can be exchanged.
     function trimBalance(
         Vertex storage self,
@@ -68,8 +68,12 @@ library VertexImpl {
         console.log("trimming", self.vid.idx());
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         uint256 realBalance = vProxy.balance(cid, false);
-        if (targetReal > realBalance)
+        // We don't error and instead emit in this scenario because clearly the vault is not working properly but if
+        // we error users can't withdraw funds. Instead the right response is to lock and move vaults immediately.
+        if (targetReal > realBalance) {
             emit InsufficientBalance(self.vid, cid, targetReal, realBalance);
+            return (0, 0);
+        }
         uint256 residualReal = realBalance - targetReal;
         vProxy.withdraw(cid, residualReal);
         bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);

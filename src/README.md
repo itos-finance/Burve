@@ -12,5 +12,5 @@ Without slippage, the person would have removed 10.1 token amounts, with slippag
 
 TODO:
 - Value Tests
-- Vertex Trim Balance tests
 - Asset.t.sol
+- ReserveLib tests? - Need vault setup.

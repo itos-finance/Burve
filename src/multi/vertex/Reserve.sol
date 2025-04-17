@@ -36,7 +36,7 @@ library ReserveLib {
         VertexId vid,
         uint256 amount
     ) internal returns (uint256 shares) {
-        Reserve storage reserve = Store.reserve(); // TODO
+        Reserve storage reserve = Store.reserve();
         uint8 idx = vid.idx();
         uint128 balance = vProxy.balance(RESERVEID, true);
         vProxy.deposit(RESERVEID, amount);
