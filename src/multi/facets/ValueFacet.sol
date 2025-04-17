@@ -294,7 +294,16 @@ contract ValueFacet is ReentrancyGuardTransient {
             uint256 bgtEarnings
         )
     {
-        return Store.assets().query(owner, ClosureId.wrap(closureId));
+        (value, bgtValue, earnings, bgtEarnings) = Store.assets().query(
+            owner,
+            ClosureId.wrap(closureId)
+        );
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (earnings[i] > 0) {
+                VertexId vid = VertexLib.newId(i);
+                earnings[i] = ReserveLib.query(vid, earnings[i]);
+            }
+        }
     }
 
     function collectEarnings(

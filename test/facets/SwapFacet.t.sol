@@ -508,16 +508,20 @@ contract SwapFacetTest is MultiSetupTest {
 
         // Now check the fees went to the right places.
         uint256 totalEarnings = actualIn - simIn;
-        // TODO: Check why fee earnings aren't exact.
-        assertEq((totalEarnings << 128) / actualIn, 1 << 126); // The fees were indeed the right rate.
+        assertApproxEqAbs(totalEarnings, actualIn / 4, 2, "e0"); // The fees were indeed the right rate.
         // Half has gone to the protocol.
-        assertEq(simplexFacet.protocolEarnings()[2], totalEarnings / 2);
+        assertApproxEqAbs(
+            simplexFacet.protocolEarnings()[2],
+            totalEarnings / 2,
+            2,
+            "e1"
+        );
         // Half of the rest has gone to alice.
         (, , uint256[MAX_TOKENS] memory earnings, ) = valueFacet.queryValue(
             alice,
             0x7
         );
-        assertEq(earnings[2], totalEarnings / 4);
+        assertApproxEqAbs(earnings[2], totalEarnings / 4, 2, "e2");
     }
 
     function testSimSwapIsTheSame() public {

@@ -57,6 +57,7 @@ library ReserveLib {
     ) internal view returns (uint256 amount) {
         Reserve storage reserve = Store.reserve();
         uint8 idx = vid.idx();
+        if (reserve.shares[idx] == 0) return 0;
         VaultProxy memory vProxy = VaultLib.getProxy(vid);
         uint128 balance = vProxy.balance(RESERVEID, true);
         amount = (shares * balance) / reserve.shares[idx];
@@ -70,6 +71,7 @@ library ReserveLib {
     ) internal returns (uint256 amount) {
         Reserve storage reserve = Store.reserve();
         uint8 idx = vid.idx();
+        if (reserve.shares[idx] == 0) return 0;
         VaultProxy memory vProxy = VaultLib.getProxy(vid);
         uint128 balance = vProxy.balance(RESERVEID, true);
         amount = (shares * balance) / reserve.shares[idx];
