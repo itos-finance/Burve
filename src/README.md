@@ -10,7 +10,3 @@ a current amount of 100, the pool will say it you've removed 10.1 units of value
 Without slippage, the person would have removed 10.1 token amounts, with slippage, they remove 10 and 0.1 goes to the reserve.
 
 
-TODO:
-- Value Tests
-- Asset.t.sol - Easy but takes time. Indirectly tested by value.
-- ReserveLib tests? - Need vault setup. - Not as important as its pretty straight forward and indirectly tested.

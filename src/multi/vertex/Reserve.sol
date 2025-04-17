@@ -8,8 +8,6 @@ import {VaultLib} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Store} from "../Store.sol";
 
-/** TODO: NEEDS TESTS */
-
 struct Reserve {
     // The shares we have for the balance we have in each vault.
     uint256[MAX_TOKENS] shares;

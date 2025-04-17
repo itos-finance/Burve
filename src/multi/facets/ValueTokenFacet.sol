@@ -6,8 +6,6 @@ import {Closure} from "../closure/Closure.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
-/** TODO: NEEDS TESTS */
-
 /// An ERC20 interface for the Value token which is mint and burned by unstaking/staking value.
 contract ValueTokenFacet is ERC20 {
     /// BGT earning value must be less than overall value when staking or unstaking.

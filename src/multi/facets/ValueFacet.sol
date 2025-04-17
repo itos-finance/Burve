@@ -22,8 +22,6 @@ import {FullMath} from "../../FullMath.sol";
  @dev To conform to the ERC20 interface, we wrap each subset of tokens
  in their own ERC20 contract with mint functions that call the addLiq and removeLiq
 functions here.
-
-// TODO Do we need a view version of this facet?
 */
 contract ValueFacet is ReentrancyGuardTransient {
     error DeMinimisDeposit();
@@ -233,7 +231,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             vid
         );
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
-        Store.vertex(vid).withdraw(cid, realRemoved, false); // TODO should we round up? To make sure we ahve enough for the remove?
+        Store.vertex(vid).withdraw(cid, realRemoved, false);
         uint256 realTax = FullMath.mulDiv(
             removedBalance,
             nominalTax,

@@ -79,7 +79,6 @@ library Store {
         return IAdjustor(load().simplex.adjustor);
     }
 
-    // TODO: fix. Was added to compile ReserveLib
     function reserve() internal view returns (Reserve storage r) {
         return load()._reserve;
     }

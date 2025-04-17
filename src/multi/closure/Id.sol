@@ -34,7 +34,6 @@ library ClosureIdImpl {
         return (ClosureId.unwrap(self) & vid.bit()) != 0;
     }
 
-    // TODO: add test
     function contains(ClosureId self, uint8 idx) internal pure returns (bool) {
         return (ClosureId.unwrap(self) & (1 << idx)) != 0;
     }
