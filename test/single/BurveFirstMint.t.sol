@@ -66,7 +66,7 @@ contract BurveFirstMintTest is ForkableTest, IUniswapV3SwapCallback {
 
     /* Tests */
 
-    function test_FirstMint() public {
+    function test_FirstMint() public forkOnly {
         int24 tickSpacing = pool.tickSpacing();
         int24 clampedCurrentTick = getClampedCurrentTick();
 
