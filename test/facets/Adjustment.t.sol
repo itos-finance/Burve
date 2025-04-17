@@ -331,7 +331,7 @@ contract AdjustmentTest is MultiSetupTest {
 
         // Swap from token0 (18 decimals) to token2 (6 decimals)
         uint256 amountIn = 1e18; // 1 token0
-        uint256 amountLimit = 98e16; // 0.98 token2 (in 6 decimals)
+        uint256 amountLimit = 98e4; // 0.98 token2 (in 6 decimals)
         swapFacet.swap(
             address(this),
             tokens[0],
@@ -342,31 +342,31 @@ contract AdjustmentTest is MultiSetupTest {
         );
 
         // Check final balances
-        // uint256 finalBalance0 = MockERC20(tokens[0]).balanceOf(address(this));
-        // uint256 finalBalance2 = MockERC20(tokens[2]).balanceOf(address(this));
+        uint256 finalBalance0 = MockERC20(tokens[0]).balanceOf(address(this));
+        uint256 finalBalance2 = MockERC20(tokens[2]).balanceOf(address(this));
 
-        // // Verify the swap amounts
-        // uint256 spent0 = initialBalance0 - finalBalance0;
-        // uint256 received2 = finalBalance2 - initialBalance2;
+        // Verify the swap amounts
+        uint256 spent0 = initialBalance0 - finalBalance0;
+        uint256 received2 = finalBalance2 - initialBalance2;
 
-        // assertEq(spent0, amountIn, "Incorrect amount spent");
-        // assertTrue(
-        //     received2 >= amountLimit,
-        //     "Received less than minimum amount"
-        // );
+        assertEq(spent0, amountIn, "Incorrect amount spent");
+        assertTrue(
+            received2 >= amountLimit,
+            "Received less than minimum amount"
+        );
 
-        // // Now swap back from token2 to token0
-        // MockERC20(tokens[2]).approve(address(diamond), type(uint256).max);
-        // uint256 amountIn2 = 1e6; // 1 token2
-        // uint256 amountLimit2 = 98e12; // 0.98 token0 (in 18 decimals)
-        // swapFacet.swap(
-        //     address(this),
-        //     tokens[2],
-        //     tokens[0],
-        //     int256(amountIn2),
-        //     amountLimit2,
-        //     0x7
-        // );
+        // Now swap back from token2 to token0
+        MockERC20(tokens[2]).approve(address(diamond), type(uint256).max);
+        uint256 amountIn2 = 1e6; // 1 token2
+        uint256 amountLimit2 = 98e16; // 0.98 token0 (in 18 decimals)
+        swapFacet.swap(
+            address(this),
+            tokens[2],
+            tokens[0],
+            int256(amountIn2),
+            amountLimit2,
+            0x7
+        );
     }
 }
 
