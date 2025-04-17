@@ -14,6 +14,12 @@ interface IBGTExchanger {
         uint128 amount
     ) external returns (uint256 bgtAmount, uint256 spendAmount);
 
+    /// A view version of exchange that anyone can call.
+    function viewExchange(
+        address inToken,
+        uint128 amount
+    ) external view returns (uint256 bgtAmount, uint256 spendAmount);
+
     /// Query the amount of BGT owed to a caller.
     function getOwed(address caller) external view returns (uint256 bgtOwed);
 

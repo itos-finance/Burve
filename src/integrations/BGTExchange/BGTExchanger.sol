@@ -34,6 +34,24 @@ contract BGTExchanger is IBGTExchanger {
     ) external returns (uint256 bgtAmount, uint256 spendAmount) {
         if (!isExchanger[msg.sender]) revert NoExchangePermissions();
 
+        (bgtAmount, spendAmount) = viewExchange(inToken, amount);
+        if (bgtAmount > 0) {
+            bgtBalance -= bgtAmount;
+            TransferHelper.safeTransferFrom( // We take what we need.
+                    inToken,
+                    msg.sender,
+                    address(this),
+                    spendAmount
+                );
+            owed[msg.sender] += bgtAmount;
+        }
+    }
+
+    /// @inheritdoc IBGTExchanger
+    function viewExchange(
+        address inToken,
+        uint128 amount
+    ) public view returns (uint256 bgtAmount, uint256 spendAmount) {
         // If rate is zero, the spendAmount remains zero.
         bgtAmount = FullMath.mulX128(rate[inToken], amount, false);
 
@@ -46,14 +64,6 @@ contract BGTExchanger is IBGTExchanger {
         }
 
         if (bgtAmount != 0) {
-            bgtBalance -= bgtAmount;
-            TransferHelper.safeTransferFrom( // We take what we need.
-                    inToken,
-                    msg.sender,
-                    address(this),
-                    amount
-                );
-            owed[msg.sender] += bgtAmount;
             spendAmount = amount;
         }
     }

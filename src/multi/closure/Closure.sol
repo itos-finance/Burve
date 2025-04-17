@@ -751,17 +751,53 @@ library ClosureImpl {
         }
     }
 
-    function viewTrimAll(Closure storage self) internal {
+    /*   function viewTrimAll(Closure storage self) internal returns (uint256) {
         uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
         for (
             VertexId vIter = VertexLib.minId();
             !vIter.isStop();
             vIter = vIter.inc()
         ) {
-            if (self.cid.contains(vIter))
-                _trimBalance(self, vIter, nonBgtValueStaked);
+            if (self.cid.contains(vIter)) {
+                uint8 idx = vIter.idx();
+                // Roundup the balance we need.
+                uint256 realBalance = AdjustorLib.toReal(
+                    idx,
+                    self.balances[idx],
+                    true
+                );
+                (uint256 earnings, uint256 bgtReal) = Store
+                    .vertex(vid)
+                    .viewTrim(
+                        self.cid,
+                        realBalance,
+                        self.valueStaked,
+                        self.bgtValueStaked
+                    );
+                // All pools start with non-zero nonbgtvalue
+                self.earningsPerValueX128[idx] +=
+                    (earnings << 128) /
+                    nonBgtValueStaked;
+                if (self.bgtValueStaked > 0) {
+                    (uint256 bgtEarned, uint256 unspent) = SimplexLib
+                        .bgtExchange(idx, bgtReal);
+                    self.bgtPerBgtValueX128 +=
+                        (bgtEarned << 128) /
+                        self.bgtValueStaked;
+                    // rare
+                    if (unspent > 0) {
+                        uint256 unspentShares = ReserveLib.deposit(
+                            vid,
+                            unspent
+                        );
+                        self.unexchangedPerBgtValueX128[idx] +=
+                            (unspentShares << 128) /
+                            self.bgtValueStaked;
+                    }
+                }
+            }
         }
-    }
+    } */
 
     /// When we update the balance, we want to double check it stays within bounds.
     function setBalance(

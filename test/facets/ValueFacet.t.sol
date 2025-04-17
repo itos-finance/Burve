@@ -7,6 +7,7 @@ import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {AssetBookImpl} from "../../src/multi/Asset.sol";
 import {MAX_TOKENS} from "../../src/multi/Token.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
 
 contract ValueFacetTest is MultiSetupTest {
     function setUp() public {
@@ -220,7 +221,7 @@ contract ValueFacetTest is MultiSetupTest {
 
     function testAddRemoveSymmetries() public {
         // Single for value symmetry
-        (uint256 t0, , uint256 v0, ) = simplexFacet.getClosure(0xD);
+        (, uint256 t0, , uint256 v0, ) = simplexFacet.getClosureValue(0xD);
         uint256 valueReceived = valueFacet.addSingleForValue(
             address(this),
             0xD,
@@ -229,7 +230,7 @@ contract ValueFacetTest is MultiSetupTest {
             0,
             0
         );
-        (uint256 t1, , uint256 v1, ) = simplexFacet.getClosure(0xD);
+        (, uint256 t1, , uint256 v1, ) = simplexFacet.getClosureValue(0xD);
         assertGt(t1, t0);
         assertEq(v1, v0 + valueReceived);
         valueFacet.removeSingleForValue(
@@ -240,7 +241,7 @@ contract ValueFacetTest is MultiSetupTest {
             0,
             0
         );
-        (t1, , v1, ) = simplexFacet.getClosure(0xD);
+        (, t1, , v1, ) = simplexFacet.getClosureValue(0xD);
         assertApproxEqRel(t1, t0, 1, "tsv");
         assertApproxEqRel(v1, v0, 1, "vsv");
 
@@ -261,7 +262,7 @@ contract ValueFacetTest is MultiSetupTest {
             tokens[2],
             0
         );
-        (t0, , v0, ) = simplexFacet.getClosure(0xD);
+        (, t0, , v0, ) = simplexFacet.getClosureValue(0xD);
         assertApproxEqRel(t1, t0, 1, "tsvs");
         assertGt(t0, t1); // The target should round up.
         assertApproxEqRel(v1, v0, 1, "vsvs");
@@ -285,7 +286,7 @@ contract ValueFacetTest is MultiSetupTest {
             tokens[2],
             0
         );
-        (t1, , v1, ) = simplexFacet.getClosure(0xD);
+        (, t1, , v1, ) = simplexFacet.getClosureValue(0xD);
         assertApproxEqRel(t1, t0, 1, "tvvs");
         assertGt(t1, t0); // The target should round up.
         assertApproxEqRel(v1, v0, 1, "vvvs");
@@ -298,7 +299,7 @@ contract ValueFacetTest is MultiSetupTest {
     function testFeeEarn() public {
         uint256 oneX128 = 1 << 128;
         vm.prank(owner);
-        simplexFacet.setFees(0xA, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
+        simplexFacet.setClosureFees(0xA, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
         valueFacet.addValue(address(this), 0xA, 1e12, 0); // tokens 1 and 3.
         (
             uint256 valueStaked,
@@ -330,7 +331,7 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(bgtEarnings, 0);
 
         // We should also collect fees from rehypothecation gains.
-        MockERC20(tokens[1]).mint(vaults[1], 3e12);
+        MockERC20(tokens[1]).mint(address(vaults[1]), 3e12);
 
         /// Test deposits earn bgt as we collect fees with bgt value.
         /// Test after removing, there are no more fees earned. Test that with query then an add and remove. As in fee claims remain unchanged.
