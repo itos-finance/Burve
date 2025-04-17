@@ -6,8 +6,6 @@ import {Store} from "./Store.sol";
 import {FullMath} from "../FullMath.sol";
 import {MAX_TOKENS} from "./Constants.sol";
 
-/** TODO: NEEDS TESTS */
-
 /*
     Users can have value balances in each cid, but those values are deposited into
     Assets so that they can earn fees.
@@ -35,10 +33,10 @@ struct AssetBook {
 using AssetBookImpl for AssetBook global;
 
 library AssetBookImpl {
-    error InsufficientValue();
-    error InsufficientBgtValue();
+    error InsufficientValue(uint256 actual, uint256 required);
+    error InsufficientBgtValue(uint256 actual, uint256 required);
     /// Thrown when trying to remove too much value and not enough bgtValue.
-    error InsufficientNonBgtValue();
+    error InsufficientNonBgtValue(uint256 value, uint256 bgtValue);
 
     /// Add value to a cid. If the cid already has value, the fees earned will be collected!
     function add(
@@ -50,7 +48,7 @@ library AssetBookImpl {
     ) internal {
         collect(self, recipient, cid);
         Asset storage a = self.assets[recipient][cid];
-        require(value >= bgtValue, InsufficientValue());
+        require(value >= bgtValue, InsufficientValue(value, bgtValue));
         a.value += value;
         a.bgtValue += bgtValue;
     }
@@ -115,14 +113,20 @@ library AssetBookImpl {
     ) internal {
         collect(self, owner, cid);
         Asset storage a = self.assets[owner][cid];
-        require(value >= bgtValue, InsufficientValue());
-        require(value <= a.value, InsufficientValue());
-        require(bgtValue <= a.bgtValue, InsufficientBgtValue());
+        require(value >= bgtValue, InsufficientValue(value, bgtValue));
+        require(value <= a.value, InsufficientValue(a.value, value));
+        require(
+            bgtValue <= a.bgtValue,
+            InsufficientBgtValue(a.bgtValue, bgtValue)
+        );
         unchecked {
             a.value -= value;
             a.bgtValue -= bgtValue;
         }
-        require(a.value >= a.bgtValue, InsufficientNonBgtValue());
+        require(
+            a.value >= a.bgtValue,
+            InsufficientNonBgtValue(a.value, a.bgtValue)
+        );
     }
 
     /// Push all the currently earned fees into the collected balances and update checkpoints.

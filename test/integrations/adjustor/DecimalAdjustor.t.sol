@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {Test, console} from "forge-std/Test.sol";
-import {DecimalAdjustor} from "../../src/integrations/adjustor/DecimalAdjustor.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
-import {FullMath} from "../../src/FullMath.sol";
+import {Test} from "forge-std/Test.sol";
+
+import {DecimalAdjustor} from "../../../src/integrations/adjustor/DecimalAdjustor.sol";
+import {MockERC20} from "../../mocks/MockERC20.sol";
+import {FullMath} from "../../../src/FullMath.sol";
 
 contract DecimalAdjustorTest is Test {
     DecimalAdjustor public adj;

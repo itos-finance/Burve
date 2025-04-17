@@ -10,13 +10,11 @@ type VertexId is uint24;
 
 library VertexLib {
     function newId(uint8 idx) internal pure returns (VertexId) {
-        // TODO: I'm confused about this calculation and don't know if it's correct
         return VertexId.wrap(uint24(1 << (idx + 8)) + idx);
     }
 
     function newId(address token) internal view returns (VertexId) {
         uint8 idx = TokenRegLib.getIdx(token);
-        // TODO: I'm confused about this calculation and don't know if it's correct
         return VertexId.wrap(uint24(1 << (idx + 8)) + idx);
     }
 

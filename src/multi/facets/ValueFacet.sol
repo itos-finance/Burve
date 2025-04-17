@@ -316,10 +316,13 @@ contract ValueFacet is ReentrancyGuardTransient {
             uint256 collectedBgt
         )
     {
+        ClosureId cid = ClosureId.wrap(closureId);
+        // Catch up on rehypothecation gains before we claim fees.
+        Store.closure(cid).trimAllBalances();
         uint256[MAX_TOKENS] memory collectedShares;
         (collectedShares, collectedBgt) = Store.assets().claimFees(
             msg.sender,
-            ClosureId.wrap(closureId)
+            cid
         );
         if (collectedBgt > 0)
             IBGTExchanger(Store.simplex().bgtEx).withdraw(

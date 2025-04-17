@@ -19,7 +19,11 @@ import {VertexId, VertexLib} from "../vertex/Id.sol";
 contract SimplexFacet {
     /// Thrown when setting the BGT exchanger if the provided address is the zero address.
     error BGTExchangerIsZeroAddress();
-    error InsufficientStartingTarget(uint128 startingTarget);
+    /// Thrown when adding a closure if the specified starting target is less than the required init target.
+    error InsufficientStartingTarget(
+        uint128 startingTarget,
+        uint256 initTarget
+    );
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
 
@@ -79,7 +83,7 @@ contract SimplexFacet {
 
     /* Getters */
 
-    /// Get an identifier for this Simplex
+    /// @notice Gets the name and symbol for the value token.
     function getName()
         external
         view
@@ -91,12 +95,13 @@ contract SimplexFacet {
     }
 
     /// @notice Get everything value-related about a closure.
-    function getClosure(
+    function getClosureValue(
         uint16 closureId
     )
         external
         view
         returns (
+            uint8 n,
             uint256 targetX128,
             uint256[MAX_TOKENS] memory balances,
             uint256 valueStaked,
@@ -104,6 +109,7 @@ contract SimplexFacet {
         )
     {
         Closure storage c = Store.closure(ClosureId.wrap(closureId));
+        n = c.n;
         targetX128 = c.targetX128;
         valueStaked = c.valueStaked;
         bgtValueStaked = c.bgtValueStaked;
@@ -145,61 +151,47 @@ contract SimplexFacet {
         return SimplexLib.protocolEarnings();
     }
 
-    /*
-    /// TODO move to new view facet
-    /// Convert your token of interest to the vertex id which you can
-    /// sum with other vertex ids to create a closure Id.
-    function getVertexId(address token) external view returns (uint16 vid) {
-        return VertexId.unwrap(newVertexId(token));
+    /// @notice Gets the list of registered tokens.
+    function getTokens() external view returns (address[] memory) {
+        return Store.tokenRegistry().tokens;
     }
 
-    /// TODO move to new view facet
-    /// Fetch the list of tokens registered in this simplex.
-    function getTokens() external view returns (address[] memory tokens) {
-        address[] storage _t = Store.tokenRegistry().tokens;
-        tokens = new address[](_t.length);
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            tokens[i] = _t[i];
-        }
-    }
-
-    /// TODO move to new view facet
-    /// Fetch the vertex index of the given token addresses.
-    /// Returns a negative value if the token is not present.
-    function getIndexes(
-        address[] calldata tokens
-    ) external view returns (int8[] memory idxs) {
-        TokenRegistry storage reg = Store.tokenRegistry();
-        idxs = new int8[](tokens.length);
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            idxs[i] = int8(reg.tokenIdx[tokens[i]]);
-            if (idxs[i] == 0 && reg.tokens[0] != tokens[i]) {
-                idxs[i] = -1;
-            }
-        }
-    }
-
-    /// TODO move to new view facet
-    /// Get the number of currently installed vertices
-    function numVertices() external view returns (uint8) {
+    /// @notice Gets the number of currently installed vertices
+    function getNumVertices() external view returns (uint8) {
         return TokenRegLib.numVertices();
-    } */
+    }
+
+    /// @notice Gets the index of a registered token by address.
+    function getIdx(address token) external view returns (uint8) {
+        return TokenRegLib.getIdx(token);
+    }
+
+    /// @notice Gets the vertex Id of a token by address.
+    function getVertexId(address token) external view returns (uint24) {
+        return VertexId.unwrap(VertexLib.newId(token));
+    }
 
     /* Admin Function */
 
-    /// Add a token into this simplex.
+    /// @notice Adds a vertex.
+    /// @dev Only callable by the contract owner.
     function addVertex(address token, address vault, VaultType vType) external {
         AdminLib.validateOwner();
+
         TokenRegLib.register(token);
         Store.adjustor().cacheAdjustment(token);
+
         // We do this explicitly because a normal call to Store.vertex would validate the
         // vertex is already initialized which of course it is not yet.
         VertexId vid = VertexLib.newId(token);
         Vertex storage v = Store.load().vertices[vid];
         v.init(vid, token, vault, vType);
+
         emit VertexAdded(token, vault, vid, vType);
     }
 
+    /// @notice Adds a closure.
+    /// @dev Only callable by the contract owner.
     function addClosure(
         uint16 _cid,
         uint128 startingTarget,
@@ -207,37 +199,42 @@ contract SimplexFacet {
         uint128 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
+
         ClosureId cid = ClosureId.wrap(_cid);
         // We fetch the raw storage because Store.closure would check the closure for initialization.
         Closure storage c = Store.load().closures[cid];
-        require(
-            startingTarget >= Store.simplex().initTarget,
-            InsufficientStartingTarget(startingTarget)
-        );
+
+        uint256 initTarget = Store.simplex().initTarget;
+        if (startingTarget < initTarget) {
+            revert InsufficientStartingTarget(startingTarget, initTarget);
+        }
+
         uint256[MAX_TOKENS] storage neededBalances = c.init(
             cid,
             startingTarget,
             baseFeeX128,
             protocolTakeX128
         );
+
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue;
-            // Validate the vertex first.
-            Vertex storage v = Store.vertex(VertexLib.newId(i));
+
             address token = tokenReg.tokens[i];
             uint256 realNeeded = AdjustorLib.toReal(
                 token,
                 neededBalances[i],
                 true
             );
+
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
                 address(this),
                 realNeeded
             );
-            v.deposit(cid, realNeeded);
+
+            Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
     }
 
@@ -376,26 +373,33 @@ contract SimplexFacet {
         );
     }
 
+    /// @notice Sets the name and symbol for the value token.
+    /// @dev Only callable by the contract owner.
     function setName(
         string calldata newName,
         string calldata newSymbol
     ) external {
         AdminLib.validateOwner();
+
         Simplex storage s = Store.simplex();
         s.name = newName;
         s.symbol = newSymbol;
+
         emit NewName(newName, newSymbol);
     }
 
-    function setFees(
-        uint16 closure,
+    /// @notice Sets fees for a given closureId.
+    function setClosureFees(
+        uint16 closureId,
         uint128 baseFeeX128,
         uint128 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
-        Closure storage c = Store.closure(ClosureId.wrap(closure));
+
+        Closure storage c = Store.closure(ClosureId.wrap(closureId));
         c.baseFeeX128 = baseFeeX128;
         c.protocolTakeX128 = protocolTakeX128;
-        emit NewFees(closure, baseFeeX128, protocolTakeX128);
+
+        emit NewFees(closureId, baseFeeX128, protocolTakeX128);
     }
 }

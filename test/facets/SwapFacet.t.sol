@@ -398,17 +398,19 @@ contract SwapFacetTest is MultiSetupTest {
         // If we add equal value now, the swap will be the same.
         valueFacet.addValue(alice, 0x3, 2 * 7e17, 0);
         (
+            ,
             uint256 target3X128,
             uint256[MAX_TOKENS] memory balances3,
             ,
 
-        ) = simplexFacet.getClosure(0x3);
+        ) = simplexFacet.getClosureValue(0x3);
         (
+            ,
             uint256 target7X128,
             uint256[MAX_TOKENS] memory balances7,
             ,
 
-        ) = simplexFacet.getClosure(0x7);
+        ) = simplexFacet.getClosureValue(0x7);
         assertEq(target3X128, target7X128, "2t");
         assertEq(balances3[0], balances7[0], "2b0");
         assertEq(balances3[1], balances7[1], "2b1");
@@ -454,15 +456,15 @@ contract SwapFacetTest is MultiSetupTest {
             0x7
         );
 
-        (target3X128, , , ) = simplexFacet.getClosure(0x3);
-        (target7X128, , , ) = simplexFacet.getClosure(0x7);
+        (, target3X128, , , ) = simplexFacet.getClosureValue(0x3);
+        (, target7X128, , , ) = simplexFacet.getClosureValue(0x7);
         assertEq(target3X128, target7X128, "3t");
         assertGt(in3, out7); // There is still slippage despite being above target, though less.
         assertGt(out7, out3);
         assertApproxEqRel(out3, out7, 5e15, "3");
 
-        (, balances3, , ) = simplexFacet.getClosure(0x3);
-        (, balances7, , ) = simplexFacet.getClosure(0x7);
+        (, , balances3, , ) = simplexFacet.getClosureValue(0x3);
+        (, , balances7, , ) = simplexFacet.getClosureValue(0x7);
         console.log(out3, out7);
         console.log(target3X128, target7X128);
         assertLt(balances3[0], balances7[0], "3b0");
@@ -483,7 +485,7 @@ contract SwapFacetTest is MultiSetupTest {
             0x7
         );
         vm.prank(owner);
-        simplexFacet.setFees(0x7, 1 << 126, 1 << 127); // 1/4, 1/2
+        simplexFacet.setClosureFees(0x7, 1 << 126, 1 << 127); // 1/4, 1/2
         (uint256 simFeeIn, uint256 simFeeOut, ) = swapFacet.simSwap(
             tokens[2],
             tokens[1],
@@ -526,8 +528,8 @@ contract SwapFacetTest is MultiSetupTest {
     function testSimSwapIsTheSame() public {
         vm.startPrank(alice);
         // Add a bunch of random liquidity.
-        valueFacet.addValueSingle(alice, 0x7, 260e18, 12e18, tokens[0], 0);
-        valueFacet.addValueSingle(alice, 0x7, 731e18, 111e18, tokens[1], 0);
+        valueFacet.addValueSingle(alice, 0x7, 220e18, 12e18, tokens[0], 0);
+        valueFacet.addValueSingle(alice, 0x7, 331e18, 111e18, tokens[1], 0);
         valueFacet.addValueSingle(alice, 0x7, 555e18, 99e18, tokens[2], 0);
 
         // A sim swap here gives the same result as the real swap.

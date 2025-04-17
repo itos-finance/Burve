@@ -305,7 +305,9 @@ library ClosureImpl {
         amount -= tax;
         // Use the ValueLib's newton's method to solve for the value added and update target.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        self.setBalance(idx, self.balances[idx] + amount);
+        // This is tricky. We up the balance first for the ValueLib call, then set to do the checks.
+        // We need to set the new target before we can setBalance, but we need up to balance to calc new target.
+        self.balances[idx] += amount;
         uint256 newTargetX128;
         {
             (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
@@ -321,6 +323,8 @@ library ClosureImpl {
         value = ((newTargetX128 - self.targetX128) * self.n) >> 128; // Round down received value balance.
         bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down.
         self.targetX128 = newTargetX128;
+        // Now that we set the new target we can set balance to check validity.
+        self.setBalance(idx, self.balances[idx]);
         self.valueStaked += value;
         self.bgtValueStaked += bgtValue;
     }
@@ -344,7 +348,8 @@ library ClosureImpl {
         tax = taxedRemove - amount;
         // Use the ValueLib's newton's method to solve for the value removed and update target.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        self.setBalance(idx, self.balances[idx] - taxedRemove);
+        // This is tricky and strange, but see addTokenForValue for reason.
+        self.balances[idx] -= taxedRemove;
         uint256 newTargetX128;
         {
             (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
@@ -362,6 +367,7 @@ library ClosureImpl {
         if ((value << 128) > 0) value += 1; // We need to round up.
         bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down both ways.
         self.targetX128 = newTargetX128;
+        self.setBalance(idx, self.balances[idx]);
         self.valueStaked -= value;
         self.bgtValueStaked -= bgtValue;
     }
@@ -694,7 +700,7 @@ library ClosureImpl {
     /* Helpers */
 
     /// Update the bgt earnings with the current staking balances.
-    /// Called before any value changes or swaps.
+    /// Called before any value changes, swaps, or fee collections.
     function trimAllBalances(Closure storage self) internal {
         uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
         for (
@@ -744,6 +750,54 @@ library ClosureImpl {
             }
         }
     }
+
+    /*   function viewTrimAll(Closure storage self) internal returns (uint256) {
+        uint256 nonBgtValueStaked = self.valueStaked - self.bgtValueStaked;
+        for (
+            VertexId vIter = VertexLib.minId();
+            !vIter.isStop();
+            vIter = vIter.inc()
+        ) {
+            if (self.cid.contains(vIter)) {
+                uint8 idx = vIter.idx();
+                // Roundup the balance we need.
+                uint256 realBalance = AdjustorLib.toReal(
+                    idx,
+                    self.balances[idx],
+                    true
+                );
+                (uint256 earnings, uint256 bgtReal) = Store
+                    .vertex(vid)
+                    .viewTrim(
+                        self.cid,
+                        realBalance,
+                        self.valueStaked,
+                        self.bgtValueStaked
+                    );
+                // All pools start with non-zero nonbgtvalue
+                self.earningsPerValueX128[idx] +=
+                    (earnings << 128) /
+                    nonBgtValueStaked;
+                if (self.bgtValueStaked > 0) {
+                    (uint256 bgtEarned, uint256 unspent) = SimplexLib
+                        .bgtExchange(idx, bgtReal);
+                    self.bgtPerBgtValueX128 +=
+                        (bgtEarned << 128) /
+                        self.bgtValueStaked;
+                    // rare
+                    if (unspent > 0) {
+                        uint256 unspentShares = ReserveLib.deposit(
+                            vid,
+                            unspent
+                        );
+                        self.unexchangedPerBgtValueX128[idx] +=
+                            (unspentShares << 128) /
+                            self.bgtValueStaked;
+                    }
+                }
+            }
+        }
+    } */
 
     /// When we update the balance, we want to double check it stays within bounds.
     function setBalance(

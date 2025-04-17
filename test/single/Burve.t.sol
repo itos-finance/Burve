@@ -343,7 +343,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     function test_Mint_Island_SenderIsRecipient() public forkOnly {
         // First give some deadshares so we can mint freely.
         uint128 deadLiq = 100;
-        deadShareMint(address(burveIsland), deadLiq);
+        (, uint256 deadIslandShares) = deadShareMint(
+            address(burveIsland),
+            deadLiq
+        );
 
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
@@ -388,10 +391,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveIsland.totalShares(), liq + deadLiq, "total shares");
 
         // check island shares
-        uint256 deadMints = FullMath.mulDiv(mintShares, deadLiq, liq);
         assertEq(
             burveIsland.totalIslandShares(),
-            mintShares + deadMints,
+            mintShares + deadIslandShares,
             "total island shares"
         );
 
@@ -408,7 +410,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            mintShares + deadMints,
+            mintShares + deadIslandShares,
             "station proxy island LP balance"
         );
 
@@ -419,7 +421,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     function test_Mint_Island_SenderNotRecipient() public forkOnly {
         // First mint deadshares so we can mint freely.
         uint128 deadLiq = 100;
-        uint256 deadShares = deadShareMint(address(burveIsland), deadLiq);
+        (uint256 deadShares, uint256 deadIslandShares) = deadShareMint(
+            address(burveIsland),
+            deadLiq
+        );
 
         uint128 liq = 10_000;
         IKodiakIsland island = burveIsland.island();
@@ -464,10 +469,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burveIsland.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
-        uint256 deadMints = FullMath.mulDiv(mintShares, deadLiq, liq);
         assertEq(
             burveIsland.totalIslandShares(),
-            mintShares + deadMints,
+            mintShares + deadIslandShares,
             "total island shares"
         );
 
@@ -484,7 +488,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            mintShares + deadMints,
+            mintShares + deadIslandShares,
             "station proxy island LP balance"
         );
 
@@ -494,7 +498,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     function test_Mint_V3_SenderIsRecipient() public forkOnly {
         uint128 deadLiq = 100;
-        uint256 deadShares = deadShareMint(address(burveV3), deadLiq);
+        (uint256 deadShares, uint256 deadIslandShares) = deadShareMint(
+            address(burveV3),
+            deadLiq
+        );
 
         uint128 liq = 10_000;
 
@@ -542,7 +549,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     function test_Mint_V3_SenderNotRecipient() public forkOnly {
         uint128 deadLiq = 100;
-        uint256 deadShares = deadShareMint(address(burveV3), deadLiq);
+        (uint256 deadShares, uint256 deadIslandShares) = deadShareMint(
+            address(burveV3),
+            deadLiq
+        );
 
         uint128 liq = 10_000;
 
@@ -590,7 +600,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     function test_Mint_SenderIsRecipient() public forkOnly {
         uint128 deadLiq = 100;
-        uint256 deadShares = deadShareMint(address(burve), deadLiq);
+        (uint256 deadShares, uint256 deadIslandShares) = deadShareMint(
+            address(burve),
+            deadLiq
+        );
 
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
@@ -649,10 +662,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burve.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
-        uint256 deadIslands = FullMath.mulDiv(islandMintShares, deadLiq, liq);
         assertEq(
             burve.totalIslandShares(),
-            islandMintShares + deadIslands,
+            islandMintShares + deadIslandShares,
             "total island shares"
         );
 
@@ -669,7 +681,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            islandMintShares + deadIslands,
+            islandMintShares + deadIslandShares,
             "station proxy island LP balance"
         );
 
@@ -679,7 +691,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
     function test_Mint_SenderNotRecipient() public forkOnly {
         uint128 deadLiq = 100;
-        uint256 deadShares = deadShareMint(address(burve), deadLiq);
+        (uint256 deadShares, uint256 deadIslandShares) = deadShareMint(
+            address(burve),
+            deadLiq
+        );
 
         uint128 liq = 10_000;
         IKodiakIsland island = burve.island();
@@ -738,10 +753,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burve.totalShares(), liq + deadShares, "total shares");
 
         // check island shares
-        uint256 deadIslands = FullMath.mulDiv(islandMintShares, deadLiq, liq);
         assertEq(
             burve.totalIslandShares(),
-            islandMintShares + deadIslands,
+            islandMintShares + deadIslandShares,
             "total island shares"
         );
 
@@ -758,7 +772,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(island.balanceOf(alice), 0, "alice island LP balance");
         assertEq(
             island.balanceOf(address(stationProxy)),
-            islandMintShares + deadIslands,
+            islandMintShares + deadIslandShares,
             "station proxy island LP balance"
         );
 
@@ -3567,8 +3581,9 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
     function deadShareMint(
         address _burve,
         uint128 deadLiq
-    ) internal returns (uint256 deadShares) {
+    ) internal returns (uint256 deadShares, uint256 deadIslandShares) {
         vm.startPrank(address(this));
+
         uint256 b0 = token0.balanceOf(address(this));
         uint256 b1 = token1.balanceOf(address(this));
         uint256 a0 = token0.allowance(address(this), _burve);
@@ -3577,7 +3592,25 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         deal(address(token1), address(this), type(uint256).max - b1);
         token0.approve(_burve, type(uint256).max);
         token1.approve(_burve, type(uint256).max);
+
+        // Mint dead liq
         deadShares = Burve(_burve).mint(_burve, deadLiq, 0, type(uint128).max);
+
+        // Calculate dead island shares
+        IKodiakIsland island = Burve(_burve).island();
+        if (address(island) != address(0x0)) {
+            uint128 deadIslandLiq = uint128(
+                shift96(deadLiq * Burve(_burve).distX96(0), true)
+            );
+            (uint256 amount0, uint256 amount1) = getAmountsForLiquidity(
+                deadIslandLiq,
+                island.lowerTick(),
+                island.upperTick(),
+                true
+            );
+            (, , deadIslandShares) = island.getMintAmounts(amount0, amount1);
+        }
+
         // Undo allowances and mints.
         uint256 nb0 = token0.balanceOf(address(this));
         uint256 nb1 = token1.balanceOf(address(this));

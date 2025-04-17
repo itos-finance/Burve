@@ -1,18 +1,26 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 
 import {AdminLib} from "Commons/Util/Admin.sol";
 
 import {IAdjustor} from "../../src/integrations/adjustor/IAdjustor.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {SearchParams} from "../../src/multi/Value.sol";
 import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
+import {Store} from "../../src/multi/Store.sol";
+import {TokenRegLib} from "../../src/multi/Token.sol";
 import {NullAdjustor} from "../../src/integrations/adjustor/NullAdjustor.sol";
+import {VaultType, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
+import {Vertex} from "../../src/multi/vertex/Vertex.sol";
+import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
 
 /* For SimplexFacetVertexTest */
 import {VaultType, VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
@@ -28,7 +36,251 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.startPrank(owner);
         _newDiamond();
         _newTokens(3);
+        _initializeClosure(0x7);
         vm.stopPrank();
+    }
+
+    // -- addClosure tests ----
+
+    function testAddClosureSingleVertex() public {
+        vm.startPrank(owner);
+
+        IERC20 token = IERC20(tokens[0]);
+
+        uint128 startingTarget = 2e18;
+        uint128 baseFeeX128 = 1e10;
+        uint128 protocolTakeX128 = 1e6;
+
+        // deal owner required tokens and approve transfer
+        deal(tokens[0], owner, startingTarget);
+        IERC20(token).approve(address(diamond), startingTarget);
+
+        // balances before
+        uint256 balanceOwner = token.balanceOf(owner);
+        uint256 balanceVault = token.balanceOf(address(vaults[0]));
+
+        // check the owner transfers to the diamond before sending to the vault
+        vm.expectCall(
+            address(token),
+            abi.encodeCall(token.transferFrom, (owner, diamond, startingTarget))
+        );
+
+        // add closure
+        simplexFacet.addClosure(
+            0x1,
+            startingTarget,
+            baseFeeX128,
+            protocolTakeX128
+        );
+
+        // check balances
+        assertEq(token.balanceOf(owner), balanceOwner - startingTarget);
+        assertEq(
+            token.balanceOf(address(vaults[0])),
+            balanceVault + startingTarget
+        );
+
+        // check closure
+        (
+            uint8 n,
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        ) = simplexFacet.getClosureValue(0x1);
+        assertEq(n, 1);
+        assertEq(targetX128, uint256(startingTarget) << 128);
+        assertEq(balances[0], startingTarget);
+        assertEq(valueStaked, startingTarget);
+        assertEq(bgtValueStaked, 0);
+
+        vm.stopPrank();
+    }
+
+    function testAddClosureMultiVertexDifferentToRealValues() public {
+        vm.startPrank(owner);
+
+        IERC20 token0 = IERC20(tokens[0]);
+
+        // Add a 6 decimal token.
+        IERC20 usdc = new MockERC20("Test Token", "T", 6);
+        IERC4626 usdcVault = IERC4626(
+            address(new MockERC4626(ERC20(address(usdc)), "vault T", "VT"))
+        );
+        tokens.push(address(usdc));
+        vaults.push(usdcVault);
+
+        // verify assumptions about setup
+        assertEq(tokens.length, 4);
+        assertEq(vaults.length, 4);
+
+        simplexFacet.addVertex(
+            address(usdc),
+            address(usdcVault),
+            VaultType.E4626
+        );
+
+        uint16 closureId = 0x9; // 0th and 3rd token
+        uint128 startingTarget = 100e24;
+        uint128 baseFeeX128 = 1e10;
+        uint128 protocolTakeX128 = 1e6;
+
+        // deal owner required tokens and approve transfer
+        // notice usdc has different real requirements due to the result of the adjustor
+        deal(address(token0), owner, 100e24);
+        deal(address(usdc), owner, 100e12);
+        token0.approve(address(diamond), 100e24);
+        usdc.approve(address(diamond), 100e12);
+
+        // balances before
+        uint256 balanceOwner0 = token0.balanceOf(owner);
+        uint256 balanceOwnerUSDC = usdc.balanceOf(owner);
+        uint256 balanceVault0 = token0.balanceOf(address(vaults[0]));
+        uint256 balanceVaultUSDC = usdc.balanceOf(address(usdcVault));
+
+        // check the owner transfers to the diamond before sending to the vault
+        vm.expectCall(
+            address(token0),
+            abi.encodeCall(token0.transferFrom, (owner, diamond, 100e24))
+        );
+        vm.expectCall(
+            address(usdc),
+            abi.encodeCall(usdc.transferFrom, (owner, diamond, 100e12))
+        );
+
+        // add closure
+        simplexFacet.addClosure(
+            closureId,
+            startingTarget,
+            baseFeeX128,
+            protocolTakeX128
+        );
+
+        // check balances
+        assertEq(token0.balanceOf(owner), balanceOwner0 - 100e24);
+        assertEq(usdc.balanceOf(owner), balanceOwnerUSDC - 100e12);
+        assertEq(token0.balanceOf(address(vaults[0])), balanceVault0 + 100e24);
+        assertEq(usdc.balanceOf(address(usdcVault)), balanceVaultUSDC + 100e12);
+
+        // check closure
+        (
+            uint8 n,
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        ) = simplexFacet.getClosureValue(closureId);
+        assertEq(n, 2);
+        assertEq(targetX128, uint256(startingTarget) << 128);
+        assertEq(balances[0], 100e24);
+        assertEq(balances[3], 100e24);
+        assertEq(valueStaked, 200e24);
+        assertEq(bgtValueStaked, 0);
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddClosureInsufficientStartingTarget() public {
+        vm.startPrank(owner);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SimplexFacet.InsufficientStartingTarget.selector,
+                1e6,
+                SimplexLib.DEFAULT_INIT_TARGET
+            )
+        );
+        simplexFacet.addClosure(0x1, 1e6, 1e10, 1e6);
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddClosureNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.addClosure(0x1, 1e8, 1e10, 1e6);
+    }
+
+    // -- addVertex tests ----
+
+    function testAddVertex() public {
+        vm.startPrank(owner);
+
+        // vertex A params
+        address tokenA = address(new MockERC20("tokenA", "A", 18));
+        address vaultA = makeAddr("vaultA");
+        VertexId vidA = VertexLib.newId(3);
+
+        // add vertex A
+        vm.expectEmit(true, true, false, true);
+        emit SimplexFacet.VertexAdded(tokenA, vaultA, vidA, VaultType.E4626);
+        simplexFacet.addVertex(tokenA, vaultA, VaultType.E4626);
+
+        // check vertex A
+        Vertex memory vertexA = storeManipulatorFacet.getVertex(vidA);
+        assertEq(VertexId.unwrap(vertexA.vid), VertexId.unwrap(vidA));
+        assertEq(vertexA._isLocked, false);
+
+        // check vault A
+        (address activeVaultA, address backupVaultA) = vaultFacet.viewVaults(
+            tokenA
+        );
+        assertEq(activeVaultA, vaultA);
+        assertEq(backupVaultA, address(0x0));
+
+        // vertex B params
+        address tokenB = address(new MockERC20("tokenB", "B", 18));
+        address vaultB = makeAddr("vaultB");
+        VertexId vidB = VertexLib.newId(4);
+
+        // add vertex B
+        vm.expectEmit(true, true, false, true);
+        emit SimplexFacet.VertexAdded(tokenB, vaultB, vidB, VaultType.E4626);
+        simplexFacet.addVertex(tokenB, vaultB, VaultType.E4626);
+
+        // check vertex A
+        Vertex memory vertexB = storeManipulatorFacet.getVertex(vidB);
+        assertEq(VertexId.unwrap(vertexB.vid), VertexId.unwrap(vidB));
+        assertEq(vertexB._isLocked, false);
+
+        // check vault A
+        (address activeVaultB, address backupVaultB) = vaultFacet.viewVaults(
+            tokenB
+        );
+        assertEq(activeVaultB, vaultB);
+        assertEq(backupVaultB, address(0x0));
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddVertexVaultTypeNotRecognized() public {
+        vm.startPrank(owner);
+
+        address token = address(new MockERC20("token", "t", 18));
+        address vault = makeAddr("vault");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
+        );
+        simplexFacet.addVertex(token, vault, VaultType.UnImplemented);
+
+        vm.stopPrank();
+    }
+
+    function testRevertAddVertexTokenAlreadyRegistered() public {
+        vm.startPrank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenRegLib.TokenAlreadyRegistered.selector,
+                tokens[0]
+            )
+        );
+        simplexFacet.addVertex(tokens[0], address(vaults[0]), VaultType.E4626);
+        vm.stopPrank();
+    }
+
+    function testRevertAddVertexNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.addVertex(tokens[0], address(vaults[0]), VaultType.E4626);
     }
 
     // -- withdraw tests ----
@@ -418,181 +670,259 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.expectRevert(AdminLib.NotOwner.selector);
         simplexFacet.setSearchParams(sp);
     }
-}
 
-contract SimplexFacetVertexTest is MultiSetupTest {
-    MockERC20[] public mockTokens;
-    MockERC4626[] public mockVaults;
+    // getTokens tests ----
 
-    function setUp() public {
-        vm.startPrank(owner);
-        _newDiamond();
-        vm.stopPrank();
-
-        mockTokens.push(new MockERC20("Test Token 0", "TEST0", 18));
-        mockTokens.push(new MockERC20("Test Token 1", "TEST1", 18));
-
-        mockVaults.push(new MockERC4626(token0, "Mock Vault 0", "MVLT0"));
-        mockVaults.push(new MockERC4626(token1, "Mock Vault 1", "MVLT1"));
+    function testGetTokens() public view {
+        address[] memory _tokens = simplexFacet.getTokens();
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            assertEq(_tokens[i], tokens[i]);
+        }
     }
 
-    function testAddVertex() public {
-        vm.startPrank(owner);
+    // -- getNumVertices tests ----
 
-        // Add first vertex
-        simplexFacet.addVertex(
-            address(mockTokens[0]),
-            address(mockVaults[0]),
-            VaultType.E4626
-        );
-
-        // Add second vertex
-        simplexFacet.addVertex(
-            address(mockTokens[1]),
-            address(mockVaults[1]),
-            VaultType.E4626
-        );
-
-        vm.stopPrank();
+    function testGetNumVertices() public view {
+        assertEq(simplexFacet.getNumVertices(), tokens.length);
     }
 
-    function testAddVertexRevertUnimplemented() public {
-        vm.startPrank(owner);
+    // -- getIdx tests ----
 
-        // Add first vertex
-        vm.expectRevert(
-            abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
-        );
-        simplexFacet.addVertex(
-            address(mockTokens[0]),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        // Add second vertex
-        vm.expectRevert(
-            abi.encodeWithSelector(VaultLib.VaultTypeNotRecognized.selector, 0)
-        );
-        simplexFacet.addVertex(
-            address(mockTokens[1]),
-            address(0),
-            VaultType.UnImplemented
-        );
-
-        vm.stopPrank();
+    function testGetIdx() public view {
+        assertEq(simplexFacet.getIdx(tokens[0]), 0);
+        assertEq(simplexFacet.getIdx(tokens[1]), 1);
+        assertEq(simplexFacet.getIdx(tokens[2]), 2);
     }
 
-    function testAddVertexRevertNonOwner() public {
-        vm.startPrank(alice);
-
-        vm.expectRevert();
-        simplexFacet.addVertex(
-            address(mockTokens[0]),
-            address(mockVaults[0]),
-            VaultType.E4626
-        );
-
-        vm.stopPrank();
-    }
-
-    function testAddVertexRevertsForDuplicate() public {
-        vm.startPrank(owner);
-
-        // Add vertex first time
-        simplexFacet.addVertex(
-            address(mockTokens[0]),
-            address(mockVaults[0]),
-            VaultType.E4626
-        );
-
-        // Try to add same vertex again
+    function testRevertGetIdxTokenNotFound() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                TokenRegLib.TokenAlreadyRegistered.selector,
-                address(mockTokens[0])
+                TokenRegLib.TokenNotFound.selector,
+                address(0xA)
             )
-        ); // Should revert for duplicate vertex
-        simplexFacet.addVertex(
-            address(mockTokens[0]),
-            address(mockVaults[0]),
-            VaultType.E4626
         );
+        simplexFacet.getIdx(address(0xA));
+    }
+
+    // -- getVertexId ----
+
+    function testGetVertexId() public view {
+        assertEq(simplexFacet.getVertexId(tokens[0]), 1 << 8);
+        assertEq(simplexFacet.getVertexId(tokens[1]), (1 << 9) + 1);
+        assertEq(simplexFacet.getVertexId(tokens[2]), (1 << 10) + 2);
+    }
+
+    function testRevertGetVertexIdTokenNotFound() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenRegLib.TokenNotFound.selector,
+                address(0xA)
+            )
+        );
+        simplexFacet.getVertexId(address(0xA));
+    }
+
+    // -- name tests ----
+
+    function testSetName() public {
+        vm.startPrank(owner);
+
+        vm.expectEmit(false, false, false, true);
+        emit SimplexFacet.NewName("name", "symbol");
+        simplexFacet.setName("name", "symbol");
+
+        (string memory name, string memory symbol) = simplexFacet.getName();
+        assertEq(name, "name");
+        assertEq(symbol, "symbol");
 
         vm.stopPrank();
     }
-}
 
-contract SimplexFacetClosureTest is MultiSetupTest {
-    uint128 public constant INITT = SimplexLib.DEFAULT_INIT_TARGET;
-
-    function setUp() public {
-        _newDiamond();
-        _newTokens(8);
-        _fundAccount(address(this));
+    function testRevertSetNameNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setName("name", "symbol");
     }
 
-    function testAddClosure() public {
-        uint16 cid = 0x1 + 0x24 + 0x64;
-        simplexFacet.addClosure(cid, INITT, 1 << 123, 1 << 125);
+    // -- getClosureValue tests ----
+
+    function testGetClosureValueDefault() public view {
+        (
+            uint8 n,
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        ) = simplexFacet.getClosureValue(0x7);
+        assertEq(n, 3);
+        assertEq(targetX128, uint256(INITIAL_VALUE) << 128);
+        assertEq(valueStaked, INITIAL_VALUE * 3);
+        assertEq(bgtValueStaked, 0);
+        for (uint8 i = 0; i < 3; ++i) {
+            assertEq(balances[i], INITIAL_VALUE);
+        }
+        for (uint8 i = 3; i < MAX_TOKENS; ++i) {
+            assertEq(balances[i], 0);
+        }
+    }
+
+    function testGetClosureValue() public {
+        uint16 closureId = 0x7;
+
+        // overwrite closure in storage
+        uint8 _n = 4;
+        uint256 _targetX128 = 50;
+        uint256[MAX_TOKENS] memory _balances;
+        _balances[0] = 10e18;
+        _balances[1] = 2e18;
+        uint256 _valueStaked = 20;
+        uint256 _bgtValueStaked = 40;
+
+        storeManipulatorFacet.setClosureValue(
+            closureId,
+            _n,
+            _targetX128,
+            _balances,
+            _valueStaked,
+            _bgtValueStaked
+        );
+
+        // get closure value
+        (
+            uint8 n,
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        ) = simplexFacet.getClosureValue(0x7);
+
+        // check value
+        assertEq(_n, n);
+        assertEq(_targetX128, targetX128);
+        assertEq(_valueStaked, valueStaked);
+        assertEq(_bgtValueStaked, bgtValueStaked);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(_balances[i], balances[i]);
+        }
+    }
+
+    function testRevertGetClosureValueUninitializedClosure() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Store.UninitializedClosure.selector, 0x1999)
+        );
+        simplexFacet.getClosureValue(0x1999);
+    }
+
+    // -- closureFees tests ----
+
+    function testGetClosureFeesDefault() public view {
         (
             uint256 baseFeeX128,
             uint256 protocolTakeX128,
             uint256[MAX_TOKENS] memory earningsPerValueX128,
             uint256 bgtPerBgtValueX128,
             uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
-        ) = simplexFacet.getClosureFees(cid);
-        assertEq(baseFeeX128, 1 << 123);
-        assertEq(protocolTakeX128, 1 << 125);
+        ) = simplexFacet.getClosureFees(0x7);
+
+        // check fees
+        assertEq(baseFeeX128, 0);
+        assertEq(protocolTakeX128, 0);
         assertEq(bgtPerBgtValueX128, 0);
-        for (uint256 i = 0; i < MAX_TOKENS; ++i) {
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             assertEq(earningsPerValueX128[i], 0);
             assertEq(unexchangedPerBgtValueX128[i], 0);
         }
-
-        // Try adding a single token closure which is possible!
-        simplexFacet.addClosure(0x32, INITT, 123 << 120, 81 << 121);
     }
 
-    function testAddClosureWithNonExistentToken() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Store.UninitializedVertex.selector,
-                VertexLib.newId(9)
-            )
+    function testGetClosureFees() public {
+        uint16 closureId = 0x7;
+
+        // overwrite closure in storage
+        uint256 _baseFeeX128 = 1;
+        uint256 _protocolTakeX128 = 2;
+        uint256[MAX_TOKENS] memory _earningsPerValueX128;
+        uint256 _bgtPerBgtValueX128 = 3;
+        uint256[MAX_TOKENS] memory _unexchangedPerBgtValueX128;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            _earningsPerValueX128[i] = 10e8 + i;
+            _unexchangedPerBgtValueX128[i] = 20e8 + i;
+        }
+
+        storeManipulatorFacet.setClosureFees(
+            closureId,
+            _baseFeeX128,
+            _protocolTakeX128,
+            _earningsPerValueX128,
+            _bgtPerBgtValueX128,
+            _unexchangedPerBgtValueX128
         );
-        simplexFacet.addClosure(1 + (1 << 9), INITT, 1 << 124, 1 << 124);
+
+        // get closure fees
+        (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        ) = simplexFacet.getClosureFees(0x7);
+
+        // check fees
+        assertEq(_baseFeeX128, baseFeeX128);
+        assertEq(_protocolTakeX128, protocolTakeX128);
+        assertEq(_bgtPerBgtValueX128, bgtPerBgtValueX128);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(_earningsPerValueX128[i], earningsPerValueX128[i]);
+            assertEq(
+                _unexchangedPerBgtValueX128[i],
+                unexchangedPerBgtValueX128[i]
+            );
+        }
     }
 
-    function testAddClosureTargetTooSmall() public {
+    function testRevertGetClosureFeesUninitializedClosure() public {
         vm.expectRevert(
-            abi.encodeWithSelector(
-                SimplexFacet.InsufficientStartingTarget.selector,
-                INITT - 1
-            )
+            abi.encodeWithSelector(Store.UninitializedClosure.selector, 0x1999)
         );
-        simplexFacet.addClosure(1 + (1 << 8), INITT - 1, 1 << 124, 1 << 124);
+        simplexFacet.getClosureFees(0x1999);
     }
 
-    function testGetNonExistentClosure() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Store.UninitializedClosure.selector,
-                ClosureId.wrap(0x7)
-            )
-        );
-        simplexFacet.getClosure(0x7);
+    function testSetClosureFees() public {
+        // set fees
+        vm.startPrank(owner);
+        simplexFacet.setClosureFees(0x7, 150, 250);
+        vm.stopPrank();
+
+        // get fees
+        (
+            uint256 baseFeeX128,
+            uint256 protocolTakeX128,
+            uint256[MAX_TOKENS] memory earningsPerValueX128,
+            uint256 bgtPerBgtValueX128,
+            uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
+        ) = simplexFacet.getClosureFees(0x7);
+
+        // check fees
+        assertEq(baseFeeX128, 150);
+        assertEq(protocolTakeX128, 250);
+        assertEq(bgtPerBgtValueX128, 0);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            assertEq(earningsPerValueX128[i], 0);
+            assertEq(unexchangedPerBgtValueX128[i], 0);
+        }
     }
 
-    function testGetEmptyClosure() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                Store.EmptyClosure.selector,
-                ClosureId.wrap(0)
-            )
-        );
-        simplexFacet.getClosure(0x0);
+    function testRevertSetClosureFeesUninitializedClosure() public {
+        vm.startPrank(owner);
 
-        vm.expectRevert();
-        simplexFacet.addClosure(0x0, INITT, 1 << 124, 1 << 124);
+        vm.expectRevert(
+            abi.encodeWithSelector(Store.UninitializedClosure.selector, 0x1999)
+        );
+        simplexFacet.setClosureFees(0x1999, 150, 250);
+
+        vm.stopPrank();
+    }
+
+    function testRevertSetClosureFeesNotOwner() public {
+        vm.expectRevert(AdminLib.NotOwner.selector);
+        simplexFacet.setClosureFees(0x7, 150, 250);
     }
 }
