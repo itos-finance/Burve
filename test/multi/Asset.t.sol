@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Asset, AssetBook} from "../../src/multi/Asset.sol";
+import {Asset, AssetBook, AssetBookImpl} from "../../src/multi/Asset.sol";
 import {ClosureId} from "../../src/multi/closure/Id.sol";
 import {Closure} from "../../src/multi/closure/Closure.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
@@ -43,6 +43,18 @@ contract AssetTest is Test {
 
         Asset storage a = assetBook.assets[recipient][cid];
         assertEq(a.bgtPerValueX128Check, 2 << 128);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testRevertAddInsufficientValue() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetBookImpl.InsufficientValue.selector,
+                1,
+                2
+            )
+        );
+        assetBook.add(recipient, cid, 1, 2);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
@@ -123,10 +135,10 @@ contract AssetTest is Test {
 
     function testRemove() public {
         assetBook.add(recipient, cid, 12e18, 7e18);
-        assetBook.remove(recipient, cid, 10e18, 2e18);
+        assetBook.remove(recipient, cid, 5e18, 2e18);
 
         Asset storage a = assetBook.assets[recipient][cid];
-        assertEq(a.value, 2e18);
+        assertEq(a.value, 7e18);
         assertEq(a.bgtValue, 5e18);
     }
 
@@ -137,22 +149,61 @@ contract AssetTest is Test {
         Closure storage c = Store.load().closures[cid];
         c.bgtPerBgtValueX128 = 2 << 128;
 
-        assetBook.remove(recipient, cid, 10e18, 2e18);
+        assetBook.remove(recipient, cid, 1e18, 1e18);
 
         Asset storage a = assetBook.assets[recipient][cid];
         assertEq(a.bgtPerValueX128Check, 2 << 128);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
+    function testRevertRemoveMoreBgtThanValue() public {
+        assetBook.add(recipient, cid, 12e18, 7e18);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetBookImpl.InsufficientValue.selector,
+                0,
+                1
+            )
+        );
+        assetBook.remove(recipient, cid, 0, 1);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
     function testRevertRemoveMoreValueThanOwed() public {
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetBookImpl.InsufficientValue.selector,
+                0,
+                1
+            )
+        );
         assetBook.remove(recipient, cid, 1, 0);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
     function testRevertRemoveMoreBgtThanOwed() public {
-        vm.expectRevert();
-        assetBook.remove(recipient, cid, 0, 1);
+        assetBook.add(recipient, cid, 12e18, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetBookImpl.InsufficientBgtValue.selector,
+                0,
+                1
+            )
+        );
+        assetBook.remove(recipient, cid, 2e18, 1);
+    }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    function testRevertRemoveInsufficientNonBgtValue() public {
+        assetBook.add(recipient, cid, 12e18, 11e18);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AssetBookImpl.InsufficientNonBgtValue.selector,
+                10e18,
+                11e18
+            )
+        );
+        assetBook.remove(recipient, cid, 2e18, 0);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
