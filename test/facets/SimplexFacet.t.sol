@@ -48,8 +48,8 @@ contract SimplexFacetTest is MultiSetupTest {
         IERC20 token = IERC20(tokens[0]);
 
         uint128 startingTarget = 2e18;
-        uint256 baseFeeX128 = 1e10;
-        uint256 protocolTakeX128 = 1e6;
+        uint128 baseFeeX128 = 1e10;
+        uint128 protocolTakeX128 = 1e6;
 
         // deal owner required tokens and approve transfer
         deal(tokens[0], owner, startingTarget);
@@ -122,8 +122,8 @@ contract SimplexFacetTest is MultiSetupTest {
 
         uint16 closureId = 0x9; // 0th and 3rd token
         uint128 startingTarget = 100e24;
-        uint256 baseFeeX128 = 1e10;
-        uint256 protocolTakeX128 = 1e6;
+        uint128 baseFeeX128 = 1e10;
+        uint128 protocolTakeX128 = 1e6;
 
         // deal owner required tokens and approve transfer
         // notice usdc has different real requirements due to the result of the adjustor
@@ -187,7 +187,7 @@ contract SimplexFacetTest is MultiSetupTest {
             abi.encodeWithSelector(
                 SimplexFacet.InsufficientStartingTarget.selector,
                 1e6,
-                1e18
+                SimplexLib.DEFAULT_INIT_TARGET
             )
         );
         simplexFacet.addClosure(0x1, 1e6, 1e10, 1e6);
