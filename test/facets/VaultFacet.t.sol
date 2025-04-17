@@ -1,12 +1,13 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.17;
-/*
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.27;
+
 import {console2} from "forge-std/console2.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {VaultFacet} from "../../src/multi/facets/VaultFacet.sol";
 import {VaultType} from "../../src/multi/vertex/VaultPointer.sol";
 import {VaultLib} from "../../src/multi/vertex/VaultProxy.sol";
+import {VertexLib} from "../../src/multi/vertex/Id.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
@@ -20,9 +21,13 @@ contract VaultFacetTest is MultiSetupTest {
         _newDiamond();
         _newTokens(2);
         _fundAccount(address(this));
+        _initializeClosure(0x3, 1e18);
 
         altVaults.push(
             address(new MockERC4626(ERC20(tokens[0]), "altvault 0", "AV0"))
+        );
+        altVaults.push(
+            address(new MockERC4626(ERC20(tokens[1]), "altvault 1", "AV1"))
         );
 
         v = VaultFacet(diamond);
@@ -105,7 +110,11 @@ contract VaultFacetTest is MultiSetupTest {
         // But even with the vault mostly empty, we can't move it yet because it is active.
         assertEq(ERC20(tokens[0]).balanceOf(active), 2); // We leave a de minimus amount
         vm.expectRevert(
-            abi.encodeWithSelector(VaultLib.VaultInUse.selector, active, 1)
+            abi.encodeWithSelector(
+                VaultLib.VaultInUse.selector,
+                active,
+                VertexLib.newId(0)
+            )
         );
         v.removeVault(active);
 
@@ -124,7 +133,12 @@ contract VaultFacetTest is MultiSetupTest {
         v.transferBalance(backup, active, 0x3, 1);
 
         // If we try to hot swap now it fails because there is no backup.
-        vm.expectRevert(abi.encodeWithSelector(VaultLib.NoBackup.selector, 1));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VaultLib.NoBackup.selector,
+                VertexLib.newId(0)
+            )
+        );
         v.hotSwap(tokens[0]);
     }
 
@@ -138,50 +152,40 @@ contract VaultFacetTest is MultiSetupTest {
             tokens[0],
             tokens[1],
             42e18,
-            1 << 95
+            0x3
         ); // Sell
         (, uint256 outAmount1, ) = swapFacet.simSwap(
             tokens[1],
             tokens[0],
             42e18,
-            1 << 97
+            0x3
         ); // buy
         // Adding a vault doesn't change anything.
         v.addVault(tokens[0], altVaults[0], VaultType.E4626);
         skip(5 days + 1);
         v.acceptVault(tokens[0]);
         (address active, address backup) = v.viewVaults(tokens[0]);
-        (, uint256 o0, ) = swapFacet.simSwap(
-            tokens[0],
-            tokens[1],
-            42e18,
-            1 << 95
-        );
-        (, uint256 o1, ) = swapFacet.simSwap(
-            tokens[1],
-            tokens[0],
-            42e18,
-            1 << 97
-        );
+        (, uint256 o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 0x3);
+        (, uint256 o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 0x3);
         assertEq(o0, outAmount0);
         assertEq(o1, outAmount1);
         // Even with a mix, the out amount doesn't change.
         v.transferBalance(active, backup, 0x3, 33e18);
-        (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 1 << 95);
-        (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 1 << 97);
+        (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 0x3);
+        (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 0x3);
         assertEq(o0, outAmount0);
         assertEq(o1, outAmount1);
         // Change a mix a bit more, more than the swap can handle with the active vault.
         v.transferBalance(active, backup, 0x3, 50e18);
-        (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 1 << 95);
-        (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 1 << 97);
+        (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 0x3);
+        (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 0x3);
         assertEq(o0, outAmount0);
         assertEq(o1, outAmount1);
         // Now all of it in the backup vault.
         uint256 balance = ERC20(tokens[0]).balanceOf(active);
         v.transferBalance(active, backup, 0x3, balance);
-        (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 1 << 95);
-        (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 1 << 97);
+        (, o0, ) = swapFacet.simSwap(tokens[0], tokens[1], 42e18, 0x3);
+        (, o1, ) = swapFacet.simSwap(tokens[1], tokens[0], 42e18, 0x3);
         assertEq(o0, outAmount0);
         assertEq(o1, outAmount1);
 
@@ -192,7 +196,8 @@ contract VaultFacetTest is MultiSetupTest {
             tokens[1],
             tokens[0],
             1e18,
-            1 << 97
+            0,
+            0x3
         );
         assertApproxEqRel(outAmount, 1e18, 1e15); // The peg stays strong with 0.1% slippage
         // Now transfer some back.
@@ -202,7 +207,8 @@ contract VaultFacetTest is MultiSetupTest {
             tokens[1],
             tokens[0],
             3e18,
-            1 << 97
+            0,
+            0x3
         );
         assertApproxEqRel(outAmount, 3e18, 1e15); // Still pegged.
 
@@ -211,7 +217,7 @@ contract VaultFacetTest is MultiSetupTest {
         v.hotSwap(tokens[0]);
         v.removeVault(active);
         // Now we deposit token0 and it goes into the backup now the former active.
-        swapFacet.swap(address(this), tokens[0], tokens[1], 5e18, 1 << 95);
+        swapFacet.swap(address(this), tokens[0], tokens[1], 5e18, 0, 0x3);
         assertEq(ERC20(tokens[0]).balanceOf(active), 0);
     }
 
@@ -225,21 +231,20 @@ contract VaultFacetTest is MultiSetupTest {
         // Both vaults are empty.
 
         // Check that a deposit will add to the active vault.
-        valueFacet.addValue(address(this), 0x3, 100e18, 0);
+        valueFacet.addValue(address(this), 0x3, 2 * 100e18, 0);
         // Adding liq adds tokens to the active vault.
-        assertEq(ERC20(tokens[0]).balanceOf(active), 100e18, "1");
+        assertEq(ERC20(tokens[0]).balanceOf(active), 101e18, "1");
         assertEq(ERC20(tokens[0]).balanceOf(backup), 0, "2");
 
         // Transfer tokens so we hold a mix in both vaults.
-        v.transferBalance(active, backup, 0x3, 50e18);
+        v.transferBalance(active, backup, 0x3, 51e18);
         assertEq(ERC20(tokens[0]).balanceOf(active), 50e18, "3");
-        assertEq(ERC20(tokens[0]).balanceOf(backup), 50e18, "4");
+        assertEq(ERC20(tokens[0]).balanceOf(backup), 51e18, "4");
 
         // Removing liquidity removes successfully from both vaults.
         // Might leave some dust behind (in the backup vault only!)
-        valueFacet.removeValue(address(this), 0x3, 100e18, 0);
+        valueFacet.removeValue(address(this), 0x3, 2 * 100e18, 0);
         assertEq(ERC20(tokens[0]).balanceOf(active), 0, "5");
-        assertApproxEqAbs(ERC20(tokens[0]).balanceOf(backup), 0, 2, "6");
+        assertApproxEqAbs(ERC20(tokens[0]).balanceOf(backup), 1e18, 2, "6");
     }
 }
-*/

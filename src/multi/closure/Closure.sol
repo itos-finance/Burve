@@ -223,7 +223,7 @@ library ClosureImpl {
         );
         uint256 valueX128 = value << 128;
         // We round down here to like addValue we keep more target value in the pool.
-        self.targetX128 += valueX128 / self.n;
+        self.targetX128 -= valueX128 / self.n;
         self.valueStaked -= value;
         self.bgtValueStaked -= bgtValue;
         // Value is handled. Now handle balances.
