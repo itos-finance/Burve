@@ -9,6 +9,7 @@ import {SimplexLib} from "../../src/multi/Simplex.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {IERC20Errors} from "openzeppelin-contracts/interfaces/draft-IERC6093.sol";
+import {ClosureId} from "../../src/multi/closure/Id.sol";
 
 contract ValueTokenFacetTest is MultiSetupTest {
     function setUp() public {
@@ -82,19 +83,36 @@ contract ValueTokenFacetTest is MultiSetupTest {
         // First add some value to the closure for alice
         vm.startPrank(alice);
         valueFacet.addValue(alice, 3, uint128(value), uint128(tokenValue));
-        vm.stopPrank();
 
         // First mint some tokens
-        vm.startPrank(alice);
         valueTokenFacet.mint(value, tokenValue, 3);
-        vm.stopPrank();
 
-        // Then burn them
-        vm.startPrank(alice);
+        vm.expectRevert();
+        valueFacet.removeValue(alice, 3, uint128(value), uint128(tokenValue));
+
         valueTokenFacet.burn(value, tokenValue, 3);
-        vm.stopPrank();
 
         assertEq(valueTokenFacet.balanceOf(alice), 0);
+
+        // Now remove the value and verify we get back similar amounts
+        uint256[MAX_TOKENS] memory receivedBalances = valueFacet.removeValue(
+            alice,
+            3,
+            uint128(value),
+            uint128(tokenValue)
+        );
+        vm.stopPrank();
+
+        // Verify we received balances for the tokens in the closure
+        ClosureId cid = ClosureId.wrap(3);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (cid.contains(i)) {
+                assertTrue(
+                    receivedBalances[i] == (value / 2),
+                    "Should receive non-zero balance for token in closure"
+                );
+            }
+        }
     }
 
     function test_BurnValue_RevertWhenTokenValueExceedsValue() public {
