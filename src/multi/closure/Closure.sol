@@ -151,6 +151,12 @@ library ClosureImpl {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         // We still need to trim all balances here because value is changing.
         trimAllBalances(self);
+        // Compute scale before modifying our target.
+        uint256 scaleX128 = FullMath.mulDivX256(
+            value,
+            self.n * self.targetX128,
+            true
+        ) + ONEX128;
         {
             uint256 valueX128 = value << 128;
             self.targetX128 +=
@@ -159,11 +165,7 @@ library ClosureImpl {
                 ((valueX128 % self.n) > 0 ? 1 : 0);
         }
         SingleValueIter memory valIter = SingleValueIter({
-            scaleX128: FullMath.mulDivX256(
-                value,
-                self.n * self.targetX128,
-                true
-            ) + ONEX128,
+            scaleX128: scaleX128,
             vIdx: vid.idx(),
             valueSumX128: 0
         });
@@ -247,14 +249,15 @@ library ClosureImpl {
     ) internal returns (uint256 removedAmount, uint256 tax) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
+        uint256 scaleX128 = ONEX128 -
+            FullMath.mulDivX256(value, self.n * self.targetX128, true);
         {
             uint256 valueX128 = value << 128;
             // Round leftover value up.
             self.targetX128 -= valueX128 / self.n;
         }
         SingleValueIter memory valIter = SingleValueIter({
-            scaleX128: ONEX128 -
-                FullMath.mulDivX256(value, self.n * self.targetX128, true),
+            scaleX128: scaleX128,
             vIdx: vid.idx(),
             valueSumX128: 0
         });
@@ -767,7 +770,7 @@ library ClosureImpl {
                 idx,
                 newBalance,
                 minX,
-                twiceTarget
+                twiceTarget < HARD_BALANCE_CAP ? twiceTarget : HARD_BALANCE_CAP
             );
         self.balances[idx] = newBalance;
     }

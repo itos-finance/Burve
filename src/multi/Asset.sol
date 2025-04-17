@@ -35,6 +35,11 @@ struct AssetBook {
 using AssetBookImpl for AssetBook global;
 
 library AssetBookImpl {
+    error InsufficientValue();
+    error InsufficientBgtValue();
+    /// Thrown when trying to remove too much value and not enough bgtValue.
+    error InsufficientNonBgtValue();
+
     /// Add value to a cid. If the cid already has value, the fees earned will be collected!
     function add(
         AssetBook storage self,
@@ -45,6 +50,7 @@ library AssetBookImpl {
     ) internal {
         collect(self, recipient, cid);
         Asset storage a = self.assets[recipient][cid];
+        require(value >= bgtValue, InsufficientValue());
         a.value += value;
         a.bgtValue += bgtValue;
     }
@@ -102,15 +108,21 @@ library AssetBookImpl {
     /// Remove value from this cid.
     function remove(
         AssetBook storage self,
-        address recipient,
+        address owner,
         ClosureId cid,
         uint256 value, // Total
         uint256 bgtValue // BGT specific
     ) internal {
-        collect(self, recipient, cid);
-        Asset storage a = self.assets[recipient][cid];
-        a.value -= value;
-        a.bgtValue -= bgtValue;
+        collect(self, owner, cid);
+        Asset storage a = self.assets[owner][cid];
+        require(value >= bgtValue, InsufficientValue());
+        require(value <= a.value, InsufficientValue());
+        require(bgtValue <= a.bgtValue, InsufficientBgtValue());
+        unchecked {
+            a.value -= value;
+            a.bgtValue -= bgtValue;
+        }
+        require(a.value >= a.bgtValue, InsufficientNonBgtValue());
     }
 
     /// Push all the currently earned fees into the collected balances and update checkpoints.

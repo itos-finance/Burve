@@ -189,6 +189,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(
             value,
             bgtValue
@@ -208,7 +209,6 @@ contract ValueFacet is ReentrancyGuardTransient {
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
             TransferHelper.safeTransfer(token, recipient, realSend);
         }
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
     }
 
     /// Remove exactly this much value to the given closure by receiving a single token.
@@ -226,6 +226,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
         (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
             value,
             bgtValue,
@@ -243,7 +244,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(removedBalance >= minReceive, PastSlippageBounds());
         // Users can removed locked tokens as it helps derisk this protocol.
         TransferHelper.safeTransfer(token, recipient, removedBalance);
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
     }
 
     /// Remove exactly this much of the given token for value in the given closure.
@@ -271,7 +271,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         );
         require(valueGiven > 0, DeMinimisDeposit());
         if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
-        Store.assets().remove(recipient, cid, valueGiven, bgtValue);
+        Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
         // Round down to avoid removing too much from the vertex.
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
         // Users can removed locked tokens as it helps derisk this protocol.
