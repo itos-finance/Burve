@@ -2200,10 +2200,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(burve.totalNominalLiq(), 0, "total liq nominal");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Collected0IsZero()
-        public
-        forkOnly
-    {
+    function test_CollectAndCalcCompound_Collected0IsZero() public forkOnly {
         // simulate collected amounts
         deal(address(token1), address(burve), 10e18);
 
@@ -2217,10 +2214,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Collected1IsZero()
-        public
-        forkOnly
-    {
+    function test_CollectAndCalcCompound_Collected1IsZero() public forkOnly {
         // simulate collected amounts
         deal(address(token0), address(burve), 10e18);
 
@@ -2234,7 +2228,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Amount0InUnitLiqX64IsZero()
+    function test_CollectAndCalcCompound_Amount0InUnitLiqX64IsZero()
         public
         forkOnly
     {
@@ -2256,10 +2250,10 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
-        assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
+        assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Amount1InUnitLiqX64IsZero()
+    function test_CollectAndCalcCompound_Amount1InUnitLiqX64IsZero()
         public
         forkOnly
     {
@@ -2281,16 +2275,27 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
 
         // check compounded nominal liq
         uint128 compoundedNominalLiq = burve.collectAndCalcCompoundExposed();
-        assertEq(compoundedNominalLiq, 0, "compoundedNominalLiq == 0");
+        assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_NormalAmounts()
-        public
-        forkOnly
-    {
+    function testRevert_CollectAndCalcCompound_MalformedPool() public forkOnly {
         // simulate collected amounts
-        deal(address(token0), address(burve), 10e18);
-        deal(address(token1), address(burve), 10e18);
+        deal(address(token0), address(burveIsland), 10e18);
+        deal(address(token1), address(burveIsland), 10e18);
+
+        (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burveIsland
+            .getCompoundAmountsPerUnitNominalLiqX64Exposed();
+
+        vm.expectEmit(false, false, false, true);
+        emit Burve.MalformedPool();
+
+        burveIsland.collectAndCalcCompoundExposed();
+    }
+
+    function test_CollectAndCalcCompound_NormalAmounts() public forkOnly {
+        // simulate collected amounts
+        deal(address(token0), address(burve), 1000e18);
+        deal(address(token1), address(burve), 1000e18);
 
         // verify assumptions about other parameters in equations
         (uint256 amount0InUnitLiqX64, uint256 amount1InUnitLiqX64) = burve
@@ -2303,7 +2308,7 @@ contract BurveTest is ForkableTest, IUniswapV3SwapCallback {
         assertGt(compoundedNominalLiq, 0, "compoundedNominalLiq > 0");
     }
 
-    function test_GetCompoundNominalLiqForCollectedAmounts_Extremes()
+    function test_CollectAndCalcCompound_AtAndOverMaxCollectedAmounts()
         public
         forkOnly
     {
