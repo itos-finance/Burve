@@ -16,13 +16,14 @@ import {ValueTokenFacet} from "../src/multi/facets/ValueTokenFacet.sol";
 import {VaultType} from "../src/multi/vertex/VaultProxy.sol";
 import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
 import {NullAdjustor} from "../src/integrations/adjustor/NullAdjustor.sol";
+import {DecimalAdjustor} from "../src/integrations/adjustor/DecimalAdjustor.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract DeployFromEnv is Script {
     /* Deployer */
     address deployerAddr;
 
-    uint256 constant INITIAL_MINT_AMOUNT = 1e30;
-    uint128 constant INITIAL_VALUE = 1_000_000e18;
+    uint128 constant INITIAL_VALUE = 1_000e18;
 
     /* Diamond */
     address public diamond;
@@ -36,12 +37,15 @@ contract DeployFromEnv is Script {
     address[] public tokens;
     address[] public vaults;
 
+    string public envFile = "script/bepolia-bgt.json";
+    string public deployFile = "script/deploy-bepolia-bgt.json";
+
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
         // Read environment configuration
-        string memory envJson = vm.readFile("script/env.json");
+        string memory envJson = vm.readFile(envFile);
         tokens = vm.parseJsonAddressArray(envJson, ".tokens");
         vaults = vm.parseJsonAddressArray(envJson, ".vaults");
 
@@ -57,13 +61,15 @@ contract DeployFromEnv is Script {
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
 
+        IAdjustor nAdj = new NullAdjustor();
+        simplexFacet.setAdjustor(address(nAdj));
+
         // Add vertices for each token and vault pair
         for (uint256 i = 0; i < tokens.length; ++i) {
             simplexFacet.addVertex(tokens[i], vaults[i], VaultType.E4626);
         }
 
-        IAdjustor nAdj = new NullAdjustor();
-        simplexFacet.setAdjustor(address(nAdj));
+        console2.log("completed vertexes", tokens.length);
 
         // Initialize closures from 3 to 2^n - 1 where n is number of tokens
         uint16 maxClosure = uint16((1 << tokens.length) - 1);
@@ -88,7 +94,7 @@ contract DeployFromEnv is Script {
 
         // Write addresses to JSON file
         string memory json = _generateDeploymentJson();
-        vm.writeJson(json, "script/deployment.json");
+        vm.writeJson(json, deployFile);
     }
 
     function _generateDeploymentJson() internal view returns (string memory) {
@@ -124,15 +130,18 @@ contract DeployFromEnv is Script {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
+                console2.log("here", tokens[i]);
                 // Note: In this version, we assume the deployer already has the tokens
                 // and has approved the diamond contract
-                IERC20(tokens[i]).approve(address(diamond), type(uint256).max);
+                IMintableERC20(tokens[i]).mint(address(this), 1e33);
+                IMintableERC20(tokens[i]).approve(address(diamond), 1e33);
             }
         }
+        console2.log("Here");
         simplexFacet.addClosure(cid, INITIAL_VALUE, 0, 0);
     }
 }
 
-interface IERC20 {
-    function approve(address spender, uint256 amount) external returns (bool);
+interface IMintableERC20 is IERC20 {
+    function mint(address account, uint256 amount) external;
 }
