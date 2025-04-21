@@ -12,10 +12,7 @@ contract AddSingleForValue is BaseScript {
         uint16 closureId = uint16(vm.envOr("CLOSURE_ID", uint256(5)));
         address token = address(tokens[0]);
         uint128 amount = uint128(vm.envOr("AMOUNT", uint256(1_000_000)));
-        uint256 bgtPercentX256 = vm.envOr(
-            "BGT_PERCENT_X256",
-            uint256(1 << 255)
-        ); // 0 means no BGT
+        uint256 bgtPercentX256 = vm.envOr("BGT_PERCENT_X256", uint256(0)); // 0 means no BGT
         uint128 minValue = uint128(vm.envOr("MIN_VALUE", uint256(0))); // 0 means no minimum value requirement
 
         // Start broadcasting

@@ -37,8 +37,8 @@ contract DeployFromEnv is Script {
     address[] public tokens;
     address[] public vaults;
 
-    string public envFile = "script/bepolia-bgt.json";
-    string public deployFile = "script/deploy-bepolia-bgt.json";
+    string public envFile = "script/bepolia-eth.json";
+    string public deployFile = "script/deploy-bepolia-eth.json";
 
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
@@ -61,15 +61,13 @@ contract DeployFromEnv is Script {
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
 
-        IAdjustor nAdj = new NullAdjustor();
+        IAdjustor nAdj = new DecimalAdjustor();
         simplexFacet.setAdjustor(address(nAdj));
 
         // Add vertices for each token and vault pair
         for (uint256 i = 0; i < tokens.length; ++i) {
             simplexFacet.addVertex(tokens[i], vaults[i], VaultType.E4626);
         }
-
-        console2.log("completed vertexes", tokens.length);
 
         // Initialize closures from 3 to 2^n - 1 where n is number of tokens
         uint16 maxClosure = uint16((1 << tokens.length) - 1);
@@ -130,15 +128,11 @@ contract DeployFromEnv is Script {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
-                console2.log("here", tokens[i]);
-                // Note: In this version, we assume the deployer already has the tokens
-                // and has approved the diamond contract
-                IMintableERC20(tokens[i]).mint(address(this), 1e33);
+                IMintableERC20(tokens[i]).mint(address(deployerAddr), 1e33);
                 IMintableERC20(tokens[i]).approve(address(diamond), 1e33);
             }
         }
-        console2.log("Here");
-        simplexFacet.addClosure(cid, INITIAL_VALUE, 0, 0);
+        simplexFacet.addClosure(cid, INITIAL_VALUE, 1 << 127, 1 << 127);
     }
 }
 

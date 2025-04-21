@@ -30,7 +30,7 @@ abstract contract BaseScript is Script {
 
     function setUp() public virtual {
         // Read deployment.json
-        string memory json = vm.readFile("script/deployment.json");
+        string memory json = vm.readFile("script/deploy-bepolia-usd.json");
 
         // Parse diamond address with better error handling
         string memory diamondStr = vm.parseJsonString(json, ".diamond");
@@ -125,7 +125,9 @@ abstract contract BaseScript is Script {
         address to,
         uint256 amount
     ) internal {
+        console2.log("tokens", tokens.length);
         for (uint8 i = 0; i < tokens.length; i++) {
+            console2.log(address(tokens[i]));
             if ((1 << i) & closureId > 0) {
                 _mintAndApprove(address(tokens[i]), to, amount);
             }

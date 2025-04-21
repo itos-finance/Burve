@@ -13,6 +13,8 @@ struct Locker {
 /// Methods for handling vertex locking.
 /// @dev At the moment, there is no automatic locking, only manual.
 contract LockFacet {
+    // TODO: events?
+
     function lock(address token) external {
         if (!Store.locker().lockers[msg.sender]) {
             AdminLib.validateOwner();
