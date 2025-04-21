@@ -33,11 +33,13 @@ contract ValueFacet is ReentrancyGuardTransient {
     /// @param closureId The ID of the closure
     /// @param amounts The amounts of each token added
     /// @param value The value added
+    /// @param bgtValue The bgtValue added
     event AddValue(
         address indexed recipient,
         uint16 indexed closureId,
-        uint128[] amounts,
-        uint256 value
+        uint256[MAX_TOKENS] amounts,
+        uint256 value,
+        uint256 bgtValue
     );
 
     /// @notice Emitted when value is removed from a closure
@@ -45,12 +47,46 @@ contract ValueFacet is ReentrancyGuardTransient {
     /// @param closureId The ID of the closure
     /// @param amounts The amounts given
     /// @param value The value removed
+    /// @param bgtValue The bgtValue removed
     event RemoveValue(
         address indexed recipient,
         uint16 indexed closureId,
-        uint256[] amounts,
-        uint256 value
+        uint256[MAX_TOKENS] amounts,
+        uint256 value,
+        uint256 bgtValue
     );
+
+    /// @notice Internal function to emit AddValue event
+    /// @param recipient The address that received the value
+    /// @param closureId The ID of the closure
+    /// @param amounts The amounts of each token added
+    /// @param value The value added
+    /// @param bgtValue The bgtValue added
+    function _emitAddValue(
+        address recipient,
+        uint16 closureId,
+        uint256[MAX_TOKENS] memory amounts,
+        uint256 value,
+        uint256 bgtValue
+    ) internal {
+        emit AddValue(recipient, closureId, amounts, value, bgtValue);
+    }
+
+    /// @notice Internal function to emit RemoveValue event
+    /// @param recipient The address that received the tokens
+    /// @param closureId The ID of the closure
+    /// @param amounts The amounts given
+    /// @param value The value removed
+    /// @param bgtValue The bgtValue removed
+    function _emitRemoveValue(
+        address recipient,
+        uint16 closureId,
+        uint256[MAX_TOKENS] memory amounts,
+        uint256 value,
+        uint256 bgtValue
+    ) internal {
+        emit RemoveValue(recipient, closureId, amounts, value, bgtValue);
+    }
 
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
@@ -93,6 +129,14 @@ contract ValueFacet is ReentrancyGuardTransient {
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
         Store.assets().add(recipient, cid, value, bgtValue);
+
+        _emitAddValue(
+            recipient,
+            ClosureId.unwrap(cid),
+            requiredBalances,
+            value,
+            bgtValue
+        );
     }
 
     /// Add exactly this much value to the given closure by providing a single token.
@@ -132,6 +176,19 @@ contract ValueFacet is ReentrancyGuardTransient {
         c.addEarnings(vid, realTax);
         Store.vertex(vid).deposit(cid, requiredBalance - realTax);
         Store.assets().add(recipient, cid, value, bgtValue);
+
+        {
+            uint256[MAX_TOKENS] memory requiredBalances;
+            requiredBalances[vid.idx()] = requiredBalance;
+
+            _emitAddValue(
+                recipient,
+                ClosureId.unwrap(cid),
+                requiredBalances,
+                value,
+                bgtValue
+            );
+        }
     }
 
     /// Add exactly this much of the given token for value in the given closure.
@@ -169,6 +226,19 @@ contract ValueFacet is ReentrancyGuardTransient {
         c.addEarnings(vid, realTax);
         Store.vertex(vid).deposit(cid, amount - realTax);
         Store.assets().add(recipient, cid, valueReceived, bgtValue);
+
+        {
+            uint256[MAX_TOKENS] memory requiredBalances;
+            requiredBalances[vid.idx()] = amount;
+
+            _emitAddValue(
+                recipient,
+                ClosureId.unwrap(cid),
+                requiredBalances,
+                valueReceived,
+                bgtValue
+            );
+        }
     }
 
     /// Remove exactly this much value to the given closure and receive all tokens involved.
@@ -207,6 +277,14 @@ contract ValueFacet is ReentrancyGuardTransient {
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
             TransferHelper.safeTransfer(token, recipient, realSend);
         }
+
+        _emitRemoveValue(
+            recipient,
+            ClosureId.unwrap(cid),
+            receivedBalances,
+            value,
+            bgtValue
+        );
     }
 
     /// Remove exactly this much value to the given closure by receiving a single token.
@@ -241,6 +319,19 @@ contract ValueFacet is ReentrancyGuardTransient {
         removedBalance = realRemoved - realTax; // How much the user actually gets.
         require(removedBalance >= minReceive, PastSlippageBounds());
         TransferHelper.safeTransfer(token, recipient, removedBalance);
+
+        {
+            uint256[MAX_TOKENS] memory receivedBalances;
+            receivedBalances[vid.idx()] = realRemoved;
+
+            _emitRemoveValue(
+                recipient,
+                ClosureId.unwrap(cid),
+                receivedBalances,
+                value,
+                bgtValue
+            );
+        }
     }
 
     /// Remove exactly this much of the given token for value in the given closure.
@@ -274,6 +365,19 @@ contract ValueFacet is ReentrancyGuardTransient {
         Store.vertex(vid).withdraw(cid, amount + realTax, false);
         c.addEarnings(vid, realTax);
         TransferHelper.safeTransfer(token, recipient, amount);
+
+        {
+            uint256[MAX_TOKENS] memory receivedBalances;
+            receivedBalances[vid.idx()] = amount;
+
+            _emitRemoveValue(
+                recipient,
+                ClosureId.unwrap(cid),
+                receivedBalances,
+                valueGiven,
+                bgtValue
+            );
+        }
     }
 
     /// Return the held value balance and earnings by an address in a given closure.
