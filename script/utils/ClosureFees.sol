@@ -13,8 +13,10 @@ contract ClosureFees is BaseScript {
         super.setUp();
     }
 
-    function run() public {
+    function run() external {
+        // console2.log("hello");
         updateAllClosureFees(FEE_03_PERCENT_X128, 1 << 125);
+        // updateClosureFees(7, FEE_03_PERCENT_X128, 1 << 125);
     }
 
     function updateClosureFees(
@@ -68,15 +70,9 @@ contract ClosureFees is BaseScript {
 
         // Iterate through all possible closures (starting from 3)
         for (uint16 closureId = 3; closureId <= maxClosureId; closureId++) {
-            try simplexFacet.getClosureValue(closureId) {
-                // If we can get the closure value, it exists, so update its fees
-                console2.log("Updating fees for closure:", closureId);
-                updateClosureFees(closureId, baseFeeX128, protocolTakeX128);
-            } catch {
-                // If getClosureValue reverts, the closure doesn't exist, so skip it
-                console2.log("Skipping non-existent closure:", closureId);
-                continue;
-            }
+            // If we can get the closure value, it exists, so update its fees
+            console2.log("Updating fees for closure:", closureId);
+            updateClosureFees(closureId, baseFeeX128, protocolTakeX128);
         }
     }
 
