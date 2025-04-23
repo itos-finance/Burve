@@ -37,8 +37,8 @@ contract DeployFromEnv is Script {
     address[] public tokens;
     address[] public vaults;
 
-    string public envFile = "script/bepolia-eth.json";
-    string public deployFile = "script/deploy-bepolia-eth.json";
+    string public envFile = "script/bepolia-btc.json";
+    string public deployFile = "script/deploy-bepolia-btc.json";
 
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
