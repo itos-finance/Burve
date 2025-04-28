@@ -69,8 +69,8 @@ library VaultE4626Impl {
                 assetsToDeposit -= assetsToWithdraw;
                 assetsToWithdraw = 0;
             } else if (assetsToWithdraw > assetsToDeposit) {
-                assetsToDeposit = 0;
                 assetsToWithdraw -= assetsToDeposit;
+                assetsToDeposit = 0;
             } else {
                 // Perfect net!
                 return;
