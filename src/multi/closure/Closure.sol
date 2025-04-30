@@ -147,6 +147,8 @@ library ClosureImpl {
     }
 
     /// Add value to a closure by adding to a single token in the closure.
+    /// @return requiredAmount The total amount required from the user.
+    /// @return tax The amount paid as fees.
     function addValueSingle(
         Closure storage self,
         uint256 value,
@@ -248,6 +250,8 @@ library ClosureImpl {
     }
 
     /// Remove value from a closure through a single token.
+    /// @return removedAmount The total amount to removed from the vertex.
+    /// @return tax The amount of remove that is for the tax.
     function removeValueSingle(
         Closure storage self,
         uint256 value,
@@ -290,7 +294,7 @@ library ClosureImpl {
         uint256 untaxedRemove = fairVBalance - finalAmount;
         self.setBalance(valIter.vIdx, finalAmount);
         tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, true);
-        removedAmount += untaxedRemove - tax;
+        removedAmount += untaxedRemove;
         // This needs to happen last.
         self.valueStaked -= value;
         self.bgtValueStaked -= bgtValue;
@@ -330,7 +334,7 @@ library ClosureImpl {
         }
         // The pool is now entirely correct by just updating the target and value balances.
         value = ((newTargetX128 - self.targetX128) * self.n) >> 128; // Round down received value balance.
-        bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down.
+        bgtValue = FullMath.mulX256(value, bgtPercentX256, true); // Round up to handle the 0% and 100% case exactly.
         self.targetX128 = newTargetX128;
         // Now that we set the new target we can set balance to check validity.
         self.setBalance(idx, self.balances[idx]);
@@ -376,7 +380,7 @@ library ClosureImpl {
         uint256 valueX128 = ((self.targetX128 - newTargetX128) * self.n);
         value = valueX128 >> 128;
         if ((value << 128) > 0) value += 1; // We need to round up.
-        bgtValue = FullMath.mulX256(value, bgtPercentX256, false); // Convention to round BGT down both ways.
+        bgtValue = FullMath.mulX256(value, bgtPercentX256, true); // Round up to handle the 0% and 100% case exactly.
         self.targetX128 = newTargetX128;
         self.setBalance(idx, self.balances[idx]);
         self.valueStaked -= value;

@@ -233,7 +233,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
         Store.vertex(vid).withdraw(cid, realRemoved, false);
         uint256 realTax = FullMath.mulDiv(
-            removedBalance,
+            realRemoved,
             nominalTax,
             removedNominal
         );

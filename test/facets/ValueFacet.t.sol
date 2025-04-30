@@ -437,4 +437,20 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(earnings[1], 0);
         assertEq(bgtEarnings, 0);
     }
+
+    function testRemoveSlippage() public {
+        valueFacet.addValue(address(this), 0xF, 1e24, 0);
+        vm.startPrank(alice);
+        valueFacet.addValue(alice, 0xF, 1e20, 0);
+        // Can remove at a 1% discount?
+        uint256 valuePaid = valueFacet.removeSingleForValue(
+            alice,
+            0xF,
+            tokens[0],
+            9.9e19,
+            0,
+            1e20
+        );
+        console.log(valuePaid);
+    }
 }
