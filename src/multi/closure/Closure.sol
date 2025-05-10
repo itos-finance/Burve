@@ -104,6 +104,7 @@ library ClosureImpl {
         require(self.n != 0, "InitEmptyClosure");
         // Tiny burned value.
         self.valueStaked += target * self.n;
+        emit NewClosureBalances(cid, self.balances);
         return self.balances;
     }
 
