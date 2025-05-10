@@ -54,7 +54,11 @@ library ClosureImpl {
         uint256 actualValue
     );
     // Emitted whenever the balances change.
-    event NewClosureBalances(ClosureId cid, uint256[MAX_TOKENS] balances);
+    event NewClosureBalances(
+        ClosureId cid,
+        uint256 targetX128,
+        uint256[MAX_TOKENS] balances
+    );
     error InsufficientStakeCapacity(
         ClosureId cid,
         uint256 maxValue,
@@ -104,7 +108,7 @@ library ClosureImpl {
         require(self.n != 0, "InitEmptyClosure");
         // Tiny burned value.
         self.valueStaked += target * self.n;
-        emit NewClosureBalances(cid, self.balances);
+        emit NewClosureBalances(cid, self.targetX128, self.balances);
         return self.balances;
     }
 
@@ -144,7 +148,7 @@ library ClosureImpl {
             // This happens after because the vault will have
             self.setBalance(i, self.balances[i] + requiredBalances[i]);
         }
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Add value to a closure by adding to a single token in the closure.
@@ -213,7 +217,7 @@ library ClosureImpl {
         // This needs to happen after any fee earnings.
         self.valueStaked += value;
         self.bgtValueStaked += bgtValue;
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Remove value from a closure by removing from every token in the closure.
@@ -246,7 +250,7 @@ library ClosureImpl {
                 false
             );
             self.setBalance(i, self.balances[i] - withdrawnBalances[i]);
-            emit NewClosureBalances(self.cid, self.balances);
+            emit NewClosureBalances(self.cid, self.targetX128, self.balances);
         }
     }
 
@@ -299,7 +303,7 @@ library ClosureImpl {
         // This needs to happen last.
         self.valueStaked -= value;
         self.bgtValueStaked -= bgtValue;
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Add an exact amount of one token and receive value in return.
@@ -341,7 +345,7 @@ library ClosureImpl {
         self.setBalance(idx, self.balances[idx]);
         self.valueStaked += value;
         self.bgtValueStaked += bgtValue;
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Remove an exact amount of one token and pay the requisite value.
@@ -386,7 +390,7 @@ library ClosureImpl {
         self.setBalance(idx, self.balances[idx]);
         self.valueStaked -= value;
         self.bgtValueStaked -= bgtValue;
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Swap in with an exact amount of one token for another.
@@ -444,7 +448,7 @@ library ClosureImpl {
         );
         outAmount = self.balances[outIdx] - newOutBalance;
         self.setBalance(outIdx, newOutBalance);
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Swap out an exact amount of one token by swapping in another.
@@ -505,7 +509,7 @@ library ClosureImpl {
             ONEX128 - self.baseFeeX128
         );
         tax = inAmount - untaxedInAmount;
-        emit NewClosureBalances(self.cid, self.balances);
+        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Remove staked value tokens from this closure. Asset checks if you have said value tokens to begin with.
