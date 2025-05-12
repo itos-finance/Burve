@@ -30,8 +30,15 @@ library ValueLib {
     uint256 public constant ONEX128 = 1 << 128;
     uint256 public constant TWOX128 = 2 << 128;
 
+    // Thrown when one of the x balances are too small. The effect is similar to an imbalance.
     error XTooSmall(uint256 requestedX, uint256 minimumX);
-
+    // Thrown when the balances of the pool are too imbalanced for a positive target solution.
+    error ExcessImbalance(
+        uint256 targetX128,
+        uint256[] esX128,
+        uint256[] balances
+    );
+    // Thrown when for newtons method fails to find a solution.
     error TSolutionNotFound(
         uint256 tX128,
         int256 ftX128,
@@ -191,9 +198,15 @@ library ValueLib {
         bool posNum = ftX128 > 0;
         bool posDenom = dftX128 > 0;
         if (posNum && posDenom) {
-            nextTX128 =
-                tX128 -
-                FullMath.mulDiv(uint256(ftX128), 1 << 128, uint256(dftX128));
+            uint256 diffX128 = FullMath.mulDiv(
+                uint256(ftX128),
+                1 << 128,
+                uint256(dftX128)
+            );
+            if (diffX128 > tX128) {
+                revert ExcessImbalance(tX128, esX128, xs);
+            }
+            nextTX128 = tX128 - diffX128;
         } else if (posNum && !posDenom) {
             nextTX128 =
                 tX128 +
@@ -203,9 +216,16 @@ library ValueLib {
                 tX128 +
                 FullMath.mulDiv(uint256(-ftX128), 1 << 128, uint256(dftX128));
         } else {
-            nextTX128 =
-                tX128 -
-                FullMath.mulDiv(uint256(-ftX128), 1 << 128, uint256(-dftX128));
+            uint256 diffX128 = FullMath.mulDiv(
+                uint256(-ftX128),
+                1 << 128,
+                uint256(-dftX128)
+            );
+
+            if (diffX128 > tX128) {
+                revert ExcessImbalance(tX128, esX128, xs);
+            }
+            nextTX128 = tX128 - diffX128;
         }
     }
 

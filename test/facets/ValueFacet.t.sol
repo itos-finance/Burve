@@ -4,6 +4,9 @@ pragma solidity ^0.8.27;
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
+import {ValueLib} from "../../src/multi/Value.sol";
+import {ClosureImpl} from "../../src/multi/closure/Closure.sol";
+import {VertexLib} from "../../src/multi/vertex/Id.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {AssetBookImpl} from "../../src/multi/Asset.sol";
 import {MAX_TOKENS} from "../../src/multi/Token.sol";
@@ -99,8 +102,14 @@ contract ValueFacetTest is MultiSetupTest {
 
     function testAddRemoveValueSingle() public {
         uint256[4] memory initBalances = getBalances(address(this));
-        // This is too much to put into one token.
-        vm.expectRevert(); // XTooSmall
+        // This is too much to put into one token. Makes other token balances too small.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ValueLib.XTooSmall.selector,
+                1e18,
+                416666666750000000000000001
+            )
+        );
         valueFacet.addValueSingle(alice, 0x9, 1e28, 5e27, tokens[0], 0);
         // So we add less.
         // Of course bgt can't be larger.
@@ -118,7 +127,13 @@ contract ValueFacetTest is MultiSetupTest {
         assertGt(requiredBalance, 1e19);
         assertApproxEqRel(requiredBalance, 1e19, 1e17);
         // We can't add irrelevant tokens though.
-        vm.expectRevert(); // IrrelevantVertex
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ClosureImpl.IrrelevantVertex.selector,
+                0x9,
+                VertexLib.newId(1)
+            )
+        );
         uint128 remainingValue = 1e19;
         uint128 remainingBgt = 5e18;
         valueFacet.addValueSingle(
@@ -156,7 +171,15 @@ contract ValueFacetTest is MultiSetupTest {
         initBalances = getBalances(alice);
         vm.startPrank(alice);
         // But she can't remove from some other token, there aren't enough tokens.
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ClosureImpl.InsufficientVertexValue.selector,
+                0x9,
+                VertexLib.newId(3),
+                117146388612126356539844898053883465937721566540147661175,
+                1270944635018842303890835225177472251911223692938730492543
+            )
+        );
         valueFacet.removeValueSingle(alice, 0x9, 5e18, 1, tokens[3], 0);
         // Removing a small amount is fine.
         uint256 received = valueFacet.removeValueSingle(
@@ -222,7 +245,7 @@ contract ValueFacetTest is MultiSetupTest {
         // Simply add and remove.
         valueFacet.addSingleForValue(alice, 0xF, tokens[2], 1e18, 0, 0);
         // Too large
-        vm.expectRevert();
+        vm.expectRevert(); // ValueLib.ExcessImbalance
         valueFacet.addSingleForValue(alice, 0xF, tokens[2], 1e24, 0, 0);
         valueFacet.addSingleForValue(alice, 0xF, tokens[2], 1e20, 0, 0);
         // Too large from other token.

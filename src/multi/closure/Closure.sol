@@ -81,6 +81,13 @@ library ClosureImpl {
     );
     /// Thrown when trying to unstake from a closure with a locked token.
     error CannotRemoveWithLockedVertex(ClosureId cid);
+    /// Thrown when there is insufficient value to remove.
+    error InsufficientVertexValue(
+        ClosureId cid,
+        VertexId vid,
+        uint256 availableValue,
+        uint256 requestedValue
+    );
 
     /// Initialize a closure and add a small balance of each token to get it started. This balance is burned.
     function init(
@@ -290,6 +297,14 @@ library ClosureImpl {
             fairVBalance,
             false
         );
+        if (currentValueX128 < valIter.valueSumX128) {
+            revert InsufficientVertexValue(
+                self.cid,
+                vid,
+                currentValueX128,
+                valIter.valueSumX128
+            );
+        }
         uint256 finalAmount = ValueLib.x(
             self.targetX128,
             veX128,
