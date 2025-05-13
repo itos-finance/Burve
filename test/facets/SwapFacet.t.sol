@@ -5,6 +5,7 @@ import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {ClosureImpl} from "../../src/multi/closure/Closure.sol";
+import {VertexLib} from "../../src/multi/vertex/Id.sol";
 import {ValueLib} from "../../src/multi/Value.sol";
 import {ClosureId} from "../../src/multi/closure/Id.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
@@ -37,7 +38,6 @@ contract SwapFacetTest is MultiSetupTest {
             0, // no price limit{}
             0x3
         );
-        vm.stopPrank();
 
         assertEq(inAmount, swapAmount);
 
@@ -54,6 +54,28 @@ contract SwapFacetTest is MultiSetupTest {
             beforeBalance1 + outAmount,
             "Should have received token1"
         );
+
+        vm.stopPrank();
+    }
+
+    /// Similar to testing a regular oversized swap, but with multiple tokens.
+    function testOversizedSwapIn() public {
+        vm.startPrank(alice);
+
+        // The first large swap is okay.
+        swapFacet.swap(alice, tokens[0], tokens[1], 80e18, 0, 0x7);
+        // But now the rest will be too large.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ClosureImpl.InsufficientVertexValue.selector,
+                0x7,
+                VertexLib.newId(1),
+                8651246616634028732446094679936943476977673066481106321175,
+                25376990075459817614217767333894578481464406779661016949153
+            )
+        );
+        swapFacet.swap(alice, tokens[2], tokens[1], 80e18, 0, 0x7);
+        vm.stopPrank();
     }
 
     function testExactOutputSwap() public {
@@ -87,6 +109,23 @@ contract SwapFacetTest is MultiSetupTest {
             beforeBalance1 + outAmount,
             "Should have received token1"
         );
+    }
+
+    function testOversizedSwapOut() public {
+        vm.startPrank(alice);
+
+        // Simply request too much.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ClosureImpl.InsufficientVertexValue.selector,
+                0x7,
+                VertexLib.newId(1),
+                100e18,
+                120e18
+            )
+        );
+        swapFacet.swap(alice, tokens[0], tokens[1], -120e18, 0, 0x7);
+        vm.stopPrank();
     }
 
     function testSwapWithPriceLimit() public {

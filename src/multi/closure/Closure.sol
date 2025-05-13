@@ -454,6 +454,13 @@ library ClosureImpl {
             self.balances[outIdx],
             true
         );
+        if (currentOutValueX128 < valueExchangedX128)
+            revert InsufficientVertexValue(
+                self.cid,
+                outVid,
+                currentOutValueX128,
+                valueExchangedX128
+            );
         uint256 newOutValueX128 = currentOutValueX128 - valueExchangedX128;
         uint256 newOutBalance = ValueLib.x(
             self.targetX128,
@@ -486,6 +493,13 @@ library ClosureImpl {
         uint8 inIdx = inVid.idx();
         uint8 outIdx = outVid.idx();
         // Calculate the value removed by the out token.
+        if (self.balances[outIdx] < outAmount + SimplexLib.deMinimusValue())
+            revert InsufficientVertexValue(
+                self.cid,
+                outVid,
+                self.balances[outIdx],
+                outAmount
+            );
         valueExchangedX128 =
             ValueLib.v(
                 self.targetX128,
