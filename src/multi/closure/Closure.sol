@@ -18,11 +18,7 @@ import {UnsafeMath} from "Commons/Math/UnsafeMath.sol";
 struct Closure {
     ClosureId cid; // Indicates our token set.
     uint8 n; // number of tokens in this closure
-    /* Edge info */
     uint256 targetX128; // targetValue of a single token. n * target is the total value.
-    uint256 baseFeeX128; // Fees charge per swap for this closure.
-    /* Earnings info */
-    uint256 protocolTakeX128; // Protocol's rev share of fees earned.
     /* Current asset holdings */
     uint256[MAX_TOKENS] balances; // The balances we need for swapping in this closure.
     uint256 valueStaked; // The total amount of value tokens currently earning in this closure. <= n * target.
@@ -94,13 +90,9 @@ library ClosureImpl {
         Closure storage self,
         ClosureId cid,
         uint256 target,
-        uint256 baseFeeX128,
-        uint256 protocolTakeX128
     ) internal returns (uint256[MAX_TOKENS] storage balancesNeeded) {
         self.cid = cid;
         self.targetX128 = target << 128;
-        self.baseFeeX128 = baseFeeX128;
-        self.protocolTakeX128 = protocolTakeX128;
         for (
             VertexId vIter = VertexLib.minId();
             !vIter.isStop();

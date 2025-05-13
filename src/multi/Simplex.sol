@@ -15,6 +15,8 @@ struct Simplex {
     string symbol;
     address adjustor;
     address bgtEx;
+    uint128 defaultEdgeFeeX128;
+    uint128 protocolTakeX128; // Protocol's rev share of fees earned.
     /// New closures are made with at least this much target value.
     uint256 initTarget;
     /// The efficiency factor for each token.
@@ -25,6 +27,8 @@ struct Simplex {
     uint256[MAX_TOKENS] protocolEarnings;
     /// Parameters used by ValueLib.t to search
     SearchParams searchParams;
+    /// Fee rates for each edge. Indexed by the sorted order of two vertex ids.
+    mapping(VertexId => mapping(VertexId => uint128)) edgeFeesX128;
 }
 
 /// Convenient methods frequently requested by other parts of the pool.
@@ -41,12 +45,15 @@ library SimplexLib {
     function init(
         string memory name,
         string memory symbol,
-        address adjustor
+        address adjustor,
+        uint128 defaultEdgeFeeX128,
+        uint128 protocolTakeX128
     ) internal {
         Simplex storage s = Store.simplex();
         s.name = name;
         s.symbol = symbol;
         s.adjustor = adjustor;
+        s.protocolTakeX128 = protocolTakeX128;
         s.initTarget = DEFAULT_INIT_TARGET;
         // Default to 10x efficient: price range is [0.84, 1.21].
         for (uint256 i = 0; i < MAX_TOKENS; ++i) {
@@ -54,6 +61,7 @@ library SimplexLib {
             s.minXPerTX128[i] = ValueLib.calcMinXPerTX128(10 << 128);
         }
         s.searchParams.init();
+        s.defaultEdgeFeeX128 = defaultEdgeFeeX128;
     }
 
     /// @notice Gets earned protocol fees that have yet to be collected.
@@ -182,5 +190,51 @@ library SimplexLib {
     /// @notice Sets the search params.
     function setSearchParams(SearchParams calldata params) internal {
         Store.simplex().searchParams = params;
+    }
+
+    /// @notice Gets protocol's take of fees.
+    function getProtocolTakeX128() internal view returns (uint128) {
+        return Store.simplex().protocolTakeX128;
+    }
+
+    /// @notice Sets protocol's take of fees.
+    function setProtocolTakeX128(uint128 protocolTakeX128) internal {
+        Store.simplex().protocolTakeX128 = protocolTakeX128;
+    }
+
+    /// @notice Gets the default edge fee.
+    function getDefaultEdgeFeeX128() internal view returns (uint128) {
+        return Store.simplex().defaultEdgeFeeX128;
+    }
+
+    /// @notice Sets the default edge fee.
+    function setDefaultEdgeFeeX128(uint128 defaultEdgeFeeX128) internal {
+        Store.simplex().defaultEdgeFeeX128 = defaultEdgeFeeX128;
+    }
+
+    /// @notice Gets the edge fee for a given edge.
+    function getEdgeFeeX128(
+        VertexId i,
+        VertexId j
+    ) internal view returns (uint128 edgeFeeX128) {
+        if (i.isGt(j)) {
+            (i, j) = (j, i);
+        }
+        edgeFeeX128 = Store.simplex().edgeFeesX128[i][j];
+        if (edgeFeeX128 == 0) {
+            edgeFeeX128 = Store.simplex().defaultEdgeFeeX128;
+        }
+    }
+
+    /// @notice Sets the edge fee for a given edge.
+    function setEdgeFeeX128(
+        VertexId i,
+        VertexId j,
+        uint128 edgeFeeX128
+    ) internal {
+        if (i.isGt(j)) {
+            (i, j) = (j, i);
+        }
+        Store.simplex().edgeFeesX128[i][j] = edgeFeeX128;
     }
 }
