@@ -590,4 +590,68 @@ contract SwapFacetTest is MultiSetupTest {
         assertEq(simIn, realIn);
         assertEq(simOut, realOut);
     }
+
+    function testFeeChange() public {
+        vm.prank(alice);
+        (uint256 feeLess0, uint256 feeLess1, ) = swapFacet.simSwap(
+            tokens[0],
+            tokens[1],
+            1e18,
+            0x7
+        );
+
+        vm.prank(owner);
+        simplexFacet.setDefaultEdgeFeeX128(1 << 124); // 1/16
+
+        vm.prank(alice);
+        (uint256 def0, uint256 def1, ) = swapFacet.simSwap(
+            tokens[0],
+            tokens[1],
+            1e18,
+            0x7
+        );
+        assertEq(def0, feeLess0);
+        assertLt(def1, feeLess1);
+
+        vm.prank(owner);
+        // This doesn't affect the swap since its the wrong edge.
+        simplexFacet.setEdgeFee(1, 2, 1 << 126); // 1/4
+
+        vm.prank(alice);
+        (uint256 test0, uint256 test1, ) = swapFacet.simSwap(
+            tokens[0],
+            tokens[1],
+            1e18,
+            0x7
+        );
+
+        assertEq(test0, def0);
+        assertEq(test1, def1);
+
+        vm.prank(owner);
+        // Setting the correct edge changes things.
+        simplexFacet.setEdgeFee(0, 1, 1 << 126); // 1/4
+        // On both sides.
+        vm.prank(alice);
+        (uint256 inAmount, uint256 outAmount, ) = swapFacet.simSwap(
+            tokens[0],
+            tokens[1],
+            1e18,
+            0x7
+        );
+        assertEq(inAmount, def0);
+        assertLt(outAmount, def1);
+        vm.prank(alice);
+        (test0, test1, ) = swapFacet.simSwap(tokens[0], tokens[1], -1e18, 0x7);
+        assertGt(test0, def0);
+        assertEq(test1, def1);
+
+        // Now a change to the default fee won't do anything.
+        vm.prank(owner);
+        simplexFacet.setDefaultEdgeFeeX128(1 << 127); // 1/2
+        vm.prank(alice);
+        (test0, test1, ) = swapFacet.simSwap(tokens[0], tokens[1], 1e18, 0x7);
+        assertEq(test0, inAmount);
+        assertEq(test1, outAmount);
+    }
 }

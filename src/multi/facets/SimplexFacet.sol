@@ -125,21 +125,40 @@ contract SimplexFacet {
         external
         view
         returns (
-            uint256 baseFeeX128,
-            uint256 protocolTakeX128,
             uint256[MAX_TOKENS] memory earningsPerValueX128,
             uint256 bgtPerBgtValueX128,
             uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
         )
     {
+        protocolTakeX128 = Store.simplex().protocolTakeX128;
         Closure storage c = Store.closure(ClosureId.wrap(closureId));
-        baseFeeX128 = c.baseFeeX128;
-        protocolTakeX128 = c.protocolTakeX128;
         bgtPerBgtValueX128 = c.bgtPerBgtValueX128;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             earningsPerValueX128[i] = c.earningsPerValueX128[i];
             unexchangedPerBgtValueX128[i] = c.unexchangedPerBgtValueX128[i];
         }
+    }
+
+    /// @notice Gets the default edge fee and protocol take.
+    function getSimplexFees()
+        external
+        view
+        returns (uint128 defaultEdgeFeeX128, uint128 protocolTakeX128)
+    {
+        Simplex storage s = Store.simplex();
+        return (s.defaultEdgeFeeX128, s.protocolTakeX128);
+    }
+
+    /// @notice Gets the default edge fee for a given token.
+    function getEdgeFee(
+        uint8 idx0,
+        uint8 idx1
+    ) external view returns (uint128 edgeFeeX128) {
+        return
+            Store.simplex().getEdgeFeeX128(
+                VertexLib.newId(idx0),
+                VertexLib.newId(idx1)
+            );
     }
 
     /// @notice Gets earned protocol fees that have yet to be collected.
@@ -388,18 +407,28 @@ contract SimplexFacet {
         emit NewName(newName, newSymbol);
     }
 
-    /// @notice Sets fees for a given closureId.
-    function setClosureFees(
-        uint16 closureId,
-        uint128 baseFeeX128,
+    function setSimplexFees(
+        uint128 defaultEdgeFeeX128,
         uint128 protocolTakeX128
     ) external {
         AdminLib.validateOwner();
 
-        Closure storage c = Store.closure(ClosureId.wrap(closureId));
-        c.baseFeeX128 = baseFeeX128;
-        c.protocolTakeX128 = protocolTakeX128;
+        Simplex storage s = Store.simplex();
+        s.defaultEdgeFeeX128 = defaultEdgeFeeX128;
+        s.protocolTakeX128 = protocolTakeX128;
 
-        emit NewFees(closureId, baseFeeX128, protocolTakeX128);
+        emit SimplexFeesSet(defaultEdgeFeeX128, protocolTakeX128);
+    }
+
+    /// @notice Sets fees for a given edge.
+    function setEdgeFee(uint8 idx0, uint8 idx1, uint128 edgeFeeX128) external {
+        AdminLib.validateOwner();
+
+        Simplex storage s = Store.simplex();
+        VertexId i = VertexLib.newId(idx0);
+        VertexId j = VertexLib.newId(idx1);
+
+        s.setEdgeFeeX128(i, j, edgeFeeX128);
+        emit EdgeFeeSet(i, j, edgeFeeX128);
     }
 }

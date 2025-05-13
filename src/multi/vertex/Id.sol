@@ -48,6 +48,10 @@ library VertexIdImpl {
     function isStop(VertexId self) internal pure returns (bool) {
         return uint8(VertexId.unwrap(self)) == MAX_TOKENS;
     }
+
+    function isGt(VertexId self, VertexId other) internal pure returns (bool) {
+        return VertexId.unwrap(self) > VertexId.unwrap(other);
+    }
 }
 
 using VertexIdImpl for VertexId global;

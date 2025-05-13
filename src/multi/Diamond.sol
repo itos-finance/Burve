@@ -31,7 +31,7 @@ contract SimplexDiamond is IDiamond {
         string memory symbol
     ) {
         AdminLib.initOwner(msg.sender);
-        SimplexLib.init(name, symbol, facets.adjustor);
+        SimplexLib.init(name, symbol, facets.adjustor, 0, 0);
 
         FacetCut[] memory cuts = new FacetCut[](9);
 
