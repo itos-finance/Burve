@@ -283,23 +283,27 @@ contract SimplexFacetTest is MultiSetupTest {
         // simulate earned fees and donation
         IERC20 token = IERC20(tokens[0]);
         deal(address(token), diamond, 8e18);
+        uint256 originalVaultBalance = token.balanceOf(address(vaults[0]));
 
         uint256[MAX_TOKENS] memory protocolEarnings;
         protocolEarnings[0] = 7e18;
+        // Deposits into the reserve.
         storeManipulatorFacet.setProtocolEarnings(protocolEarnings);
 
         // record balances
         uint256 ownerBalance = token.balanceOf(owner);
         uint256 protocolBalance = token.balanceOf(diamond);
-        assertGe(protocolBalance, 7e18);
+        uint256 vaultBalance = token.balanceOf(address(vaults[0]));
+        assertEq(protocolBalance, 1e18); // only 1e18 of donations left.
+        assertEq(vaultBalance, originalVaultBalance + 7e18); // Protocol earnings are in reserve vault.
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.FeesWithdrawn(address(token), 8e18, 7e18);
+        emit SimplexFacet.ProtocolFeesWithdrawn(address(token), 8e18, 7e18);
         simplexFacet.withdraw(address(token));
 
         // check balances
-        assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
+        assertEq(token.balanceOf(owner), ownerBalance + 8e18);
         assertEq(token.balanceOf(diamond), 0);
 
         // check protocol earnings
@@ -315,23 +319,27 @@ contract SimplexFacetTest is MultiSetupTest {
         // simulate earned fees
         IERC20 token = IERC20(tokens[0]);
         deal(address(token), diamond, 7e18);
+        uint256 originalVaultBalance = token.balanceOf(address(vaults[0]));
 
         uint256[MAX_TOKENS] memory protocolEarnings;
         protocolEarnings[0] = 7e18;
+        // Deposits into the reserve.
         storeManipulatorFacet.setProtocolEarnings(protocolEarnings);
 
         // record balances
         uint256 ownerBalance = token.balanceOf(owner);
         uint256 protocolBalance = token.balanceOf(diamond);
-        assertGe(protocolBalance, 7e18);
+        uint256 vaultBalance = token.balanceOf(address(vaults[0]));
+        assertGe(protocolBalance, 0);
+        assertEq(vaultBalance, originalVaultBalance + 7e18); // Protocol earnings are in reserve vault.
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.FeesWithdrawn(address(token), 7e18, 7e18);
+        emit SimplexFacet.ProtocolFeesWithdrawn(address(token), 7e18, 7e18);
         simplexFacet.withdraw(address(token));
 
         // check balances
-        assertEq(token.balanceOf(owner), ownerBalance + protocolBalance);
+        assertEq(token.balanceOf(owner), ownerBalance + 7e18);
         assertEq(token.balanceOf(diamond), 0);
         // check protocol earnings
         protocolEarnings = SimplexLib.protocolEarnings();
@@ -354,7 +362,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.FeesWithdrawn(address(token), 1e18, 0);
+        emit SimplexFacet.ProtocolFeesWithdrawn(address(token), 1e18, 0);
         simplexFacet.withdraw(address(token));
 
         // check balances

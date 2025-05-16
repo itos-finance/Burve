@@ -550,12 +550,9 @@ contract SwapFacetTest is MultiSetupTest {
         uint256 totalEarnings = actualIn - simIn;
         assertApproxEqAbs(totalEarnings, actualIn / 4, 2, "e0"); // The fees were indeed the right rate.
         // Half has gone to the protocol.
-        assertApproxEqAbs(
-            simplexFacet.protocolEarnings()[2],
-            totalEarnings / 2,
-            2,
-            "e1"
-        );
+        vm.prank(owner);
+        uint256 protocolAmount = simplexFacet.withdraw(tokens[2]);
+        assertApproxEqAbs(protocolAmount, totalEarnings / 2, 2, "e1");
         // Half of the rest has gone to alice.
         (, , uint256[MAX_TOKENS] memory earnings, ) = valueFacet.queryValue(
             alice,
