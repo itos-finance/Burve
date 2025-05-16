@@ -69,10 +69,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
-        uint256[MAX_TOKENS] memory requiredNominal = c.addValue(
-            value,
-            bgtValue
-        );
+        uint256[MAX_TOKENS] memory requiredNominal = c.addValue(value);
         // Fetch balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -92,6 +89,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             );
             Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
         }
+        c.finalize(
+            VertexId.wrap(0),
+            0,
+            int256(uint256(value)),
+            int256(uint256(bgtValue))
+        );
         Store.assets().add(recipient, cid, value, bgtValue);
     }
 
@@ -112,7 +115,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         VertexId vid = VertexLib.newId(token); // Validates token.
         (uint256 nominalRequired, uint256 nominalTax) = c.addValueSingle(
             value,
-            bgtValue,
             vid
         );
         requiredBalance = AdjustorLib.toReal(token, nominalRequired, true);
@@ -129,7 +131,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             address(this),
             requiredBalance
         );
-        c.addEarnings(vid, realTax);
+        c.finalize(
+            vid,
+            realTax,
+            int256(uint256(value)),
+            int256(uint256(bgtValue))
+        );
         Store.vertex(vid).deposit(cid, requiredBalance - realTax);
         Store.assets().add(recipient, cid, value, bgtValue);
     }
@@ -154,10 +161,9 @@ contract ValueFacet is ReentrancyGuardTransient {
             amount
         );
         SearchParams memory search = Store.simplex().searchParams;
-        uint256 bgtValue;
         uint256 nominalTax;
         uint256 nominalIn = AdjustorLib.toNominal(token, amount, false); // Round down value deposited.
-        (valueReceived, bgtValue, nominalTax) = c.addTokenForValue(
+        (valueReceived, nominalTax) = c.addTokenForValue(
             vid,
             nominalIn,
             bgtPercentX256,
@@ -166,7 +172,17 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(valueReceived > 0, DeMinimisDeposit());
         require(valueReceived >= minValue, PastSlippageBounds());
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalIn);
-        c.addEarnings(vid, realTax);
+        uint256 bgtValue = FullMath.mulX256(
+            bgtPercentX256,
+            valueReceived,
+            true
+        );
+        c.finalize(
+            vid,
+            realTax,
+            int256(uint256(valueReceived)),
+            int256(uint256(bgtValue))
+        );
         Store.vertex(vid).deposit(cid, amount - realTax);
         Store.assets().add(recipient, cid, valueReceived, bgtValue);
     }
@@ -188,9 +204,12 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
         Store.assets().remove(msg.sender, cid, value, bgtValue);
-        uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(
-            value,
-            bgtValue
+        uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
+        c.finalize(
+            VertexId.wrap(0),
+            0,
+            -int256(uint256(value)),
+            -int256(uint256(bgtValue))
         );
         // Send balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
@@ -227,7 +246,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         Store.assets().remove(msg.sender, cid, value, bgtValue);
         (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
             value,
-            bgtValue,
             vid
         );
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
@@ -237,7 +255,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalTax,
             removedNominal
         );
-        c.addEarnings(vid, realTax);
+        c.finalize(
+            vid,
+            realTax,
+            -int256(uint256(value)),
+            -int256(uint256(bgtValue))
+        );
         removedBalance = realRemoved - realTax; // How much the user actually gets.
         require(removedBalance >= minReceive, PastSlippageBounds());
         TransferHelper.safeTransfer(token, recipient, removedBalance);
@@ -257,22 +280,34 @@ contract ValueFacet is ReentrancyGuardTransient {
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
         SearchParams memory search = Store.simplex().searchParams;
-        uint256 bgtValue;
         uint256 nominalTax;
         uint256 nominalReceive = AdjustorLib.toNominal(token, amount, true); // RoundUp value removed.
-        (valueGiven, bgtValue, nominalTax) = c.removeTokenForValue(
+        (valueGiven, nominalTax) = c.removeTokenForValue(
             vid,
             nominalReceive,
-            bgtPercentX256,
             search
         );
-        require(valueGiven > 0, DeMinimisDeposit());
-        if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
-        Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
-        // Round down to avoid removing too much from the vertex.
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
+        // Round up because we must suffice for amount and the realTax.
         Store.vertex(vid).withdraw(cid, amount + realTax, false);
-        c.addEarnings(vid, realTax);
+        {
+            require(valueGiven > 0, DeMinimisDeposit());
+            if (maxValue > 0)
+                require(valueGiven <= maxValue, PastSlippageBounds());
+            // Round up to handle the 0% and 100% cases exactly.
+            uint256 bgtValue = FullMath.mulX256(
+                bgtPercentX256,
+                valueGiven,
+                true
+            );
+            c.finalize(
+                vid,
+                realTax,
+                -int256(uint256(valueGiven)),
+                -int256(uint256(bgtValue))
+            );
+            Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
+        }
         TransferHelper.safeTransfer(token, recipient, amount);
     }
 

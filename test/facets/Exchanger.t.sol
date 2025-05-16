@@ -31,7 +31,8 @@ contract ExchangerTest is MultiSetupTest {
         _newDiamond();
         _installBGTExchanger();
         _newTokens(2);
-        _initializeClosure(3, INITIAL_VALUE, 1 << 127, 1 << 127);
+        _setFees(1 << 127, 1 << 127);
+        _initializeClosure(3, INITIAL_VALUE);
         _fundAccount(alice);
         _fundAccount(bob);
         vm.stopPrank();

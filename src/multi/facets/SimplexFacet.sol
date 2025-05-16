@@ -74,11 +74,13 @@ contract SimplexFacet {
         int256 deMinimusX128,
         int256 targetSlippageX128
     );
-    /// Emitted when the fees for a closure are changed.
-    event NewFees(
-        uint16 closure,
-        uint128 baseFeeX128,
-        uint128 protocolTakeX128
+    /// Emitted when overall simplex fees are changed..
+    event SimplexFeesSet(uint128 defaultEdgeFeeX128, uint128 protocolTakeX128);
+    /// Emitted when the edge fee is set.
+    event EdgeFeeSet(
+        VertexId indexed i,
+        VertexId indexed j,
+        uint128 edgeFeeX128
     );
 
     /* Getters */
@@ -130,7 +132,6 @@ contract SimplexFacet {
             uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
         )
     {
-        protocolTakeX128 = Store.simplex().protocolTakeX128;
         Closure storage c = Store.closure(ClosureId.wrap(closureId));
         bgtPerBgtValueX128 = c.bgtPerBgtValueX128;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -155,7 +156,7 @@ contract SimplexFacet {
         uint8 idx1
     ) external view returns (uint128 edgeFeeX128) {
         return
-            Store.simplex().getEdgeFeeX128(
+            SimplexLib.getEdgeFeeX128(
                 VertexLib.newId(idx0),
                 VertexLib.newId(idx1)
             );
@@ -211,12 +212,7 @@ contract SimplexFacet {
 
     /// @notice Adds a closure.
     /// @dev Only callable by the contract owner.
-    function addClosure(
-        uint16 _cid,
-        uint128 startingTarget,
-        uint128 baseFeeX128,
-        uint128 protocolTakeX128
-    ) external {
+    function addClosure(uint16 _cid, uint128 startingTarget) external {
         AdminLib.validateOwner();
 
         ClosureId cid = ClosureId.wrap(_cid);
@@ -230,9 +226,7 @@ contract SimplexFacet {
 
         uint256[MAX_TOKENS] storage neededBalances = c.init(
             cid,
-            startingTarget,
-            baseFeeX128,
-            protocolTakeX128
+            startingTarget
         );
 
         TokenRegistry storage tokenReg = Store.tokenRegistry();
@@ -424,11 +418,10 @@ contract SimplexFacet {
     function setEdgeFee(uint8 idx0, uint8 idx1, uint128 edgeFeeX128) external {
         AdminLib.validateOwner();
 
-        Simplex storage s = Store.simplex();
         VertexId i = VertexLib.newId(idx0);
         VertexId j = VertexLib.newId(idx1);
 
-        s.setEdgeFeeX128(i, j, edgeFeeX128);
+        SimplexLib.setEdgeFeeX128(i, j, edgeFeeX128);
         emit EdgeFeeSet(i, j, edgeFeeX128);
     }
 }

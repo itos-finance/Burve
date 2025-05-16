@@ -5,6 +5,7 @@ import {IBGTExchanger} from "../integrations/BGTExchange/IBGTExchanger.sol";
 import {MAX_TOKENS} from "./Constants.sol";
 import {Store} from "./Store.sol";
 import {TokenRegLib} from "./Token.sol";
+import {VertexId} from "./vertex/Id.sol";
 import {ValueLib, SearchParams} from "./Value.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -220,9 +221,10 @@ library SimplexLib {
         if (i.isGt(j)) {
             (i, j) = (j, i);
         }
-        edgeFeeX128 = Store.simplex().edgeFeesX128[i][j];
+        Simplex storage s = Store.simplex();
+        edgeFeeX128 = s.edgeFeesX128[i][j];
         if (edgeFeeX128 == 0) {
-            edgeFeeX128 = Store.simplex().defaultEdgeFeeX128;
+            edgeFeeX128 = s.defaultEdgeFeeX128;
         }
     }
 

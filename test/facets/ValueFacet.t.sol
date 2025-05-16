@@ -334,7 +334,7 @@ contract ValueFacetTest is MultiSetupTest {
         // When fees exist, we lose value so we can't remove the same amount anymore.
         uint256 oneX128 = 1 << 128;
         vm.prank(owner);
-        simplexFacet.setClosureFees(0xD, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
+        simplexFacet.setSimplexFees(uint128(oneX128 / 10000), 0); // One basis point. Realistic.
         valueFacet.addSingleForValue(
             address(this),
             0xD,
@@ -377,7 +377,7 @@ contract ValueFacetTest is MultiSetupTest {
     function testFeeEarn() public {
         uint256 oneX128 = 1 << 128;
         vm.prank(owner);
-        simplexFacet.setClosureFees(0xA, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
+        simplexFacet.setSimplexFees(uint128(oneX128 / 10000), 0); // One basis point. Realistic.
         valueFacet.addValue(address(this), 0xA, 1e12, 0); // tokens 1 and 3.
         (
             uint256 valueStaked,

@@ -28,8 +28,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         address indexed outToken,
         uint256 inAmount,
         uint256 outAmount,
-        uint256 valueExchangedX128,
-        uint256 nomFeesPaid
+        uint256 valueExchangedX128
     ); // Real amounts.
 
     /// Thrown when the amount in/out requested by the swap is larger/smaller than acceptable.
@@ -66,7 +65,6 @@ contract SwapFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
         uint256 valueExchangedX128;
-        uint256 nominalTax;
         uint256 realTax;
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
@@ -80,6 +78,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                 BelowMinSwap(nominalIn, MIN_SWAP_SIZE)
             );
             uint256 nominalOut;
+            uint256 nominalTax;
             (nominalOut, nominalTax, valueExchangedX128) = c.swapInExact(
                 inVid,
                 outVid,
@@ -101,6 +100,7 @@ contract SwapFacet is ReentrancyGuardTransient {
                 true
             );
             uint256 nominalIn;
+            uint256 nominalTax;
             (nominalIn, nominalTax, valueExchangedX128) = c.swapOutExact(
                 inVid,
                 outVid,
@@ -127,9 +127,10 @@ contract SwapFacet is ReentrancyGuardTransient {
                 address(this),
                 inAmount
             );
-            c.addEarnings(inVid, realTax);
             Store.vertex(inVid).deposit(cid, inAmount - realTax);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
+            // Finalize the closure with no value change.
+            c.finalize(inVid, realTax, 0, 0);
             require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
         }
@@ -141,8 +142,7 @@ contract SwapFacet is ReentrancyGuardTransient {
             outToken,
             inAmount,
             outAmount,
-            valueExchangedX128,
-            nominalTax
+            valueExchangedX128
         );
     }
 

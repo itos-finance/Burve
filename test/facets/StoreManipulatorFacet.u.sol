@@ -28,15 +28,16 @@ contract StoreManipulatorFacet {
 
     function setClosureFees(
         uint16 closureId,
-        uint256 baseFeeX128,
-        uint256 protocolTakeX128,
+        uint128 defaultEdgeFeeX128,
+        uint128 protocolTakeX128,
         uint256[MAX_TOKENS] memory earningsPerValueX128,
         uint256 bgtPerBgtValueX128,
         uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
     ) external {
         Closure storage c = Store.closure(ClosureId.wrap(closureId));
-        c.baseFeeX128 = baseFeeX128;
-        c.protocolTakeX128 = protocolTakeX128;
+        Simplex storage s = Store.simplex();
+        s.defaultEdgeFeeX128 = defaultEdgeFeeX128;
+        s.protocolTakeX128 = protocolTakeX128;
         c.bgtPerBgtValueX128 = bgtPerBgtValueX128;
         c.earningsPerValueX128 = earningsPerValueX128;
         c.unexchangedPerBgtValueX128 = unexchangedPerBgtValueX128;
