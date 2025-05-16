@@ -52,6 +52,14 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint256 value
     );
 
+    /// @notice Emitted when a closure earns frees from a single value deposit.
+    event ClosureFeesEarned(
+        uint16 indexed closureId,
+        VertexId indexed inVid,
+        uint256 nominalFees,
+        uint256 realFees
+    );
+
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
     /// which validates the requiredBalances are small enough according to some logic.
@@ -131,6 +139,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             address(this),
             requiredBalance
         );
+        emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
         c.finalize(
             vid,
             realTax,
@@ -166,7 +175,6 @@ contract ValueFacet is ReentrancyGuardTransient {
         (valueReceived, nominalTax) = c.addTokenForValue(
             vid,
             nominalIn,
-            bgtPercentX256,
             search
         );
         require(valueReceived > 0, DeMinimisDeposit());
@@ -177,6 +185,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             valueReceived,
             true
         );
+        emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
         c.finalize(
             vid,
             realTax,
@@ -255,6 +264,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalTax,
             removedNominal
         );
+        emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
         c.finalize(
             vid,
             realTax,
@@ -300,6 +310,7 @@ contract ValueFacet is ReentrancyGuardTransient {
                 valueGiven,
                 true
             );
+            emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
             c.finalize(
                 vid,
                 realTax,

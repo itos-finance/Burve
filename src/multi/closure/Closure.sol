@@ -308,7 +308,6 @@ library ClosureImpl {
         Closure storage self,
         VertexId vid,
         uint256 amount,
-        uint256 bgtPercentX256,
         SearchParams memory searchParams
     ) internal returns (uint256 value, uint256 nominalTax) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
@@ -728,10 +727,9 @@ library ClosureImpl {
     function addEarnings(
         Closure storage self,
         VertexId vid,
-        uint256 nomEarnings
-    ) private returns (uint256 earnings) {
+        uint256 earnings
+    ) private {
         uint8 idx = vid.idx();
-        earnings = AdjustorLib.toReal(idx, nomEarnings, false);
         // Round protocol take down.
         uint256 protocolAmount = FullMath.mulX128(
             earnings,
@@ -943,7 +941,7 @@ library ClosureImpl {
     /// Check if any of the tokens in this closure are locked.
     function isAnyLocked(
         Closure storage self
-    ) internal returns (bool isLocked) {
+    ) internal view returns (bool isLocked) {
         for (
             VertexId vIter = VertexLib.minId();
             !vIter.isStop();

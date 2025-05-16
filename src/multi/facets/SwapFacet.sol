@@ -31,6 +31,15 @@ contract SwapFacet is ReentrancyGuardTransient {
         uint256 valueExchangedX128
     ); // Real amounts.
 
+    /// Fees earned from a a swap.
+    /// @dev This specifies an edge to attribute the fees to.
+    event SwapFeesEarned(
+        VertexId indexed inVid,
+        VertexId indexed outVid,
+        uint256 nominalFees,
+        uint256 realFees
+    );
+
     /// Thrown when the amount in/out requested by the swap is larger/smaller than acceptable.
     error SlippageSurpassed(
         uint256 acceptableAmount,
@@ -65,6 +74,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_cid);
         Closure storage c = Store.closure(cid);
         uint256 valueExchangedX128;
+        uint256 nominalTax;
         uint256 realTax;
         if (amountSpecified > 0) {
             inAmount = uint256(amountSpecified);
@@ -78,7 +88,6 @@ contract SwapFacet is ReentrancyGuardTransient {
                 BelowMinSwap(nominalIn, MIN_SWAP_SIZE)
             );
             uint256 nominalOut;
-            uint256 nominalTax;
             (nominalOut, nominalTax, valueExchangedX128) = c.swapInExact(
                 inVid,
                 outVid,
@@ -100,7 +109,6 @@ contract SwapFacet is ReentrancyGuardTransient {
                 true
             );
             uint256 nominalIn;
-            uint256 nominalTax;
             (nominalIn, nominalTax, valueExchangedX128) = c.swapOutExact(
                 inVid,
                 outVid,
@@ -130,6 +138,7 @@ contract SwapFacet is ReentrancyGuardTransient {
             Store.vertex(inVid).deposit(cid, inAmount - realTax);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
             // Finalize the closure with no value change.
+            emit SwapFeesEarned(inVid, outVid, nominalTax, realTax);
             c.finalize(inVid, realTax, 0, 0);
             require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
