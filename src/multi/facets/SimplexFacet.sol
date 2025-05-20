@@ -77,11 +77,7 @@ contract SimplexFacet {
     /// Emitted when overall simplex fees are changed..
     event SimplexFeesSet(uint128 defaultEdgeFeeX128, uint128 protocolTakeX128);
     /// Emitted when the edge fee is set.
-    event EdgeFeeSet(
-        VertexId indexed i,
-        VertexId indexed j,
-        uint128 edgeFeeX128
-    );
+    event EdgeFeeSet(uint8 indexed i, uint8 indexed j, uint128 edgeFeeX128);
 
     /* Getters */
 
@@ -418,10 +414,14 @@ contract SimplexFacet {
     function setEdgeFee(uint8 idx0, uint8 idx1, uint128 edgeFeeX128) external {
         AdminLib.validateOwner();
 
+        if (idx0 > idx1) {
+            (idx0, idx1) = (idx1, idx0);
+        }
+
         VertexId i = VertexLib.newId(idx0);
         VertexId j = VertexLib.newId(idx1);
 
         SimplexLib.setEdgeFeeX128(i, j, edgeFeeX128);
-        emit EdgeFeeSet(i, j, edgeFeeX128);
+        emit EdgeFeeSet(idx0, idx1, edgeFeeX128);
     }
 }
