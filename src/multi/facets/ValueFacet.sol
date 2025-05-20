@@ -187,11 +187,11 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(
             value,
             bgtValue
         );
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
         // Send balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -224,12 +224,12 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
         (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
             value,
             bgtValue,
             vid
         );
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
         Store.vertex(vid).withdraw(cid, realRemoved, false);
         uint256 realTax = FullMath.mulDiv(
@@ -268,10 +268,10 @@ contract ValueFacet is ReentrancyGuardTransient {
         );
         require(valueGiven > 0, DeMinimisDeposit());
         if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
-        Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
         // Round down to avoid removing too much from the vertex.
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
         Store.vertex(vid).withdraw(cid, amount + realTax, false);
+        Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
         c.addEarnings(vid, realTax);
         TransferHelper.safeTransfer(token, recipient, amount);
     }

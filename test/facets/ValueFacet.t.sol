@@ -448,14 +448,25 @@ contract ValueFacetTest is MultiSetupTest {
         assertGt(bgtEarnings, 0);
         assertApproxEqAbs(bgtEarnings + earnings[1], 2 * earnings1, 2);
 
-        /// Test after removing, there are no more fees earned. Test that with query then an add and remove. As in fee claims remain unchanged.
+        /// Test after removing, there are no more fees earned.
         valueFacet.removeValue(
             address(this),
             0xA,
             uint128(valueStaked),
             uint128(bgtValueStaked)
         );
+        (collectedBalances, collectedBgt) = valueFacet.collectEarnings(
+            address(this),
+            0xA
+        );
+        assertEq(collectedBalances[1], earnings[1]);
+        assertEq(collectedBgt, bgtEarnings);
         MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
+        (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
+        assertEq(earnings[1], 0);
+        assertEq(bgtEarnings, 0);
+        // The first add would not earn any fees.
+        valueFacet.addValueSingle(alice, 0xA, 3e12, 1e12, tokens[1], 0);
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
         assertEq(earnings[1], 0);
         assertEq(bgtEarnings, 0);
