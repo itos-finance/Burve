@@ -5,6 +5,7 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {AdminLib} from "Commons/Util/Admin.sol";
 import {TokenRegLib, TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
+import {IBurveMultiEvents} from "../interfaces/IBurveMultiEvents.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
@@ -74,10 +75,6 @@ contract SimplexFacet {
         int256 deMinimusX128,
         int256 targetSlippageX128
     );
-    /// Emitted when overall simplex fees are changed..
-    event SimplexFeesSet(uint128 defaultEdgeFeeX128, uint128 protocolTakeX128);
-    /// Emitted when the edge fee is set.
-    event EdgeFeeSet(uint8 indexed i, uint8 indexed j, uint128 edgeFeeX128);
 
     /* Getters */
 
@@ -407,7 +404,10 @@ contract SimplexFacet {
         s.defaultEdgeFeeX128 = defaultEdgeFeeX128;
         s.protocolTakeX128 = protocolTakeX128;
 
-        emit SimplexFeesSet(defaultEdgeFeeX128, protocolTakeX128);
+        emit IBurveMultiEvents.SimplexFeesSet(
+            defaultEdgeFeeX128,
+            protocolTakeX128
+        );
     }
 
     /// @notice Sets fees for a given edge.
@@ -422,6 +422,6 @@ contract SimplexFacet {
         VertexId j = VertexLib.newId(idx1);
 
         SimplexLib.setEdgeFeeX128(i, j, edgeFeeX128);
-        emit EdgeFeeSet(idx0, idx1, edgeFeeX128);
+        emit IBurveMultiEvents.EdgeFeeSet(idx0, idx1, edgeFeeX128);
     }
 }

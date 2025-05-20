@@ -37,4 +37,8 @@ library ClosureIdImpl {
     function contains(ClosureId self, uint8 idx) internal pure returns (bool) {
         return (ClosureId.unwrap(self) & (1 << idx)) != 0;
     }
+
+    function unwrap(ClosureId self) internal pure returns (uint16) {
+        return ClosureId.unwrap(self);
+    }
 }

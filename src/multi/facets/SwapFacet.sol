@@ -10,54 +10,17 @@ import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
+import {IBurveMultiSwap} from "../interfaces/IBurveMultiSwap.sol";
 
 /// Swap related functions
 /// @dev Remember that amounts are real, but prices are nominal (meaning they should be around 1 to 1).
-contract SwapFacet is ReentrancyGuardTransient {
+contract SwapFacet is IBurveMultiSwap, ReentrancyGuardTransient {
     /// We restrict swaps to be larger than this size as to avoid
     /// people gaming the deMinimus. Although even then, that's not too big of an issue.
     /// This is a nominal value.
     uint128 public constant MIN_SWAP_SIZE = 16e8;
 
-    /// We don't report prices because it's not useful since later swaps in other tokens
-    /// can change other implied prices in the same hyper-edge.
-    event Swap(
-        address sender,
-        address indexed recipient,
-        address indexed inToken,
-        address indexed outToken,
-        uint256 inAmount,
-        uint256 outAmount,
-        uint256 valueExchangedX128
-    ); // Real amounts.
-
-    /// Fees earned from a a swap.
-    /// @dev This specifies an edge to attribute the fees to.
-    event SwapFeesEarned(
-        VertexId indexed inVid,
-        VertexId indexed outVid,
-        uint256 nominalFees,
-        uint256 realFees
-    );
-
-    /// Thrown when the amount in/out requested by the swap is larger/smaller than acceptable.
-    error SlippageSurpassed(
-        uint256 acceptableAmount,
-        uint256 actualAmount,
-        bool isOut
-    );
-
-    /// Non-empty input for an empty output. Undesirable for the swapper.
-    error VacuousSwap();
-
-    /// Attempted a swap smaller than the minimum.
-    error BelowMinSwap(uint256 nominalSwapAttempted, uint256 minSwap);
-
-    /// Swap one token for another.
-    /// @param amountSpecified The exact input when positive, the exact output when negative.
-    /// @param amountLimit When exact input, the minimum amount out. When exact output, the maximum amount in.
-    /// However, if amountLimit is zero, it is not enforced. Note that this is a real value.
-    /// @param _cid The closure we choose to swap through.
+    /// @inheritdoc IBurveMultiSwap
     function swap(
         address recipient,
         address inToken,
@@ -138,7 +101,7 @@ contract SwapFacet is ReentrancyGuardTransient {
             Store.vertex(inVid).deposit(cid, inAmount - realTax);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
             // Finalize the closure with no value change.
-            emit SwapFeesEarned(inVid, outVid, nominalTax, realTax);
+            emit SwapFeesEarned(inVid.idx(), outVid.idx(), nominalTax, realTax);
             c.finalize(inVid, realTax, 0, 0);
             require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
@@ -155,9 +118,7 @@ contract SwapFacet is ReentrancyGuardTransient {
         );
     }
 
-    /// Simulate the swap of one token for another.
-    /// @param amountSpecified The exact input when positive, the exact output when negative.
-    /// @param cid The closure we choose to swap through.
+    /// @inheritdoc IBurveMultiSwap
     function simSwap(
         address inToken,
         address outToken,

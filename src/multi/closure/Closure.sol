@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {MAX_TOKENS} from "./../Constants.sol";
+import {IBurveMultiEvents} from "../interfaces/IBurveMultiEvents.sol";
 import {SimplexLib} from "../Simplex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {AdjustorLib} from "../Adjustor.sol";
@@ -48,12 +49,6 @@ library ClosureImpl {
         ClosureId cid,
         uint256 maxValue,
         uint256 actualValue
-    );
-    // Emitted whenever the balances change.
-    event NewClosureBalances(
-        ClosureId cid,
-        uint256 targetX128,
-        uint256[MAX_TOKENS] balances
     );
     error InsufficientStakeCapacity(
         ClosureId cid,
@@ -107,7 +102,11 @@ library ClosureImpl {
         require(self.n != 0, "InitEmptyClosure");
         // Tiny burned value.
         self.valueStaked += target * self.n;
-        emit NewClosureBalances(cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
         return self.balances;
     }
 
@@ -144,7 +143,11 @@ library ClosureImpl {
             // This happens after because the vault will have
             self.balances[i] += requiredBalances[i];
         }
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Add value to a closure by adding to a single token in the closure.
@@ -210,7 +213,11 @@ library ClosureImpl {
             nominalTax = taxedRequired - untaxedRequired;
             requiredAmount += taxedRequired;
         }
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Remove value from a closure by removing from every token in the closure.
@@ -240,7 +247,11 @@ library ClosureImpl {
                 false
             );
             self.balances[i] -= withdrawnBalances[i];
-            emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+            emit IBurveMultiEvents.NewClosureBalances(
+                self.cid.unwrap(),
+                self.targetX128,
+                self.balances
+            );
         }
     }
 
@@ -300,7 +311,11 @@ library ClosureImpl {
             nominalTax = FullMath.mulX128(untaxedRemove, taxRateX128, true);
         }
         removedAmount += untaxedRemove;
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Add an exact amount of one token and receive value in return.
@@ -340,7 +355,11 @@ library ClosureImpl {
         // The pool is now entirely correct by just updating the target and value balances.
         value = ((newTargetX128 - self.targetX128) * self.n) >> 128; // Round down received value balance.
         self.targetX128 = newTargetX128;
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Remove an exact amount of one token and pay the requisite value.
@@ -383,7 +402,11 @@ library ClosureImpl {
         value = valueX128 >> 128;
         if ((value << 128) > 0) value += 1; // We need to round up.
         self.targetX128 = newTargetX128;
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Swap in with an exact amount of one token for another.
@@ -455,7 +478,11 @@ library ClosureImpl {
         );
         outAmount = self.balances[outIdx] - newOutBalance;
         self.balances[outIdx] = newOutBalance;
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Swap out an exact amount of one token by swapping in another.
@@ -528,7 +555,11 @@ library ClosureImpl {
             ONEX128 - taxRateX128
         );
         nominalTax = inAmount - untaxedInAmount;
-        emit NewClosureBalances(self.cid, self.targetX128, self.balances);
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Remove staked value tokens from this closure. Asset checks if you have said value tokens to begin with.
