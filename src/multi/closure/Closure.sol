@@ -802,23 +802,20 @@ library ClosureImpl {
         uint8 idx = vid.idx();
         // Roundup the balance we need.
         uint256 realBalance = AdjustorLib.toReal(idx, self.balances[idx], true);
-        (uint256 earnings, uint256 bgtReal) = Store.vertex(vid).trimBalance(
-            self.cid,
-            realBalance,
-            self.valueStaked,
-            self.bgtValueStaked
-        );
+        (uint256 earnings, uint256 bgtEarned, uint256 unspentShares) = Store
+            .vertex(vid)
+            .trimBalance(
+                self.cid,
+                realBalance,
+                self.valueStaked,
+                self.bgtValueStaked
+            );
         // All pools start with non-zero nonbgtvalue
         self.earningsPerValueX128[idx] += (earnings << 128) / nonBgtValueStaked;
         if (self.bgtValueStaked > 0) {
-            (uint256 bgtEarned, uint256 unspent) = SimplexLib.bgtExchange(
-                idx,
-                bgtReal
-            );
             self.bgtPerBgtValueX128 += (bgtEarned << 128) / self.bgtValueStaked;
             // rare
-            if (unspent > 0) {
-                uint256 unspentShares = ReserveLib.deposit(vid, unspent);
+            if (unspentShares > 0) {
                 self.unexchangedPerBgtValueX128[idx] +=
                     (unspentShares << 128) /
                     self.bgtValueStaked;

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import {console2 as console} from "forge-std/console2.sol";
+
 import {VertexId, VertexLib} from "./Id.sol";
 import {ReserveLib} from "./Reserve.sol";
 import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
+import {SimplexLib} from "../Simplex.sol";
 import {FullMath} from "../../FullMath.sol";
 
 /**
@@ -56,30 +59,55 @@ library VertexImpl {
     /// @dev The shares earned are MOVED TO THE RESERVE.
     /// @param targetReal The amount of tokens the cid expects to have in this token.
     /// @return reserveSharesEarned - The amount of shares moved to the reserve for non-bgt values to claim later.
-    /// @return bgtResidual - The real token amounts earned by the bgt values which can be exchanged.
+    /// @return bgtEarned - The amount of bgt earned by the bgt values from exchanging.
+    /// @return unspentShares - The amount of reserve shares for earnings not spent in the bgt exchange.
     function trimBalance(
         Vertex storage self,
         ClosureId cid,
         uint256 targetReal,
         uint256 value,
         uint256 bgtValue
-    ) internal returns (uint256 reserveSharesEarned, uint256 bgtResidual) {
+    )
+        internal
+        returns (
+            uint256 reserveSharesEarned,
+            uint256 bgtEarned,
+            uint256 unspentShares
+        )
+    {
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
         uint256 realBalance = vProxy.balance(cid, false);
         // We don't error and instead emit in this scenario because clearly the vault is not working properly but if
         // we error users can't withdraw funds. Instead the right response is to lock and move vaults immediately.
         if (targetReal > realBalance) {
             emit InsufficientBalance(self.vid, cid, targetReal, realBalance);
-            return (0, 0);
+            return (0, 0, 0);
         }
         uint256 residualReal = realBalance - targetReal;
-        vProxy.withdraw(cid, residualReal);
-        bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
+        uint256 bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
+        // Now we move the shares from the cid vault to the reserve.
+        bool validWithdraw = vProxy.withdraw(cid, residualReal);
+        console.log("res", residualReal, bgtResidual);
+        console.log("withdraw", validWithdraw);
         reserveSharesEarned = ReserveLib.deposit(
             vProxy,
             self.vid,
             residualReal - bgtResidual
         );
+        if (bgtResidual > 0) {
+            uint256 unspent;
+            if (validWithdraw) {
+                (bgtEarned, unspent) = SimplexLib.bgtExchange(
+                    self.vid.idx(),
+                    bgtResidual
+                );
+            } else {
+                // By not spending when withdraws will fail, we avoid withdraw/depositing
+                // and instead are just moving shares from the vault to the reserve.
+                unspent = bgtResidual;
+            }
+            unspentShares = ReserveLib.deposit(vProxy, self.vid, unspent);
+        }
         vProxy.commit();
     }
 

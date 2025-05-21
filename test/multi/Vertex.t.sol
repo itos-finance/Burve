@@ -12,6 +12,8 @@ import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import {Store} from "../../src/multi/Store.sol";
+import {SimplexLib} from "../../src/multi/Simplex.sol";
+import {IBGTExchanger, BGTExchanger} from "../../src/integrations/BGTExchange/BGTExchanger.sol";
 
 contract VertexIdTest is Test {
     function testExactId() public pure {
@@ -36,6 +38,7 @@ contract VertexTest is Test {
     function setUp() public {
         token = new MockERC20("test", "TEST", 18);
         token.mint(address(this), 1e20);
+        TokenRegLib.register(address(token));
         vault = new MockERC4626(ERC20(token), "Vault", "VAULT");
     }
 
@@ -53,13 +56,32 @@ contract VertexTest is Test {
         vProxy.deposit(cid, 4e6);
         vProxy.commit();
         // Now if we trim, we get a bunch.
-        (uint256 regValShares, uint256 bgtResidual) = v.trimBalance(
-            cid,
-            1e6,
-            150,
-            50
-        );
-        assertEq(regValShares, 2e6 * 100); // 100 for the reserve share resolution.
-        assertEq(bgtResidual, 1e6); // no 100 since its a real balance that gets exchanged.
+        (uint256 regValShares, uint256 bgtResidual, uint256 unspent) = v
+            .trimBalance(cid, 1e6, 150, 50);
+        assertEq(regValShares, 2e6 * 100, "r"); // 100 for the reserve share resolution.
+        // No exchange yet.
+        assertEq(bgtResidual, 0, "b");
+        assertEq(unspent, 1e8, "u"); // all unspent, * 100 for the reserve share resolution.
+
+        // With Bgt exchange
+        MockERC20 ibgt = new MockERC20("TestBGT", "iBGT", 18);
+        IBGTExchanger bgtEx = new BGTExchanger(address(ibgt));
+        ibgt.mint(address(this), 1e30);
+        ibgt.approve(address(bgtEx), type(uint256).max);
+        bgtEx.fund(1e30);
+        bgtEx.addExchanger(address(this));
+        bgtEx.setRate(address(token), 1 << 128);
+        SimplexLib.setBGTExchanger(address(bgtEx));
+
+        vProxy = VaultLib.getProxy(vid);
+        vProxy.deposit(cid, 3e6);
+        vProxy.commit();
+        // Now a trim retains the 1e6 from before for the target, and the 3e6 is all rewards
+        // and gets exchanged.
+        (regValShares, bgtResidual, unspent) = v.trimBalance(cid, 1e6, 150, 50);
+        assertEq(regValShares, 2e6 * 100, "r1"); // 100 for the reserve share resolution.
+        // No exchange yet.
+        assertEq(bgtResidual, 1e6, "b1"); // no 100 since its a real balance that gets exchanged.
+        assertEq(unspent, 0, "u1"); // no unspent shares
     }
 }
