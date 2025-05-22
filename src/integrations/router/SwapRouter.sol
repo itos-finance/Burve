@@ -5,7 +5,7 @@ import {SwapFacet} from "../../../src/multi/facets/SwapFacet.sol";
 
 /// @notice Defines the swap route per closure.
 struct Route {
-    /// The exact input when positive. The exact output when negative.
+    /// The exact input when positive. The exact output when negative. Note that this is a real value.
     int240 amountSpecified;
     /// The closure we choose to swap through.
     uint16 cid;
@@ -13,42 +13,31 @@ struct Route {
 
 /// Swap Router. For handling multiple swaps over multiple closures.
 contract SwapRouter {
-    error ExceededMaximumAmountIn(
-        uint256 acceptableAmountIn,
-        uint256 actualAmountIn
-    );
-    error InsufficientMinimumAmountOut(
-        uint256 acceptableAmountOut,
-        uint256 actualAmountOut
-    );
-
-    SwapFacet swapFacet;
-
-    constructor(address _swapFacet) {
-        swapFacet = SwapFacet(_swapFacet);
-    }
+    error ExcessiveAmountIn(uint256 acceptable, uint256 actual);
+    error InsufficientAmountOut(uint256 acceptable, uint256 actual);
 
     /// @notice Single hop token swap over multiple closures.
     /// @param recipient The recipient of the outToken.
     /// @param inToken Token to swap in.
     /// @param outToken Token to swap out.
-    /// @param amountLimit When positive the minimum amount out. When negative the maximum amount in.
+    /// @param amountLimit When positive the maximum amount in. When negative the minimum amount out. Note that this is a real value.
     /// @param routes Closure routes to swap over.
     /// @dev There is no input validation that routes are all exact input or exact output.
     /// Or that the amount limit appropriately matches. Correctness is the responsability of the caller.
     /// Exact Input - route amountSpecified values are positive, amountLimit is positive to confirm minimum amount out.
     /// Exact Output - route amountSpecified values are negative, amountLimit is negative to confirm maximum amount in.
     function swap(
+        address diamond,
         address recipient,
         address inToken,
         address outToken,
         int256 amountLimit,
-        Route[] memory routes
+        Route[] calldata routes
     ) external returns (uint256 inAmount, uint256 outAmount) {
         for (uint256 i = 0; i < routes.length; ++i) {
             Route memory route = routes[i];
 
-            (uint256 _inAmount, uint256 _outAmount) = swapFacet.swap(
+            (uint256 _inAmount, uint256 _outAmount) = SwapFacet(diamond).swap(
                 recipient,
                 inToken,
                 outToken,
@@ -60,20 +49,18 @@ contract SwapRouter {
             outAmount += _outAmount;
         }
 
-        // Check amount out
+        // Check amount in
         if (amountLimit > 0) {
-            require(
-                outAmount >= uint256(amountLimit),
-                InsufficientMinimumAmountOut(uint256(amountLimit), outAmount)
-            );
+            uint256 maxIn = uint256(amountLimit);
+            require(inAmount <= maxIn, ExcessiveAmountIn(maxIn, inAmount));
         }
 
-        // Check amount in
+        // Check amount out
         if (amountLimit < 0) {
-            uint256 convertedAmountLimit = uint256(int256(-amountLimit));
+            uint256 minOut = uint256(-amountLimit);
             require(
-                inAmount <= convertedAmountLimit,
-                ExceededMaximumAmountIn(convertedAmountLimit, inAmount)
+                outAmount >= minOut,
+                InsufficientAmountOut(minOut, outAmount)
             );
         }
     }
