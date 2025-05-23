@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {console2 as console} from "forge-std/console2.sol";
-
 import {VertexId, VertexLib} from "./Id.sol";
 import {ReserveLib} from "./Reserve.sol";
 import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
@@ -87,8 +85,6 @@ library VertexImpl {
         uint256 bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
         // Now we move the shares from the cid vault to the reserve.
         bool validWithdraw = vProxy.withdraw(cid, residualReal);
-        console.log("res", residualReal, bgtResidual);
-        console.log("withdraw", validWithdraw);
         reserveSharesEarned = ReserveLib.deposit(
             vProxy,
             self.vid,
