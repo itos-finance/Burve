@@ -97,7 +97,7 @@ library VertexImpl {
         if (bgtResidual > 0) {
             uint256 unspent;
             if (validWithdraw) {
-                (bgtEarned, unspent) = SimplexLib.bgtExchange(
+                (bgtEarned, unspent) = SimplexLib.viewBgtExchange(
                     self.vid.idx(),
                     bgtResidual
                 );
@@ -109,6 +109,8 @@ library VertexImpl {
             unspentShares = ReserveLib.deposit(vProxy, self.vid, unspent);
         }
         vProxy.commit();
+        // Now that we've commited we have the tokens to exchange.
+        SimplexLib.bgtExchange(self.vid.idx(), bgtResidual);
     }
 
     /// A few version of trim that just returns the real balances earned.
