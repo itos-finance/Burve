@@ -22,6 +22,8 @@ using VertexImpl for Vertex global;
 library VertexImpl {
     /// Thrown when a vertex is locked so it cannot accept more deposits, or swaps out.
     error VertexLocked(VertexId vid);
+    /// Thrown when the vault has a withdraw limit lower than the requested amount.
+    error WithdrawLimited(VertexId vid, uint256 amount);
     /// Emitted when the pool is holding insufficient balance for a token.
     /// This should never happen unless something is really wrong, like a vault
     /// losing money. In such an event check what is wrong, the severity, and either
@@ -144,6 +146,8 @@ library VertexImpl {
     }
 
     /// Withdraw a specified amount from the holdings of a given closure.
+    /// @dev If checkLock is true, it will revert if the vertex is locked.
+    /// @dev If the withdraw is limited by withdraw limits, it will revert.
     function withdraw(
         Vertex storage self,
         ClosureId cid,
@@ -152,7 +156,10 @@ library VertexImpl {
     ) internal {
         require(!(checkLock && self._isLocked), VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
-        vProxy.withdraw(cid, amount);
+        require(
+            vProxy.withdraw(cid, amount),
+            WithdrawLimited(self.vid, amount)
+        );
         vProxy.commit();
     }
 

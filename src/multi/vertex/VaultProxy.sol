@@ -198,8 +198,12 @@ library VaultProxyImpl {
         if (amount > available) {
             self.active.withdraw(cid, available);
             uint256 residual = amount - available;
+            uint256 backWithdrawable = self.backup.withdrawable();
+            valid = backWithdrawable >= residual;
+            if (!valid) {
+                residual = backWithdrawable;
+            }
             self.backup.withdraw(cid, residual);
-            valid = self.backup.withdrawable() >= residual;
         } else {
             self.active.withdraw(cid, amount);
             valid = true;
