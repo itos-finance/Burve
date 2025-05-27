@@ -256,6 +256,10 @@ library VaultProxyImpl {
         self.backup.commit();
     }
 
+    function isValid(VaultProxy memory self) internal view returns (bool) {
+        return self.active.isValid() && self.backup.isValid();
+    }
+
     /// A convenience function that forces a commit and re-fetches from the underlying vault.
     function refresh(VaultProxy memory self) internal {
         self.active.refresh();

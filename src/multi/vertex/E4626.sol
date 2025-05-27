@@ -18,11 +18,14 @@ struct VaultE4626 {
     uint256 totalVaultShares; // Shares we own in the underlying vault.
     mapping(ClosureId => uint256) shares;
     uint256 totalShares;
+    uint256 highWaterMark; // The highest total balance we've had so far.
 }
 
 using VaultE4626Impl for VaultE4626 global;
 
 library VaultE4626Impl {
+    uint256 public constant DUST = 10; // We can forgive a loss of this much due to rounding.
+
     /// Thrown when requesting a balance too large for a given cid.
     error InsufficientBalance(
         address vault,
@@ -47,7 +50,7 @@ library VaultE4626Impl {
         self.vault = IERC4626(address(0));
     }
 
-    // The first function called on vaultProxy creation to prep ourselves for other operations.
+    /// The first function called on vaultProxy creation to prep ourselves for other operations.
     function fetch(
         VaultE4626 storage self,
         VaultTemp memory temp
@@ -89,6 +92,8 @@ library VaultE4626Impl {
                 address(this)
             );
             SafeERC20.forceApprove(self.token, address(self.vault), 0);
+            // Asserts there are no deposit fees or they're overcome by the time we act next.
+            self.highWaterMark = temp.vars[0] + assetsToDeposit;
         } else if (assetsToWithdraw > 0) {
             // We don't need to hyper-optimize the receiver.
             self.totalVaultShares -= self.vault.withdraw(
@@ -96,10 +101,20 @@ library VaultE4626Impl {
                 address(this),
                 address(this)
             );
+            // Asserts there are no withdrawal fees or they're overcome by the time we act next.
+            self.highWaterMark = temp.vars[0] - assetsToWithdraw;
         }
     }
 
     /** Operations used by Vertex */
+
+    function isValid(
+        VaultE4626 storage self,
+        VaultTemp memory temp
+    ) internal view returns (bool) {
+        // We require monotonic growth.
+        return (DUST + temp.vars[0]) >= self.highWaterMark;
+    }
 
     function deposit(
         VaultE4626 storage self,

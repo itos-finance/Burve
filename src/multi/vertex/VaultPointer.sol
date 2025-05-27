@@ -131,6 +131,17 @@ library VaultPointerImpl {
         }
     }
 
+    /// Queue up a deposit for a given cid.
+    function isValid(VaultPointer memory self) internal view returns (bool) {
+        if (isNull(self)) return true;
+
+        if (self.vType == VaultType.E4626) {
+            return getE4626(self).isValid(self.temp);
+        } else {
+            revert VaultTypeUnrecognized(self.vType);
+        }
+    }
+
     /// A convenience function that forces a commit and re-fetches from the underlying vault.
     function refresh(VaultPointer memory self) internal {
         if (isNull(self)) return;

@@ -139,8 +139,8 @@ library VertexImpl {
         ClosureId cid,
         uint256 amount
     ) internal {
-        require(!self._isLocked, VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
+        validateLock(self, vProxy);
         vProxy.deposit(cid, amount);
         vProxy.commit();
     }
@@ -154,8 +154,10 @@ library VertexImpl {
         uint256 amount,
         bool checkLock
     ) internal {
-        require(!(checkLock && self._isLocked), VertexLocked(self.vid));
         VaultProxy memory vProxy = VaultLib.getProxy(self.vid);
+        if (checkLock) {
+            validateLock(self, vProxy);
+        }
         require(
             vProxy.withdraw(cid, amount),
             WithdrawLimited(self.vid, amount)
@@ -186,5 +188,13 @@ library VertexImpl {
 
     function isLocked(Vertex storage self) internal view returns (bool) {
         return self._isLocked;
+    }
+
+    function validateLock(
+        Vertex storage self,
+        VaultProxy memory vProxy
+    ) internal {
+        if (!vProxy.isValid()) lock(self);
+        require(!self._isLocked, VertexLocked(self.vid));
     }
 }
