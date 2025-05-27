@@ -109,8 +109,45 @@ library SimplexLib {
     /// @param eX128 The efficiency factor to set.
     function setEX128(uint8 idx, uint256 eX128) internal {
         Simplex storage s = Store.simplex();
+        uint256 oldEX128 = s.esX128[idx];
         s.esX128[idx] = eX128;
         s.minXPerTX128[idx] = ValueLib.calcMinXPerTX128(eX128);
+        bool concentrate = eX128 > oldEX128;
+        VertexId vid = VertexLib.newId(idx);
+        uint256 needed = 0;
+
+        // We need to make sure the value is the same before and after the change in E
+        // and the necessary balance changes are made.
+        uint8 n = TokenRegLib.numVertices();
+        uint16 idxBit = 1 << idx;
+        uint32 maxCid = uint32((1 << n) - 1); // Use 32 to not overflow.
+        for (uint32 cid = 0; cid <= maxCid; ++cid) {
+            if (cid & idxBit == 0) continue; // Skip if the vertex is not in the closure.
+            Closure storage c = Store.closure(ClosureId.wrap(uint16(cid)));
+            uint256 valueX128 = ValueLib.v(
+                c.targetX128,
+                oldEX128,
+                c.balances[idx],
+                true
+            );
+            uint256 oldX = c.balances[idx];
+            c.balances[idx] = ValueLib.x(c.targetX128, eX128, valueX128, true);
+            if (concentrate) {
+                // If we're concentrating, the balance needed is smaller so we trim.
+                c.trimBalance(vid);
+            } else {
+                // If we're expanding the range, we'll need more tokens to get the same value.
+                needed += c.balances[idx] - oldX;
+            }
+        }
+        if (needed > 0) {
+            TransferHelper.safeTransferFrom(
+                TokenRegLib.getToken(idx),
+                msg.sender,
+                address(this),
+                needed
+            );
+        }
     }
 
     function bgtExchange(
