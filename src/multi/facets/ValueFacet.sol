@@ -212,14 +212,15 @@ contract ValueFacet is ReentrancyGuardTransient {
         require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
         c.finalize(
             VertexId.wrap(0),
             0,
             -int256(uint256(value)),
             -int256(uint256(bgtValue))
         );
+
         // Send balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
@@ -252,11 +253,11 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
         (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
             value,
             vid
         );
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
         Store.vertex(vid).withdraw(cid, realRemoved, false);
         uint256 realTax = FullMath.mulDiv(
@@ -297,13 +298,13 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalReceive,
             search
         );
+        require(valueGiven > 0, DeMinimisDeposit());
+        if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
+        // Round down to avoid removing too much from the vertex.
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
         // Round up because we must suffice for amount and the realTax.
-        Store.vertex(vid).withdraw(cid, amount + realTax, false);
+        Store.vertex(vid).withdraw(cid, amount + realTax, true);
         {
-            require(valueGiven > 0, DeMinimisDeposit());
-            if (maxValue > 0)
-                require(valueGiven <= maxValue, PastSlippageBounds());
             // Round up to handle the 0% and 100% cases exactly.
             uint256 bgtValue = FullMath.mulX256(
                 bgtPercentX256,
@@ -311,13 +312,13 @@ contract ValueFacet is ReentrancyGuardTransient {
                 true
             );
             emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
+            Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
             c.finalize(
                 vid,
                 realTax,
                 -int256(uint256(valueGiven)),
                 -int256(uint256(bgtValue))
             );
-            Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
         }
         TransferHelper.safeTransfer(token, recipient, amount);
     }
