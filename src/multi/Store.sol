@@ -59,6 +59,13 @@ library Store {
         require(ClosureId.unwrap(_c.cid) != 0, UninitializedClosure(cid));
     }
 
+    function tryClosure(
+        ClosureId cid
+    ) internal view returns (Closure storage _c, bool exists) {
+        _c = load().closures[cid];
+        exists = ClosureId.unwrap(_c.cid) != 0;
+    }
+
     function vaults() internal view returns (VaultStorage storage v) {
         return load()._vaults;
     }

@@ -12,9 +12,10 @@ import {SearchParams} from "../Value.sol";
 import {Simplex, SimplexLib} from "../Simplex.sol";
 import {Store} from "../Store.sol";
 import {TransferHelper} from "../../TransferHelper.sol";
-import {VaultType} from "../vertex/VaultProxy.sol";
+import {VaultLib, VaultProxy, VaultType} from "../vertex/VaultProxy.sol";
 import {Vertex} from "../vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
+import {ValueLib} from "../Value.sol";
 
 contract SimplexFacet {
     /// Thrown when setting the BGT exchanger if the provided address is the zero address.
@@ -279,13 +280,56 @@ contract SimplexFacet {
     function setEX128(address token, uint256 eX128) external {
         AdminLib.validateOwner();
         uint8 idx = TokenRegLib.getIdx(token);
-        emit EfficiencyFactorChanged(
-            msg.sender,
-            token,
-            SimplexLib.getEX128(idx),
-            eX128
-        );
-        SimplexLib.setEX128(idx, eX128);
+        uint256 oldEX128 = SimplexLib.setEX128(idx, eX128);
+        emit EfficiencyFactorChanged(msg.sender, token, oldEX128, eX128);
+
+        // Now that E is changed, we need to adjust the balances in the closures.
+        bool concentrate = eX128 > oldEX128;
+        VertexId vid = VertexLib.newId(idx);
+
+        // For deposits when not concentrating.
+        uint256 needed = 0;
+        VaultProxy memory vProxy = VaultLib.getProxy(vid);
+        Vertex storage v = Store.vertex(vid);
+
+        // We need to make sure the value is the same before and after the change in E
+        // and the necessary balance changes are made.
+        uint8 n = TokenRegLib.numVertices();
+        uint16 idxBit = uint16(1 << idx);
+        uint32 maxCid = uint32((1 << n) - 1); // Use 32 to not overflow.
+        for (uint32 cid = 0; cid <= maxCid; ++cid) {
+            if (cid & idxBit == 0) continue; // Skip if the vertex is not in the closure.
+            ClosureId _cid = ClosureId.wrap(uint16(cid));
+            (Closure storage c, bool exists) = Store.tryClosure(_cid);
+            if (!exists) continue; // Skip if the closure does not exist.
+            uint256 valueX128 = ValueLib.v(
+                c.targetX128,
+                oldEX128,
+                c.balances[idx],
+                true
+            );
+            uint256 oldX = c.balances[idx];
+            c.balances[idx] = ValueLib.x(c.targetX128, eX128, valueX128, true);
+            if (concentrate) {
+                // If we're concentrating, the balance needed is smaller so we trim.
+                c.trimBalance(vid);
+            } else {
+                // If we're expanding the range, we'll need more tokens to get the same value.
+                uint256 singleDeposit = c.balances[idx] - oldX;
+                needed += singleDeposit;
+                v.deposit(vProxy, _cid, singleDeposit);
+            }
+        }
+        if (needed > 0) {
+            TransferHelper.safeTransferFrom(
+                token,
+                msg.sender,
+                address(this),
+                needed
+            );
+            // Commit the deposits now that we have the tokens.
+            vProxy.commit();
+        }
     }
 
     /// @notice Gets the current adjustor.
