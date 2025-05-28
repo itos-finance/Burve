@@ -466,8 +466,6 @@ contract SimplexFacetTest is MultiSetupTest {
 
         ) = simplexFacet.getClosureValue(0x3);
         (
-            ,
-            ,
             uint256[MAX_TOKENS] memory preEarningsPerValueX128,
             ,
 
@@ -508,8 +506,6 @@ contract SimplexFacetTest is MultiSetupTest {
         }
         {
             (
-                ,
-                ,
                 uint256[MAX_TOKENS] memory postEarningsPerValueX128,
                 ,
 
@@ -552,8 +548,6 @@ contract SimplexFacetTest is MultiSetupTest {
 
         ) = simplexFacet.getClosureValue(0x3);
         (
-            ,
-            ,
             uint256[MAX_TOKENS] memory preEarningsPerValueX128,
             ,
 
@@ -601,8 +595,6 @@ contract SimplexFacetTest is MultiSetupTest {
         }
         {
             (
-                ,
-                ,
                 uint256[MAX_TOKENS] memory postEarningsPerValueX128,
                 ,
 

@@ -287,22 +287,43 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint256 bgtPercentX256,
         uint128 maxValue
     ) external nonReentrant returns (uint256 valueGiven) {
-        ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        SearchParams memory search = Store.simplex().searchParams;
-        uint256 nominalTax;
         uint256 nominalReceive = AdjustorLib.toNominal(token, amount, true); // RoundUp value removed.
-        (valueGiven, nominalTax) = c.removeTokenForValue(
+        valueGiven = _removeSingleForValue(
+            _closureId,
             vid,
+            amount,
             nominalReceive,
-            search
+            bgtPercentX256
         );
         require(valueGiven > 0, DeMinimisDeposit());
         if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
-        // Round down to avoid removing too much from the vertex.
-        uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalReceive);
         // Round up because we must suffice for amount and the realTax.
+        TransferHelper.safeTransfer(token, recipient, amount);
+    }
+
+    /// Internal function for dealing with the large number of stack variables.
+    function _removeSingleForValue(
+        uint16 _closureId,
+        VertexId vid,
+        uint128 amount,
+        uint256 nominalAmount,
+        uint256 bgtPercentX256
+    ) private returns (uint256 valueGiven) {
+        ClosureId cid = ClosureId.wrap(_closureId);
+        Closure storage c = Store.closure(cid); // Validates cid.
+        uint256 realTax;
+        {
+            uint256 nominalTax;
+            (valueGiven, nominalTax) = c.removeTokenForValue(
+                vid,
+                nominalAmount,
+                Store.simplex().searchParams
+            );
+            // Round down to avoid removing too much from the vertex.
+            realTax = FullMath.mulDiv(amount, nominalTax, nominalAmount);
+            emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
+        }
         Store.vertex(vid).withdraw(cid, amount + realTax, true);
         {
             // Round up to handle the 0% and 100% cases exactly.
@@ -311,7 +332,6 @@ contract ValueFacet is ReentrancyGuardTransient {
                 valueGiven,
                 true
             );
-            emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
             Store.assets().remove(msg.sender, cid, valueGiven, bgtValue);
             c.finalize(
                 vid,
@@ -320,7 +340,6 @@ contract ValueFacet is ReentrancyGuardTransient {
                 -int256(uint256(bgtValue))
             );
         }
-        TransferHelper.safeTransfer(token, recipient, amount);
     }
 
     /// Return the held value balance and earnings by an address in a given closure.
