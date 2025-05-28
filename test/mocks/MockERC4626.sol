@@ -5,11 +5,20 @@ import "openzeppelin-contracts/token/ERC20/extensions/ERC4626.sol";
 import "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
 contract MockERC4626 is ERC4626 {
+    ERC20 private immutable _asset;
+
     constructor(
         ERC20 asset,
         string memory name,
         string memory symbol
-    ) ERC20(name, symbol) ERC4626(asset) {}
+    ) ERC20(name, symbol) ERC4626(asset) {
+        _asset = asset;
+    }
+
+    function burnAssets(uint256 amount) public {
+        // Burn some amount of assets from this vault.
+        _asset.transfer(address(0xDEADBEEF), amount);
+    }
 }
 
 contract MockERC4626WithdrawlLimited is MockERC4626 {

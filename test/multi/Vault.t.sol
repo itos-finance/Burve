@@ -8,7 +8,7 @@ import {console2 as console} from "forge-std/console2.sol";
 import {VertexImpl} from "../../src/multi/vertex/Vertex.sol";
 import {VertexId} from "../../src/multi/vertex/Id.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
-import {MockERC4626WithdrawlLimited} from "../mocks/MockERC4626.sol";
+import {MockERC4626WithdrawlLimited, MockERC4626} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
 contract VaultMultiTest is MultiSetupTest {
@@ -96,7 +96,51 @@ contract VaultMultiTest is MultiSetupTest {
             )
         );
         valueFacet.removeValueSingle(owner, 0x3, 2e18, 0, tokens[0], 0);
+        vm.stopPrank();
+
+        // TODO: test with bgt exchanger once the rounding bug is fixed.
     }
 
-    // TODO: test with bgt exchanger once the rounding bug is fixed.
+    function testLossyVault() public {
+        vm.startPrank(owner);
+        // Create a vault with a withdraw limit.
+        MockERC4626 vault = new MockERC4626(token0, "Test Vault", "TVLT");
+        address vw = address(vault);
+        address v0 = address(vaults[0]);
+        vaultFacet.addVault(tokens[0], address(vault), VaultType.E4626);
+        skip(5 days + 1);
+        vaultFacet.acceptVault(tokens[0]);
+        vaultFacet.transferBalance(v0, vw, 0x3, 100e18);
+        vaultFacet.transferBalance(v0, vw, 0xF, 100e18);
+        vaultFacet.hotSwap(tokens[0]);
+
+        // Now we're using the problematic vault.
+        // We can use it normally.
+        valueFacet.addValueSingle(owner, 0x3, 5e18, 0, tokens[0], 0);
+        swapFacet.swap(owner, tokens[1], tokens[0], 10e18, 0, 0x3);
+        // But once it losses money more than dust, it's locked.
+        vault.burnAssets(5);
+        valueFacet.addValueSingle(owner, 0x3, 5e18, 0, tokens[0], 0);
+        swapFacet.swap(owner, tokens[1], tokens[0], 3e18, 0, 0x3);
+        vault.burnAssets(20);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VertexImpl.VertexLocked.selector,
+                VertexId.wrap(1 << 8) // VertexId for token0
+            )
+        );
+        valueFacet.addValueSingle(owner, 0x3, 5e18, 0, tokens[0], 0);
+        // Withdrawing through swaps it not allowed now.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VertexImpl.VertexLocked.selector,
+                VertexId.wrap(1 << 8) // VertexId for token0
+            )
+        );
+        swapFacet.swap(owner, tokens[1], tokens[0], 3e18, 0, 0x3);
+        // But withdrawing liquidity is fine.
+        valueFacet.removeValueSingle(owner, 0x3, 5e18, 0, tokens[0], 0);
+
+        vm.stopPrank();
+    }
 }
