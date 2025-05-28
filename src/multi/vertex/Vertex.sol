@@ -117,6 +117,17 @@ library VertexImpl {
         vProxy.commit();
     }
 
+    /// A barebones version of deposit that does not handle vproxy commit timing or lock checks.
+    /// @dev Used by admin functions that have to deposit into multiple closures at once.
+    function deposit(
+        Vertex storage self,
+        VaultProxy memory vProxy,
+        ClosureId cid,
+        uint256 amount
+    ) internal {
+        vProxy.deposit(cid, amount);
+    }
+
     /// Withdraw a specified amount from the holdings of a given closure.
     function withdraw(
         Vertex storage self,

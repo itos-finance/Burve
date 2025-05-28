@@ -116,8 +116,12 @@ library SimplexLib {
     /// @notice Sets the efficiency factor for a given token by their index.
     /// @param idx The index of the token.
     /// @param eX128 The efficiency factor to set.
-    function setEX128(uint8 idx, uint256 eX128) internal {
+    function setEX128(
+        uint8 idx,
+        uint256 eX128
+    ) internal returns (uint256 oldEX128) {
         Simplex storage s = Store.simplex();
+        oldEX128 = s.esX128[idx];
         s.esX128[idx] = eX128;
         s.minXPerTX128[idx] = ValueLib.calcMinXPerTX128(eX128);
     }
