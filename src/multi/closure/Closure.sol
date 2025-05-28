@@ -736,7 +736,6 @@ library ClosureImpl {
             SimplexLib.getProtocolTakeX128(),
             false
         );
-        SimplexLib.protocolTake(idx, protocolAmount);
         uint256 userAmount = earnings - protocolAmount;
         uint256 unspent;
         if (self.bgtValueStaked > 0) {
@@ -749,17 +748,25 @@ library ClosureImpl {
             userAmount -= bgtExAmount;
         }
         // We total the shares earned and split after to reduce our vault deposits, and
-        // we potentially lose one less dust.
-        uint256 reserveShares = ReserveLib.deposit(vid, unspent + userAmount);
+        // we potentially lose less dust.
+        uint256 totalDeposit = userAmount + protocolAmount + unspent;
+        uint256 reserveShares = ReserveLib.deposit(vid, totalDeposit);
         if (unspent > 0) {
             // rare
-            uint256 unspentShares = (reserveShares * unspent) /
-                (userAmount + unspent);
+            uint256 unspentShares = (reserveShares * unspent) / totalDeposit;
             self.unexchangedPerBgtValueX128[idx] +=
                 (unspentShares << 128) /
                 self.bgtValueStaked; // Must be greater than 0 here.
             reserveShares -= unspentShares;
         }
+        if (protocolAmount > 0) {
+            // We don't need to track protocol fees.
+            uint256 protocolShares = (reserveShares * protocolAmount) /
+                totalDeposit;
+            SimplexLib.protocolTake(idx, protocolShares);
+            reserveShares -= protocolShares;
+        }
+
         // Rest goes to non bgt value.
         self.earningsPerValueX128[idx] +=
             (reserveShares << 128) /
@@ -795,23 +802,20 @@ library ClosureImpl {
         uint8 idx = vid.idx();
         // Roundup the balance we need.
         uint256 realBalance = AdjustorLib.toReal(idx, self.balances[idx], true);
-        (uint256 earnings, uint256 bgtReal) = Store.vertex(vid).trimBalance(
-            self.cid,
-            realBalance,
-            self.valueStaked,
-            self.bgtValueStaked
-        );
+        (uint256 earnings, uint256 bgtEarned, uint256 unspentShares) = Store
+            .vertex(vid)
+            .trimBalance(
+                self.cid,
+                realBalance,
+                self.valueStaked,
+                self.bgtValueStaked
+            );
         // All pools start with non-zero nonbgtvalue
         self.earningsPerValueX128[idx] += (earnings << 128) / nonBgtValueStaked;
         if (self.bgtValueStaked > 0) {
-            (uint256 bgtEarned, uint256 unspent) = SimplexLib.bgtExchange(
-                idx,
-                bgtReal
-            );
             self.bgtPerBgtValueX128 += (bgtEarned << 128) / self.bgtValueStaked;
             // rare
-            if (unspent > 0) {
-                uint256 unspentShares = ReserveLib.deposit(vid, unspent);
+            if (unspentShares > 0) {
                 self.unexchangedPerBgtValueX128[idx] +=
                     (unspentShares << 128) /
                     self.bgtValueStaked;

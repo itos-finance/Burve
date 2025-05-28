@@ -24,7 +24,7 @@ struct Simplex {
     uint256[MAX_TOKENS] esX128;
     /// A scaling factor for calculating the min acceptable x balance based on e.
     uint256[MAX_TOKENS] minXPerTX128;
-    /// Amounts earned by the protocol for withdrawal.
+    /// Reserve shares earned by the protocol for withdrawal.
     uint256[MAX_TOKENS] protocolEarnings;
     /// Parameters used by ValueLib.t to search
     SearchParams searchParams;
@@ -75,20 +75,20 @@ library SimplexLib {
         return simplex.protocolEarnings;
     }
 
-    /// @notice Adds amount to earned protocol fees for given token.
+    /// @notice Adds reserve shares for earned protocol fees for given token.
     /// @param idx The index of the token.
-    /// @param amount The amount earned.
-    function protocolTake(uint8 idx, uint256 amount) internal {
+    /// @param shares The shares earned.
+    function protocolTake(uint8 idx, uint256 shares) internal {
         Simplex storage simplex = Store.simplex();
-        simplex.protocolEarnings[idx] += amount;
+        simplex.protocolEarnings[idx] += shares;
     }
 
     /// @notice Removes the earned protocol fees for given token.
     /// @param idx The index of the token.
-    /// @return amount The amount earned.
-    function protocolGive(uint8 idx) internal returns (uint256 amount) {
+    /// @return shares The reserve shares earned.
+    function protocolGive(uint8 idx) internal returns (uint256 shares) {
         Simplex storage simplex = Store.simplex();
-        amount = simplex.protocolEarnings[idx];
+        shares = simplex.protocolEarnings[idx];
         simplex.protocolEarnings[idx] = 0;
     }
 

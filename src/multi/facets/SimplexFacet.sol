@@ -8,6 +8,7 @@ import {IAdjustor} from "../../integrations/adjustor/IAdjustor.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
+import {ReserveLib} from "../vertex/Reserve.sol";
 import {SearchParams} from "../Value.sol";
 import {Simplex, SimplexLib} from "../Simplex.sol";
 import {Store} from "../Store.sol";
@@ -35,7 +36,11 @@ contract SimplexFacet {
         VertexId vid,
         VaultType vaultType
     );
-    event FeesWithdrawn(address indexed token, uint256 amount, uint256 earned);
+    event ProtocolFeesWithdrawn(
+        address indexed token,
+        uint256 amount,
+        uint256 earned
+    );
     event DefaultEdgeSet(
         uint128 amplitude,
         int24 lowTick,
@@ -255,18 +260,21 @@ contract SimplexFacet {
     // 2. When someone accidentally sends tokens to this address.
     // 3. When someone donates.
     /// @dev Only callable by the contract owner.
-    function withdraw(address token) external {
+    function withdraw(address token) external returns (uint256 amount) {
         AdminLib.validateOwner();
-
-        uint256 balance = IERC20(token).balanceOf(address(this));
 
         if (TokenRegLib.isRegistered(token)) {
             uint8 idx = TokenRegLib.getIdx(token);
             uint256 earned = SimplexLib.protocolGive(idx);
-            emit FeesWithdrawn(token, balance, earned);
+            amount = ReserveLib.withdraw(VertexLib.newId(token), earned);
         }
 
+        // After withdrawing, we combine it with any dust or stray tokens left on this contract.
+        // All user funds would be safe in the vaults. Any funds on this contract are not supposed to be here.
+        uint256 balance = IERC20(token).balanceOf(address(this));
+
         if (balance > 0) {
+            emit ProtocolFeesWithdrawn(token, balance, amount);
             TransferHelper.safeTransfer(token, msg.sender, balance);
         }
     }

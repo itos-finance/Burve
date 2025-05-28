@@ -184,11 +184,12 @@ library VaultProxyImpl {
     }
 
     /// Withdraw from the active vault, and then the backup if we can't fulfill it entirely.
+    /// @return valid True if the withdraw will succeed.
     function withdraw(
         VaultProxy memory self,
         ClosureId cid,
         uint256 amount
-    ) internal {
+    ) internal returns (bool valid) {
         // We effectively don't allow withdraws beyond uint128 due to the capping in balance.
         uint128 available = self.active.balance(cid, false);
         uint256 maxWithdrawable = self.active.withdrawable();
@@ -196,9 +197,16 @@ library VaultProxyImpl {
 
         if (amount > available) {
             self.active.withdraw(cid, available);
-            self.backup.withdraw(cid, amount - available);
+            uint256 residual = amount - available;
+            uint256 backWithdrawable = self.backup.withdrawable();
+            valid = backWithdrawable >= residual;
+            if (!valid) {
+                residual = backWithdrawable;
+            }
+            self.backup.withdraw(cid, residual);
         } else {
             self.active.withdraw(cid, amount);
+            valid = true;
         }
     }
 

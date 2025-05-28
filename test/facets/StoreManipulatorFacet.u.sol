@@ -4,7 +4,8 @@ pragma solidity ^0.8.27;
 import {ClosureId} from "../../src/multi/closure/Id.sol";
 import {Closure} from "../../src/multi/closure/Closure.sol";
 import {Store} from "../../src/multi/Store.sol";
-import {Simplex} from "../../src/multi/Simplex.sol";
+import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
+import {ReserveLib} from "../../src/multi/vertex/Reserve.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {Vertex} from "../../src/multi/vertex/Vertex.sol";
 import {VertexId, VertexLib} from "../../src/multi/vertex/Id.sol";
@@ -46,7 +47,12 @@ contract StoreManipulatorFacet {
     function setProtocolEarnings(
         uint256[MAX_TOKENS] memory _protocolEarnings
     ) external {
-        Store.simplex().protocolEarnings = _protocolEarnings;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            uint256 amount = _protocolEarnings[i];
+            if (amount == 0) continue;
+            uint256 shares = ReserveLib.deposit(VertexLib.newId(i), amount);
+            SimplexLib.protocolTake(i, shares);
+        }
     }
 
     function getVertex(VertexId vid) external view returns (Vertex memory v) {
