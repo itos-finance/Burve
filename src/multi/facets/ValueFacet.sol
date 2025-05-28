@@ -14,52 +14,18 @@ import {SearchParams} from "../Value.sol";
 import {IBGTExchanger} from "../../integrations/BGTExchange/IBGTExchanger.sol";
 import {ReserveLib} from "../vertex/Reserve.sol";
 import {FullMath} from "../../FullMath.sol";
+import {IBurveMultiEvents} from "../interfaces/IBurveMultiEvents.sol";
 
-/*
- @notice The facet for minting and burning liquidity. We will have helper contracts
- that actually issue the ERC20 through these shares.
-
- @dev To conform to the ERC20 interface, we wrap each subset of tokens
- in their own ERC20 contract with mint functions that call the addLiq and removeLiq
-functions here.
-*/
-contract ValueFacet is ReentrancyGuardTransient {
+interface ValueErrors {
     error DeMinimisDeposit();
     error InsufficientValueForBgt(uint256 value, uint256 bgtValue);
     error PastSlippageBounds();
+}
 
-    /// @notice Emitted when liquidity is added to a closure
-    /// @param recipient The address that received the value
-    /// @param closureId The ID of the closure
-    /// @param amounts The amounts of each token added
-    /// @param value The value added
-    event AddValue(
-        address indexed recipient,
-        uint16 indexed closureId,
-        uint128[] amounts,
-        uint256 value
-    );
-
-    /// @notice Emitted when value is removed from a closure
-    /// @param recipient The address that received the tokens
-    /// @param closureId The ID of the closure
-    /// @param amounts The amounts given
-    /// @param value The value removed
-    event RemoveValue(
-        address indexed recipient,
-        uint16 indexed closureId,
-        uint256[] amounts,
-        uint256 value
-    );
-
-    /// @notice Emitted when a closure earns frees from a single value deposit.
-    event ClosureFeesEarned(
-        uint16 indexed closureId,
-        VertexId indexed inVid,
-        uint256 nominalFees,
-        uint256 realFees
-    );
-
+/*
+ @notice The facet for minting liquidity.
+*/
+contract AddValueFacet is ReentrancyGuardTransient {
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
     /// which validates the requiredBalances are small enough according to some logic.
@@ -73,8 +39,11 @@ contract ValueFacet is ReentrancyGuardTransient {
         nonReentrant
         returns (uint256[MAX_TOKENS] memory requiredBalances)
     {
-        if (value == 0) revert DeMinimisDeposit();
-        require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+        if (value == 0) revert ValueErrors.DeMinimisDeposit();
+        require(
+            bgtValue <= value,
+            ValueErrors.InsufficientValueForBgt(value, bgtValue)
+        );
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
         uint256[MAX_TOKENS] memory requiredNominal = c.addValue(value);
@@ -104,6 +73,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             int256(uint256(bgtValue))
         );
         Store.assets().add(recipient, cid, value, bgtValue);
+        emit IBurveMultiEvents.AddValue(recipient, _closureId, value);
     }
 
     /// Add exactly this much value to the given closure by providing a single token.
@@ -116,8 +86,11 @@ contract ValueFacet is ReentrancyGuardTransient {
         address token,
         uint128 maxRequired
     ) external nonReentrant returns (uint256 requiredBalance) {
-        if (value == 0) revert DeMinimisDeposit();
-        require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+        if (value == 0) revert ValueErrors.DeMinimisDeposit();
+        require(
+            bgtValue <= value,
+            ValueErrors.InsufficientValueForBgt(value, bgtValue)
+        );
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
@@ -132,14 +105,22 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalRequired
         );
         if (maxRequired > 0)
-            require(requiredBalance <= maxRequired, PastSlippageBounds());
+            require(
+                requiredBalance <= maxRequired,
+                ValueErrors.PastSlippageBounds()
+            );
         TransferHelper.safeTransferFrom(
             token,
             msg.sender,
             address(this),
             requiredBalance
         );
-        emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
+        emit IBurveMultiEvents.ClosureFeesEarned(
+            _closureId,
+            vid.idx(),
+            nominalTax,
+            realTax
+        );
         c.finalize(
             vid,
             realTax,
@@ -148,6 +129,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         );
         Store.vertex(vid).deposit(cid, requiredBalance - realTax);
         Store.assets().add(recipient, cid, value, bgtValue);
+        emit IBurveMultiEvents.AddValue(recipient, _closureId, value);
     }
 
     /// Add exactly this much of the given token for value in the given closure.
@@ -177,15 +159,20 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalIn,
             search
         );
-        require(valueReceived > 0, DeMinimisDeposit());
-        require(valueReceived >= minValue, PastSlippageBounds());
+        require(valueReceived > 0, ValueErrors.DeMinimisDeposit());
+        require(valueReceived >= minValue, ValueErrors.PastSlippageBounds());
         uint256 realTax = FullMath.mulDiv(amount, nominalTax, nominalIn);
         uint256 bgtValue = FullMath.mulX256(
             bgtPercentX256,
             valueReceived,
             true
         );
-        emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
+        emit IBurveMultiEvents.ClosureFeesEarned(
+            _closureId,
+            vid.idx(),
+            nominalTax,
+            realTax
+        );
         c.finalize(
             vid,
             realTax,
@@ -194,8 +181,14 @@ contract ValueFacet is ReentrancyGuardTransient {
         );
         Store.vertex(vid).deposit(cid, amount - realTax);
         Store.assets().add(recipient, cid, valueReceived, bgtValue);
+        emit IBurveMultiEvents.AddValue(recipient, _closureId, valueReceived);
     }
+}
 
+/*
+ @notice The facet for minting liquidity.
+*/
+contract RemoveValueFacet is ReentrancyGuardTransient {
     /// Remove exactly this much value to the given closure and receive all tokens involved.
     /// @dev Wrap this with a helper contract which validates the received balances are sufficient.
     function removeValue(
@@ -208,8 +201,11 @@ contract ValueFacet is ReentrancyGuardTransient {
         nonReentrant
         returns (uint256[MAX_TOKENS] memory receivedBalances)
     {
-        if (value == 0) revert DeMinimisDeposit();
-        require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+        if (value == 0) revert ValueErrors.DeMinimisDeposit();
+        require(
+            bgtValue <= value,
+            ValueErrors.InsufficientValueForBgt(value, bgtValue)
+        );
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
@@ -236,6 +232,7 @@ contract ValueFacet is ReentrancyGuardTransient {
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
             TransferHelper.safeTransfer(token, recipient, realSend);
         }
+        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
     }
 
     /// Remove exactly this much value to the given closure by receiving a single token.
@@ -248,8 +245,11 @@ contract ValueFacet is ReentrancyGuardTransient {
         address token,
         uint128 minReceive
     ) external nonReentrant returns (uint256 removedBalance) {
-        if (value == 0) revert DeMinimisDeposit();
-        require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+        if (value == 0) revert ValueErrors.DeMinimisDeposit();
+        require(
+            bgtValue <= value,
+            ValueErrors.InsufficientValueForBgt(value, bgtValue)
+        );
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
@@ -265,7 +265,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalTax,
             removedNominal
         );
-        emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
+        emit IBurveMultiEvents.ClosureFeesEarned(
+            _closureId,
+            vid.idx(),
+            nominalTax,
+            realTax
+        );
         c.finalize(
             vid,
             realTax,
@@ -273,8 +278,9 @@ contract ValueFacet is ReentrancyGuardTransient {
             -int256(uint256(bgtValue))
         );
         removedBalance = realRemoved - realTax; // How much the user actually gets.
-        require(removedBalance >= minReceive, PastSlippageBounds());
+        require(removedBalance >= minReceive, ValueErrors.PastSlippageBounds());
         TransferHelper.safeTransfer(token, recipient, removedBalance);
+        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
     }
 
     /// Remove exactly this much of the given token for value in the given closure.
@@ -296,10 +302,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             nominalReceive,
             bgtPercentX256
         );
-        require(valueGiven > 0, DeMinimisDeposit());
-        if (maxValue > 0) require(valueGiven <= maxValue, PastSlippageBounds());
+        require(valueGiven > 0, ValueErrors.DeMinimisDeposit());
+        if (maxValue > 0)
+            require(valueGiven <= maxValue, ValueErrors.PastSlippageBounds());
         // Round up because we must suffice for amount and the realTax.
         TransferHelper.safeTransfer(token, recipient, amount);
+        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, valueGiven);
     }
 
     /// Internal function for dealing with the large number of stack variables.
@@ -322,7 +330,12 @@ contract ValueFacet is ReentrancyGuardTransient {
             );
             // Round down to avoid removing too much from the vertex.
             realTax = FullMath.mulDiv(amount, nominalTax, nominalAmount);
-            emit ClosureFeesEarned(_closureId, vid, nominalTax, realTax);
+            emit IBurveMultiEvents.ClosureFeesEarned(
+                _closureId,
+                vid.idx(),
+                nominalTax,
+                realTax
+            );
         }
         Store.vertex(vid).withdraw(cid, amount + realTax, true);
         {
@@ -341,7 +354,10 @@ contract ValueFacet is ReentrancyGuardTransient {
             );
         }
     }
+}
 
+/// Generic operations relating to value stored in the pool.
+contract ValueFacet {
     /// Return the held value balance and earnings by an address in a given closure.
     function queryValue(
         address owner,

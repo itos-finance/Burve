@@ -14,4 +14,32 @@ interface IBurveMultiEvents {
         uint256 targetX128,
         uint256[MAX_TOKENS] balances
     );
+
+    /// @notice Emitted when a closure earns frees from a single value deposit.
+    event ClosureFeesEarned(
+        uint16 indexed closureId,
+        uint8 indexed vertexIdx,
+        uint256 nominalFees,
+        uint256 realFees
+    );
+
+    /// @notice Emitted when liquidity is added to a closure
+    /// @param recipient The address that received the value
+    /// @param closureId The ID of the closure
+    /// @param value The value added
+    event AddValue(
+        address indexed recipient,
+        uint16 indexed closureId,
+        uint256 value
+    );
+
+    /// @notice Emitted when value is removed from a closure
+    /// @param recipient The address that received the tokens
+    /// @param closureId The ID of the closure
+    /// @param value The value removed
+    event RemoveValue(
+        address indexed recipient,
+        uint16 indexed closureId,
+        uint256 value
+    );
 }
