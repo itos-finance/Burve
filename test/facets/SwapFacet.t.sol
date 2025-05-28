@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {console2 as console} from "forge-std/console2.sol";
+import {IBurveMultiSwap} from "../../src/multi/interfaces/IBurveMultiSwap.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {ClosureImpl} from "../../src/multi/closure/Closure.sol";
 import {VertexLib} from "../../src/multi/vertex/Id.sol";
@@ -133,7 +134,7 @@ contract SwapFacetTest is MultiSetupTest {
         vm.startPrank(bob);
         vm.expectRevert(
             abi.encodeWithSelector(
-                SwapFacet.SlippageSurpassed.selector,
+                IBurveMultiSwap.SlippageSurpassed.selector,
                 1e18,
                 998185117967332123,
                 true
@@ -152,7 +153,7 @@ contract SwapFacetTest is MultiSetupTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                SwapFacet.SlippageSurpassed.selector,
+                IBurveMultiSwap.SlippageSurpassed.selector,
                 2e18,
                 2014618544250459525,
                 false
@@ -252,7 +253,11 @@ contract SwapFacetTest is MultiSetupTest {
     function testSwapRevertLowAmount() public {
         vm.startPrank(bob);
         vm.expectRevert(
-            abi.encodeWithSelector(SwapFacet.BelowMinSwap.selector, 1e8, 16e8)
+            abi.encodeWithSelector(
+                IBurveMultiSwap.BelowMinSwap.selector,
+                1e8,
+                16e8
+            )
         );
         swapFacet.swap(bob, address(token0), address(token1), 1e8, 0, 0x3);
         vm.stopPrank();
