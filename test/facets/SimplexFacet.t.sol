@@ -35,8 +35,9 @@ contract SimplexFacetTest is MultiSetupTest {
     function setUp() public {
         vm.startPrank(owner);
         _newDiamond();
-        _newTokens(3);
+        _newTokens(4);
         _initializeClosure(0x7);
+        _initializeClosure(0x3);
         vm.stopPrank();
     }
 
@@ -107,12 +108,13 @@ contract SimplexFacetTest is MultiSetupTest {
         IERC4626 usdcVault = IERC4626(
             address(new MockERC4626(ERC20(address(usdc)), "vault T", "VT"))
         );
+        uint8 tokenIdx = uint8(tokens.length);
         tokens.push(address(usdc));
         vaults.push(usdcVault);
 
         // verify assumptions about setup
-        assertEq(tokens.length, 4);
-        assertEq(vaults.length, 4);
+        assertEq(tokens.length, tokenIdx + 1);
+        assertEq(vaults.length, tokenIdx + 1);
 
         simplexFacet.addVertex(
             address(usdc),
@@ -120,7 +122,7 @@ contract SimplexFacetTest is MultiSetupTest {
             VaultType.E4626
         );
 
-        uint16 closureId = 0x9; // 0th and 3rd token
+        uint16 closureId = 0x1 | uint16(1 << tokenIdx); // 0th and last token
         uint128 startingTarget = 100e24;
         uint128 baseFeeX128 = 1e10;
         uint128 protocolTakeX128 = 1e6;
@@ -173,7 +175,7 @@ contract SimplexFacetTest is MultiSetupTest {
         assertEq(n, 2);
         assertEq(targetX128, uint256(startingTarget) << 128);
         assertEq(balances[0], 100e24);
-        assertEq(balances[3], 100e24);
+        assertEq(balances[tokenIdx], 100e24);
         assertEq(valueStaked, 200e24);
         assertEq(bgtValueStaked, 0);
 
@@ -208,7 +210,7 @@ contract SimplexFacetTest is MultiSetupTest {
         // vertex A params
         address tokenA = address(new MockERC20("tokenA", "A", 18));
         address vaultA = makeAddr("vaultA");
-        VertexId vidA = VertexLib.newId(3);
+        VertexId vidA = VertexLib.newId(uint8(tokens.length));
 
         // add vertex A
         vm.expectEmit(true, true, false, true);
@@ -230,7 +232,7 @@ contract SimplexFacetTest is MultiSetupTest {
         // vertex B params
         address tokenB = address(new MockERC20("tokenB", "B", 18));
         address vaultB = makeAddr("vaultB");
-        VertexId vidB = VertexLib.newId(4);
+        VertexId vidB = VertexLib.newId(uint8(tokens.length + 1));
 
         // add vertex B
         vm.expectEmit(true, true, false, true);
@@ -423,22 +425,205 @@ contract SimplexFacetTest is MultiSetupTest {
         assertEq(esX128, 10 << 128);
     }
 
-    function testSetEX128() public {
+    /// Change E for a token that doesn't have closures yet
+    function testUnregisteredSetEX128() public {
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, false, true);
         emit SimplexFacet.EfficiencyFactorChanged(
             owner,
-            tokens[1],
+            tokens[3],
             10 << 128,
             20 << 128
         );
-        simplexFacet.setEX128(tokens[1], 20 << 128);
+        simplexFacet.setEX128(tokens[3], 20 << 128);
 
-        uint256 esX128 = simplexFacet.getEX128(tokens[1]);
+        uint256 esX128 = simplexFacet.getEX128(tokens[3]);
         assertEq(esX128, 20 << 128);
 
+        // Doesn't require any token transfers because no closures are registered.
+        simplexFacet.setEX128(tokens[3], 10 << 128);
+
         vm.stopPrank();
+    }
+
+    /// Change E for a token that has closures and the LP balances are moved to fees.
+    function testRegisteredSetEX128Increase() public {
+        _fundAccount(address(this));
+        // Add liquidity to track.
+        valueFacet.addValue(address(this), 0x3, 1e22, 0);
+        // Swap a bit so tokens aren't balanced.
+        swapFacet.swap(address(this), tokens[0], tokens[1], 1.78e20, 0, 0x3);
+
+        // raising E will move LP deposits into fees.
+        // Vault balance should not change.
+        uint256 preBalance = ERC20(tokens[0]).balanceOf(address(vaults[0]));
+        (
+            ,
+            uint256 preTarget,
+            uint256[MAX_TOKENS] memory preBalances,
+            ,
+
+        ) = simplexFacet.getClosureValue(0x3);
+        (
+            ,
+            ,
+            uint256[MAX_TOKENS] memory preEarningsPerValueX128,
+            ,
+
+        ) = simplexFacet.getClosureFees(0x3);
+        (
+            uint256 preValue,
+            ,
+            uint256[MAX_TOKENS] memory preEarnings,
+
+        ) = valueFacet.queryValue(address(this), 0x3);
+
+        vm.expectEmit(true, true, false, true);
+        emit SimplexFacet.EfficiencyFactorChanged(
+            owner,
+            tokens[0],
+            10 << 128,
+            20 << 128
+        );
+        vm.prank(owner);
+        simplexFacet.setEX128(tokens[0], 20 << 128);
+
+        {
+            uint256 postBalance = ERC20(tokens[0]).balanceOf(
+                address(vaults[0])
+            );
+            assertEq(postBalance, preBalance, "b=");
+        }
+        {
+            (
+                ,
+                uint256 postTarget,
+                uint256[MAX_TOKENS] memory postBalances,
+                ,
+
+            ) = simplexFacet.getClosureValue(0x3);
+            assertEq(preTarget, postTarget, "t=");
+            assertLt(postBalances[0], preBalances[0], "bp<");
+        }
+        {
+            (
+                ,
+                ,
+                uint256[MAX_TOKENS] memory postEarningsPerValueX128,
+                ,
+
+            ) = simplexFacet.getClosureFees(0x3);
+            assertGt(
+                postEarningsPerValueX128[0],
+                preEarningsPerValueX128[0],
+                "fe>"
+            );
+        }
+        {
+            uint256 postValue;
+            uint256[MAX_TOKENS] memory postEarnings;
+
+            (postValue, , postEarnings, ) = valueFacet.queryValue(
+                address(this),
+                0x3
+            );
+            assertEq(postValue, preValue, "v=");
+            assertGt(postEarnings[0], preEarnings[0], "qpe>");
+        }
+    }
+
+    /// Change E for a token that has closures and we'll have to transfer in tokens.
+    function testRegisteredSetEX128Decrease() public {
+        _fundAccount(address(this));
+        // Add liquidity to track.
+        valueFacet.addValue(address(this), 0x3, 1e22, 0);
+        // Swap a bit so tokens aren't balanced.
+        swapFacet.swap(address(this), tokens[0], tokens[1], 1.78e20, 0, 0x3);
+
+        // decreasing E will require more tokens to be deposited.
+        // Vault balance will increase.
+        uint256 preBalance = ERC20(tokens[0]).balanceOf(address(vaults[0]));
+        (
+            ,
+            uint256 preTarget,
+            uint256[MAX_TOKENS] memory preBalances,
+            ,
+
+        ) = simplexFacet.getClosureValue(0x3);
+        (
+            ,
+            ,
+            uint256[MAX_TOKENS] memory preEarningsPerValueX128,
+            ,
+
+        ) = simplexFacet.getClosureFees(0x3);
+        (
+            uint256 preValue,
+            ,
+            uint256[MAX_TOKENS] memory preEarnings,
+
+        ) = valueFacet.queryValue(address(this), 0x3);
+
+        // We need tokens to send.
+        vm.expectRevert();
+        vm.prank(owner);
+        simplexFacet.setEX128(tokens[0], 5 << 128);
+
+        _fundAccount(owner);
+
+        vm.expectEmit(true, true, false, true);
+        emit SimplexFacet.EfficiencyFactorChanged(
+            owner,
+            tokens[0],
+            10 << 128,
+            5 << 128
+        );
+        vm.prank(owner);
+        simplexFacet.setEX128(tokens[0], 5 << 128);
+
+        {
+            uint256 postBalance = ERC20(tokens[0]).balanceOf(
+                address(vaults[0])
+            );
+            assertGt(postBalance, preBalance, "b>");
+        }
+        {
+            (
+                ,
+                uint256 postTarget,
+                uint256[MAX_TOKENS] memory postBalances,
+                ,
+
+            ) = simplexFacet.getClosureValue(0x3);
+            assertEq(preTarget, postTarget, "t=");
+            assertGt(postBalances[0], preBalances[0], "bp>");
+        }
+        {
+            (
+                ,
+                ,
+                uint256[MAX_TOKENS] memory postEarningsPerValueX128,
+                ,
+
+            ) = simplexFacet.getClosureFees(0x3);
+            assertEq(
+                postEarningsPerValueX128[0],
+                preEarningsPerValueX128[0],
+                "fe="
+            );
+        }
+        {
+            uint256 postValue;
+            uint256[MAX_TOKENS] memory postEarnings;
+
+            (postValue, , postEarnings, ) = valueFacet.queryValue(
+                address(this),
+                0x3
+            );
+            assertEq(postValue, preValue, "v=");
+            assertEq(postEarnings[0], preEarnings[0], "qpe=");
+        }
     }
 
     function testRevertSetEX128NotOwner() public {
