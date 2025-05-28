@@ -381,7 +381,7 @@ library ClosureImpl {
         // The pool is now entirely correct by just updating the target and value balances.
         uint256 valueX128 = ((self.targetX128 - newTargetX128) * self.n);
         value = valueX128 >> 128;
-        if ((value << 128) > 0) value += 1; // We need to round up.
+        if ((valueX128 << 128) > 0) value += 1; // We need to round up.
         self.targetX128 = newTargetX128;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
