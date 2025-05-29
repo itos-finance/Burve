@@ -424,60 +424,16 @@ library ClosureImpl {
             uint256 valueExchangedX128
         )
     {
-        require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
-        require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         trimBalance(self, inVid);
         trimBalance(self, outVid);
-        // The value in this pool won't change.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        // First tax the in token.
-        {
-            uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
-            nominalTax = FullMath.mulX128(inAmount, taxRateX128, true);
-            inAmount -= nominalTax;
-        }
-        // Calculate the value added by the in token.
-        uint8 inIdx = inVid.idx();
-        valueExchangedX128 =
-            ValueLib.v(
-                self.targetX128,
-                esX128[inIdx],
-                self.balances[inIdx] + inAmount,
-                false
-            ) -
-            ValueLib.v(
-                self.targetX128,
-                esX128[inIdx],
-                self.balances[inIdx],
-                true
-            );
-        self.balances[inIdx] += inAmount;
-        uint8 outIdx = outVid.idx();
-        // To round down the out amount, we want to remove value at lower values on the curve.
-        // But we want to round up the newOutBalance which means we want a higher newOutValue.
-        // Ultimately these are both valid and both negligible, so it doesn't matter.
-        uint256 currentOutValueX128 = ValueLib.v(
-            self.targetX128,
-            esX128[outIdx],
-            self.balances[outIdx],
-            true
+        (outAmount, nominalTax, valueExchangedX128) = calcSwapInExact(
+            self,
+            inVid,
+            outVid,
+            inAmount
         );
-        if (currentOutValueX128 < valueExchangedX128)
-            revert InsufficientVertexValue(
-                self.cid,
-                outVid,
-                currentOutValueX128,
-                valueExchangedX128
-            );
-        uint256 newOutValueX128 = currentOutValueX128 - valueExchangedX128;
-        uint256 newOutBalance = ValueLib.x(
-            self.targetX128,
-            esX128[outIdx],
-            newOutValueX128,
-            true
-        );
-        outAmount = self.balances[outIdx] - newOutBalance;
-        self.balances[outIdx] = newOutBalance;
+        self.balances[inVid.idx()] += inAmount - nominalTax;
+        self.balances[outVid.idx()] -= outAmount;
         emit IBurveMultiEvents.NewClosureBalances(
             self.cid.unwrap(),
             self.targetX128,
@@ -500,61 +456,16 @@ library ClosureImpl {
             uint256 valueExchangedX128
         )
     {
-        require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
-        require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         trimBalance(self, inVid);
         trimBalance(self, outVid);
-        // The value in this pool won't change.
-        uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        uint8 inIdx = inVid.idx();
-        uint8 outIdx = outVid.idx();
-        // Calculate the value removed by the out token.
-        if (self.balances[outIdx] < outAmount + SimplexLib.deMinimusValue())
-            revert InsufficientVertexValue(
-                self.cid,
-                outVid,
-                self.balances[outIdx],
-                outAmount
-            );
-        valueExchangedX128 =
-            ValueLib.v(
-                self.targetX128,
-                esX128[outIdx],
-                self.balances[outIdx],
-                true
-            ) -
-            ValueLib.v(
-                self.targetX128,
-                esX128[outIdx],
-                self.balances[outIdx] - outAmount,
-                false
-            );
-        self.balances[outIdx] -= outAmount;
-        // To round up the in amount, we want to add value at higher values on the curve.
-        // But we want to round down the newInBalance which means we want a lower newInValue.
-        // Ultimately these are both valid and both negligible, so it doesn't matter.
-        uint256 currentInValueX128 = ValueLib.v(
-            self.targetX128,
-            esX128[inIdx],
-            self.balances[inIdx],
-            false
+        (inAmount, nominalTax, valueExchangedX128) = calcSwapOutExact(
+            self,
+            inVid,
+            outVid,
+            outAmount
         );
-        uint256 newInValueX128 = currentInValueX128 + valueExchangedX128;
-        uint256 newInBalance = ValueLib.x(
-            self.targetX128,
-            esX128[inIdx],
-            newInValueX128,
-            false
-        );
-        uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
-        self.balances[inIdx] = newInBalance;
-        uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
-        // Finally we tax the in amount.
-        inAmount = UnsafeMath.divRoundingUp(
-            untaxedInAmount << 128,
-            ONEX128 - taxRateX128
-        );
-        nominalTax = inAmount - untaxedInAmount;
+        self.balances[outVid.idx()] -= outAmount;
+        self.balances[inVid.idx()] += inAmount - nominalTax;
         emit IBurveMultiEvents.NewClosureBalances(
             self.cid.unwrap(),
             self.targetX128,
@@ -608,25 +519,33 @@ library ClosureImpl {
         self.bgtValueStaked += bgtValue;
     }
 
-    /// Simulate swapping in with an exact amount of one token for another.
-    function simSwapInExact(
+    /// Calculate the amounts for swapping in an exact amount of one token for another.
+    function calcSwapInExact(
         Closure storage self,
         VertexId inVid,
         VertexId outVid,
         uint256 inAmount
-    ) internal view returns (uint256 outAmount, uint256 valueExchangedX128) {
+    )
+        internal
+        view
+        returns (
+            uint256 outAmount,
+            uint256 nominalTax,
+            uint256 valueExchangedX128
+        )
+    {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         // The value in this pool won't change.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
-        uint8 inIdx = inVid.idx();
         {
             uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
-            uint256 tax = FullMath.mulX128(inAmount, taxRateX128, true);
-            inAmount -= tax;
+            nominalTax = FullMath.mulX128(inAmount, taxRateX128, true);
+            inAmount -= nominalTax;
         }
         // Calculate the value added by the in token.
+        uint8 inIdx = inVid.idx();
         valueExchangedX128 =
             ValueLib.v(
                 self.targetX128,
@@ -650,6 +569,13 @@ library ClosureImpl {
             self.balances[outIdx],
             true
         );
+        if (currentOutValueX128 < valueExchangedX128)
+            revert InsufficientVertexValue(
+                self.cid,
+                outVid,
+                currentOutValueX128,
+                valueExchangedX128
+            );
         uint256 newOutValueX128 = currentOutValueX128 - valueExchangedX128;
         uint256 newOutBalance = ValueLib.x(
             self.targetX128,
@@ -660,19 +586,34 @@ library ClosureImpl {
         outAmount = self.balances[outIdx] - newOutBalance;
     }
 
-    /// Simulate swaping out an exact amount of one token by swapping in another.
-    function simSwapOutExact(
+    /// Calculate the amounts for swapping out an exact amount of one token.
+    function calcSwapOutExact(
         Closure storage self,
         VertexId inVid,
         VertexId outVid,
         uint256 outAmount
-    ) internal view returns (uint256 inAmount, uint256 valueExchangedX128) {
+    )
+        internal
+        view
+        returns (
+            uint256 inAmount,
+            uint256 nominalTax,
+            uint256 valueExchangedX128
+        )
+    {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         uint8 inIdx = inVid.idx();
         uint8 outIdx = outVid.idx();
         // Calculate the value removed by the out token.
+        if (self.balances[outIdx] < outAmount + SimplexLib.deMinimusValue())
+            revert InsufficientVertexValue(
+                self.cid,
+                outVid,
+                self.balances[outIdx],
+                outAmount
+            );
         valueExchangedX128 =
             ValueLib.v(
                 self.targetX128,
@@ -709,6 +650,7 @@ library ClosureImpl {
             untaxedInAmount << 128,
             ONEX128 - taxRateX128
         );
+        nominalTax = inAmount - untaxedInAmount;
     }
 
     /// Return the current fee checkpoints.

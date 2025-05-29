@@ -41,4 +41,13 @@ library ClosureIdImpl {
     function unwrap(ClosureId self) internal pure returns (uint16) {
         return ClosureId.unwrap(self);
     }
+
+    // Returns the number of vertices in the closure.
+    function n(ClosureId self) internal pure returns (uint8 count) {
+        uint16 raw = ClosureId.unwrap(self);
+        while (raw > 0) {
+            count += 1;
+            raw >>= 1;
+        }
+    }
 }

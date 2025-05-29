@@ -2,13 +2,13 @@
 pragma solidity ^0.8.27;
 
 import {SafeCast} from "Commons/Math/Cast.sol";
+import {RFTLib} from "Commons/Util/RFT.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {Closure} from "../closure/Closure.sol";
 import {TokenRegistry, MAX_TOKENS} from "../Token.sol";
 import {VertexId, VertexLib} from "../vertex/Id.sol";
 import {Store} from "../Store.sol";
-import {TransferHelper} from "../../TransferHelper.sol";
 import {AdjustorLib} from "../Adjustor.sol";
 import {SearchParams} from "../Value.sol";
 import {IBGTExchanger} from "../../integrations/BGTExchange/IBGTExchanger.sol";
@@ -52,6 +52,10 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint256[MAX_TOKENS] memory requiredNominal = c.addValue(value);
         // Fetch balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
+        VertexId[] memory vids = new VertexId[](c.n);
+        address[] memory tokens = new address[](c.n);
+        int256[] memory deltas = new int256[](c.n);
+        uint8 idx = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue; // Irrelevant token.
             address token = tokenReg.tokens[i];
@@ -61,14 +65,18 @@ contract ValueFacet is ReentrancyGuardTransient {
                 true
             );
             requiredBalances[i] = realNeeded;
-            TransferHelper.safeTransferFrom(
-                token,
-                msg.sender,
-                address(this),
-                realNeeded
-            );
-            Store.vertex(VertexLib.newId(i)).deposit(cid, realNeeded);
+            vids[idx] = VertexLib.newId(i);
+            tokens[idx] = token;
+            deltas[idx] = SafeCast.toInt256(realNeeded);
+            ++idx;
         }
+        RFTLib.settle(msg.sender, tokens, deltas, "");
+        // Now move the received tokens into the vertices.
+        for (uint8 i = 0; i < tokens.length; ++i) {
+            uint256 amount = SafeCast.toUint256(deltas[i]);
+            Store.vertex(vids[i]).deposit(cid, amount);
+        }
+        // Okay to do this after transfers because we have a reentrancy guard.
         c.finalize(
             VertexId.wrap(0),
             0,
@@ -109,6 +117,9 @@ contract ValueFacet is ReentrancyGuardTransient {
 
         // Send balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
+        address[] memory tokens = new address[](c.n);
+        int256[] memory deltas = new int256[](c.n);
+        uint8 idx = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue;
             address token = tokenReg.tokens[i];
@@ -120,8 +131,11 @@ contract ValueFacet is ReentrancyGuardTransient {
             receivedBalances[i] = realSend;
             // Users can remove value even if the token is locked. It actually helps derisk us.
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
-            TransferHelper.safeTransfer(token, recipient, realSend);
+            tokens[idx] = token;
+            deltas[idx] = -SafeCast.toInt256(realSend);
+            ++idx;
         }
+        RFTLib.settle(recipient, tokens, deltas, "");
         emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
     }
 
@@ -149,6 +163,10 @@ contract ValueFacet is ReentrancyGuardTransient {
                 collectedBgt
             );
         TokenRegistry storage tokenReg = Store.tokenRegistry();
+        uint8 n = cid.n();
+        address[] memory tokens = new address[](n);
+        int256[] memory deltas = new int256[](n);
+        uint8 idx = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (collectedShares[i] > 0) {
                 VertexId vid = VertexLib.newId(i);
@@ -157,13 +175,12 @@ contract ValueFacet is ReentrancyGuardTransient {
                     vid,
                     collectedShares[i]
                 );
-                TransferHelper.safeTransfer(
-                    tokenReg.tokens[i],
-                    recipient,
-                    collectedBalances[i]
-                );
+                tokens[idx] = tokenReg.tokens[i];
+                deltas[idx] = -SafeCast.toInt256(collectedBalances[i]);
             }
+            ++idx;
         }
+        RFTLib.settle(recipient, tokens, deltas, "");
     }
 }
 
@@ -201,12 +218,13 @@ contract ValueSingleFacet is ReentrancyGuardTransient {
                 requiredBalance <= maxRequired,
                 ValueErrors.PastSlippageBounds()
             );
-        TransferHelper.safeTransferFrom(
-            token,
-            msg.sender,
-            address(this),
-            requiredBalance
-        );
+        {
+            address[] memory tokens = new address[](1);
+            int256[] memory deltas = new int256[](1);
+            tokens[0] = token;
+            deltas[0] = SafeCast.toInt256(requiredBalance);
+            RFTLib.settle(msg.sender, tokens, deltas, "");
+        }
         emit IBurveMultiEvents.ClosureFeesEarned(
             _closureId,
             vid.idx(),
@@ -268,7 +286,13 @@ contract ValueSingleFacet is ReentrancyGuardTransient {
         );
         removedBalance = realRemoved - realTax; // How much the user actually gets.
         require(removedBalance >= minReceive, ValueErrors.PastSlippageBounds());
-        TransferHelper.safeTransfer(token, recipient, removedBalance);
+        {
+            address[] memory tokens = new address[](1);
+            int256[] memory deltas = new int256[](1);
+            tokens[0] = token;
+            deltas[0] = -SafeCast.toInt256(removedBalance);
+            RFTLib.settle(recipient, tokens, deltas, "");
+        }
         emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
     }
 }
@@ -288,12 +312,13 @@ contract AddTokenValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid); // Validates cid.
         VertexId vid = VertexLib.newId(token); // Validates token.
-        TransferHelper.safeTransferFrom(
-            token,
-            msg.sender,
-            address(this),
-            amount
-        );
+        {
+            address[] memory tokens = new address[](1);
+            int256[] memory deltas = new int256[](1);
+            tokens[0] = token;
+            deltas[0] = SafeCast.toInt256(amount);
+            RFTLib.settle(msg.sender, tokens, deltas, "");
+        }
         SearchParams memory search = Store.simplex().searchParams;
         uint256 nominalTax;
         uint256 nominalIn = AdjustorLib.toNominal(token, amount, false); // Round down value deposited.
@@ -351,8 +376,13 @@ contract RemoveTokenValueFacet is ReentrancyGuardTransient {
         require(valueGiven > 0, ValueErrors.DeMinimisDeposit());
         if (maxValue > 0)
             require(valueGiven <= maxValue, ValueErrors.PastSlippageBounds());
-        // Round up because we must suffice for amount and the realTax.
-        TransferHelper.safeTransfer(token, recipient, amount);
+        {
+            address[] memory tokens = new address[](1);
+            int256[] memory deltas = new int256[](1);
+            tokens[0] = token;
+            deltas[0] = -SafeCast.toInt256(amount);
+            RFTLib.settle(recipient, tokens, deltas, "");
+        }
         emit IBurveMultiEvents.RemoveValue(recipient, _closureId, valueGiven);
     }
 
@@ -383,6 +413,7 @@ contract RemoveTokenValueFacet is ReentrancyGuardTransient {
                 realTax
             );
         }
+        // Round up because we must suffice for amount and the realTax.
         Store.vertex(vid).withdraw(cid, amount + realTax, true);
         {
             // Round up to handle the 0% and 100% cases exactly.
