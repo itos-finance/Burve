@@ -9,7 +9,8 @@ interface IBurveMultiValue {
         address recipient,
         uint16 _closureId,
         uint128 value,
-        uint128 bgtValue
+        uint128 bgtValue,
+        uint256[MAX_TOKENS] memory amountLimits
     ) external returns (uint256[MAX_TOKENS] memory requiredBalances);
 
     /// Remove value by withdrawing pro-rata balances of each vertex in the closure.
@@ -17,7 +18,8 @@ interface IBurveMultiValue {
         address recipient,
         uint16 _closureId,
         uint128 value,
-        uint128 bgtValue
+        uint128 bgtValue,
+        uint256[MAX_TOKENS] memory amountLimits
     ) external returns (uint256[MAX_TOKENS] memory receivedBalances);
 
     /// Add an exact amount of value to a given closure by depositing a single token.

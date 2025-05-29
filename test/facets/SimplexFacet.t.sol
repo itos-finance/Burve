@@ -468,8 +468,9 @@ contract SimplexFacetTest is MultiSetupTest {
     /// Change E for a token that has closures and the LP balances are moved to fees.
     function testRegisteredSetEX128Increase() public {
         _fundAccount(address(this));
+        uint256[MAX_TOKENS] memory limits;
         // Add liquidity to track.
-        valueFacet.addValue(address(this), 0x3, 1e22, 0);
+        valueFacet.addValue(address(this), 0x3, 1e22, 0, limits);
         // Swap a bit so tokens aren't balanced.
         swapFacet.swap(address(this), tokens[0], tokens[1], 1.78e20, 0, 0x3);
 
@@ -547,8 +548,9 @@ contract SimplexFacetTest is MultiSetupTest {
     /// Change E for a token that has closures and we'll have to transfer in tokens.
     function testRegisteredSetEX128Decrease() public {
         _fundAccount(address(this));
+        uint256[MAX_TOKENS] memory limits;
         // Add liquidity to track.
-        valueFacet.addValue(address(this), 0x3, 1e22, 0);
+        valueFacet.addValue(address(this), 0x3, 1e22, 0, limits);
         // Swap a bit so tokens aren't balanced.
         swapFacet.swap(address(this), tokens[0], tokens[1], 1.78e20, 0, 0x3);
 
