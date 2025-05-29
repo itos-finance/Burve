@@ -333,10 +333,11 @@ contract SwapFacetTest is MultiSetupTest {
         uint128 depositAmount = 400e18; // 200 for each token, init was 100 for each token.
         uint256 init0 = token0.balanceOf(alice);
         uint256 init1 = token1.balanceOf(alice);
+        uint256[MAX_TOKENS] memory limits;
 
         // First add liquidity.
         vm.prank(alice);
-        valueFacet.addValue(alice, 0x3, depositAmount, 0);
+        valueFacet.addValue(alice, 0x3, depositAmount, 0, limits);
 
         // First swap
         vm.prank(bob);
@@ -351,7 +352,7 @@ contract SwapFacetTest is MultiSetupTest {
 
         // Then remove liquidity
         vm.prank(alice);
-        valueFacet.removeValue(alice, 0x3, depositAmount, 0);
+        valueFacet.removeValue(alice, 0x3, depositAmount, 0, limits);
 
         uint256 valueRatioX128 = (uint256(depositAmount) << 128) /
             (depositAmount + 200e18);
@@ -373,6 +374,7 @@ contract SwapFacetTest is MultiSetupTest {
 
     function testSwapWithDifferentLiq() public {
         int256 swapAmount = 3e16;
+        uint256[MAX_TOKENS] memory limits;
         // We setup two closures which should swap the same with the same target
         // and same token balances even if one has one more token.
         vm.startPrank(alice);
@@ -395,7 +397,7 @@ contract SwapFacetTest is MultiSetupTest {
         assertEq(out3, out7, "0");
 
         // Now if we add more liq to 0x7, the swap gets tighter.
-        valueFacet.addValue(alice, 0x7, 3 * 7e17, 0); // Not even adding a lot.
+        valueFacet.addValue(alice, 0x7, 3 * 7e17, 0, limits); // Not even adding a lot.
         (in3, out3) = swapFacet.swap(
             alice,
             tokens[0],
@@ -435,7 +437,7 @@ contract SwapFacetTest is MultiSetupTest {
         assertApproxEqAbs(reverseIn7, in7, 2);
 
         // If we add equal value now, the swap will be the same.
-        valueFacet.addValue(alice, 0x3, 2 * 7e17, 0);
+        valueFacet.addValue(alice, 0x3, 2 * 7e17, 0, limits);
         (
             ,
             uint256 target3X128,
@@ -474,7 +476,7 @@ contract SwapFacetTest is MultiSetupTest {
 
         // If we add equivalent liquidity to just the two tokens of interest in 0x7,
         // we get roughly the same result.
-        valueFacet.addValue(alice, 0x3, 88e18, 0);
+        valueFacet.addValue(alice, 0x3, 88e18, 0, limits);
         valueFacet.addValueSingle(alice, 0x7, 66e18, 0, tokens[0], 0);
         valueFacet.addValueSingle(alice, 0x7, 66e18, 0, tokens[1], 0);
         swapAmount = 3e19;
@@ -512,9 +514,10 @@ contract SwapFacetTest is MultiSetupTest {
     }
 
     function testSwapWithFees() public {
+        uint256[MAX_TOKENS] memory limits;
         /// First make Alice half of the pool.
         vm.prank(alice);
-        valueFacet.addValue(alice, 0x7, 300e18, 0);
+        valueFacet.addValue(alice, 0x7, 300e18, 0, limits);
 
         int256 swapAmount = -12e18;
         (uint256 simIn, uint256 simOut, ) = swapFacet.simSwap(

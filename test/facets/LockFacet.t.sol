@@ -7,6 +7,7 @@ import {VertexLib} from "../../src/multi/vertex/Id.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 
 contract LockFacetTest is MultiSetupTest {
     function setUp() public {
@@ -81,11 +82,12 @@ contract LockFacetTest is MultiSetupTest {
     function testLockedLiq() public {
         uint16 cid2 = 0x0003;
         uint16 cid3 = 0x0007;
+        uint256[MAX_TOKENS] memory limits;
 
         IERC20 lockedToken = IERC20(tokens[2]);
         uint256 originalBalance = lockedToken.balanceOf(alice);
         vm.prank(alice);
-        valueFacet.addValue(alice, cid3, 1e18, 0);
+        valueFacet.addValue(alice, cid3, 1e18, 0, limits);
         assertLt(lockedToken.balanceOf(alice), originalBalance);
 
         vm.prank(owner);
@@ -98,13 +100,13 @@ contract LockFacetTest is MultiSetupTest {
             )
         );
         vm.startPrank(alice);
-        valueFacet.addValue(alice, cid3, 1e18, 0);
+        valueFacet.addValue(alice, cid3, 1e18, 0, limits);
 
         // She can still add to cid 2 though since it doesn't include the third token.
-        valueFacet.addValue(alice, cid2, 1e18, 0);
+        valueFacet.addValue(alice, cid2, 1e18, 0, limits);
 
         // She can remove her previous liquidity though.
-        valueFacet.removeValue(alice, cid3, 1e18, 0);
+        valueFacet.removeValue(alice, cid3, 1e18, 0, limits);
         vm.stopPrank();
         // And get back the locked token even if its locked.
         assertApproxEqAbs(lockedToken.balanceOf(alice), originalBalance, 1);
@@ -115,15 +117,16 @@ contract LockFacetTest is MultiSetupTest {
 
         // Alice can add again.
         vm.prank(alice);
-        valueFacet.addValue(alice, cid3, 1e18, 0);
+        valueFacet.addValue(alice, cid3, 1e18, 0, limits);
     }
 
     /// Test attempts to swap when a vertex is locked.
     function testLockedSwap() public {
         // First add a bunch of liquidity.
         _fundAccount(owner);
+        uint256[MAX_TOKENS] memory limits;
         vm.prank(owner);
-        valueFacet.addValue(owner, 0x3, 100e18, 0);
+        valueFacet.addValue(owner, 0x3, 100e18, 0, limits);
 
         // Before locking, alice can swap freely
         vm.prank(alice);

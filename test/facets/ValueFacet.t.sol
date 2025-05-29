@@ -60,9 +60,10 @@ contract ValueFacetTest is MultiSetupTest {
     }
 
     function testAddRemoveValue() public {
+        uint256[MAX_TOKENS] memory limits;
         // Add and remove value will fund using multiple tokens and has no size limitations like the single methods do.
         uint256[4] memory initBalances = getBalances(address(this));
-        valueFacet.addValue(alice, 0x9, 1e28, 5e27);
+        valueFacet.addValue(alice, 0x9, 1e28, 5e27, limits);
         (uint256 value, uint256 bgtValue, , ) = valueFacet.queryValue(
             alice,
             0x9
@@ -78,19 +79,19 @@ contract ValueFacetTest is MultiSetupTest {
 
         // Of course we have no value to remove.
         vm.expectRevert();
-        valueFacet.removeValue(alice, 0x9, 5e27, 1e27);
+        valueFacet.removeValue(alice, 0x9, 5e27, 1e27, limits);
         // But alice does.
         initBalances = getBalances(alice);
         vm.startPrank(alice);
-        valueFacet.removeValue(alice, 0x9, 5e27, 5e27);
+        valueFacet.removeValue(alice, 0x9, 5e27, 5e27, limits);
         // But she can't remove more bgt value now even though she has more value.
         vm.expectRevert();
-        valueFacet.removeValue(alice, 0x9, 5e27, 1);
+        valueFacet.removeValue(alice, 0x9, 5e27, 1, limits);
         // She can only remove regular value.
-        valueFacet.removeValue(alice, 0x9, 5e27, 0);
+        valueFacet.removeValue(alice, 0x9, 5e27, 0, limits);
         // And now she's out.
         vm.expectRevert();
-        valueFacet.removeValue(alice, 0x9, 1, 0);
+        valueFacet.removeValue(alice, 0x9, 1, 0, limits);
         vm.stopPrank();
         currentBalances = getBalances(alice);
         diffs = diffBalances(currentBalances, initBalances);
@@ -98,6 +99,32 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(diffs[1], 0);
         assertEq(diffs[2], 0);
         assertApproxEqAbs(diffs[3], 5e27, 2, "3");
+    }
+
+    function testAddRemoveValueLimits() public {
+        vm.startPrank(alice);
+        uint256[MAX_TOKENS] memory limits;
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            limits[i] = 5e27; // There are two tokens so this should be okay.
+        }
+        valueFacet.addValue(alice, 0x9, 1e28, 5e27, limits);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            limits[i] = 4.9e27; // But this is not
+        }
+        vm.expectRevert(ValueFacet.PastSlippageBounds.selector);
+        valueFacet.addValue(alice, 0x9, 1e28, 5e27, limits);
+
+        // We'll remove 5e27 of each.
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            limits[i] = 5.1e27;
+        }
+        vm.expectRevert(ValueFacet.PastSlippageBounds.selector);
+        valueFacet.removeValue(alice, 0x9, 1e28, 5e27, limits);
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            limits[i] = 4.9999e27; // 1 bip slippage for rounding
+        }
+        valueFacet.removeValue(alice, 0x9, 1e28, 5e27, limits);
+        vm.stopPrank();
     }
 
     function testAddRemoveValueSingle() public {
@@ -375,10 +402,11 @@ contract ValueFacetTest is MultiSetupTest {
     /// TODO: Test  that add n* value split among n tokens is the same as m*value split among m tokens.
 
     function testFeeEarn() public {
+        uint256[MAX_TOKENS] memory limits;
         uint256 oneX128 = 1 << 128;
         vm.prank(owner);
         simplexFacet.setClosureFees(0xA, uint128(oneX128 / 10000), 0); // One basis point. Realistic.
-        valueFacet.addValue(address(this), 0xA, 1e12, 0); // tokens 1 and 3.
+        valueFacet.addValue(address(this), 0xA, 1e12, 0, limits); // tokens 1 and 3.
         (
             uint256 valueStaked,
             ,
@@ -430,7 +458,7 @@ contract ValueFacetTest is MultiSetupTest {
         assertEq(uint256(diffs[1]), collectedBalances[1]);
 
         // Now we add some value with bgtValue.
-        valueFacet.addValue(address(this), 0xA, 5e12, 4e12);
+        valueFacet.addValue(address(this), 0xA, 5e12, 4e12, limits);
         // We don't quite earn bgt yet without an exchanger.
         MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
@@ -453,7 +481,8 @@ contract ValueFacetTest is MultiSetupTest {
             address(this),
             0xA,
             uint128(valueStaked),
-            uint128(bgtValueStaked)
+            uint128(bgtValueStaked),
+            limits
         );
         MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
@@ -462,9 +491,10 @@ contract ValueFacetTest is MultiSetupTest {
     }
 
     function testRemoveSlippage() public {
-        valueFacet.addValue(address(this), 0xF, 1e24, 0);
+        uint256[MAX_TOKENS] memory limits;
+        valueFacet.addValue(address(this), 0xF, 1e24, 0, limits);
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 0xF, 1e20, 0);
+        valueFacet.addValue(alice, 0xF, 1e20, 0, limits);
         // Can remove at a 1% discount?
         uint256 valuePaid = valueFacet.removeSingleForValue(
             alice,

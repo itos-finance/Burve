@@ -12,6 +12,7 @@ import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 
 contract VaultFacetTest is MultiSetupTest {
     address[] public altVaults;
@@ -76,7 +77,8 @@ contract VaultFacetTest is MultiSetupTest {
 
     // Test tranfering balances from one to another.
     function testTransfer() public {
-        valueFacet.addValue(address(this), 0x3, 100e18, 0);
+        uint256[MAX_TOKENS] memory limits;
+        valueFacet.addValue(address(this), 0x3, 100e18, 0, limits);
 
         // Similar to the basic test, but now we can't remove once we transfer tokens in.
         v.addVault(tokens[0], altVaults[0], VaultType.E4626);
@@ -144,8 +146,9 @@ contract VaultFacetTest is MultiSetupTest {
 
     // Test the swap facet withdraws and removes from the appropriate vaults and prices are still calculated correctly.
     function testSwap() public {
+        uint256[MAX_TOKENS] memory limits;
         // Basic liq. 50e18 in each token.
-        valueFacet.addValue(address(this), 0x3, 100e18, 0);
+        valueFacet.addValue(address(this), 0x3, 100e18, 0, limits);
 
         // Check that the sim swap is the same if balances are all in 0, in a mix, and in 1.
         (, uint256 outAmount0, ) = swapFacet.simSwap(
@@ -225,6 +228,7 @@ contract VaultFacetTest is MultiSetupTest {
 
     // Test the liq deposits and withdraws appropriately and the prices stay in line.
     function testLiq() public {
+        uint256[MAX_TOKENS] memory limits;
         // Add vault
         v.addVault(tokens[0], altVaults[0], VaultType.E4626);
         skip(5 days + 1);
@@ -233,7 +237,7 @@ contract VaultFacetTest is MultiSetupTest {
         // Both vaults are empty.
 
         // Check that a deposit will add to the active vault.
-        valueFacet.addValue(address(this), 0x3, 2 * 100e18, 0);
+        valueFacet.addValue(address(this), 0x3, 2 * 100e18, 0, limits);
         // Adding liq adds tokens to the active vault.
         assertEq(ERC20(tokens[0]).balanceOf(active), 101e18, "1");
         assertEq(ERC20(tokens[0]).balanceOf(backup), 0, "2");
@@ -245,7 +249,7 @@ contract VaultFacetTest is MultiSetupTest {
 
         // Removing liquidity removes successfully from both vaults.
         // Might leave some dust behind (in the backup vault only!)
-        valueFacet.removeValue(address(this), 0x3, 2 * 100e18, 0);
+        valueFacet.removeValue(address(this), 0x3, 2 * 100e18, 0, limits);
         assertEq(ERC20(tokens[0]).balanceOf(active), 0, "5");
         assertApproxEqAbs(ERC20(tokens[0]).balanceOf(backup), 1e18, 2, "6");
     }
