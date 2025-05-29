@@ -25,11 +25,13 @@ contract AddValue is BaseScript {
         _mintTokensForClosure(5, _getSender(), 1_000e18);
 
         // Add value to the closure
+        uint256[MAX_TOKENS] memory limits;
         uint256[MAX_TOKENS] memory requiredBalances = valueFacet.addValue(
             recipient,
             closureId,
             valueAmount,
-            bgtValue
+            bgtValue,
+            limits
         );
 
         // Log the required balances for each token

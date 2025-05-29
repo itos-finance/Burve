@@ -36,10 +36,17 @@ contract ValueTokenFacetTest is MultiSetupTest {
     function test_MintValue() public {
         uint256 value = 1000e18;
         uint256 tokenValue = 500e18;
+        uint256[MAX_TOKENS] memory limits;
 
         // First add some value to the closure for alice
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 3, uint128(value), uint128(tokenValue));
+        valueFacet.addValue(
+            alice,
+            3,
+            uint128(value),
+            uint128(tokenValue),
+            limits
+        );
         vm.stopPrank();
 
         // Now mint value tokens
@@ -51,8 +58,9 @@ contract ValueTokenFacetTest is MultiSetupTest {
     }
 
     function testExcessValue() public {
+        uint256[MAX_TOKENS] memory limits;
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 3, 100, 0);
+        valueFacet.addValue(alice, 3, 100, 0, limits);
         valueTokenFacet.mint(100, 0, 3);
         vm.expectRevert();
         // Can't add to value when it is already full.
@@ -79,16 +87,29 @@ contract ValueTokenFacetTest is MultiSetupTest {
     function test_BurnValue() public {
         uint256 value = 1000e18;
         uint256 tokenValue = 500e18;
+        uint256[MAX_TOKENS] memory limits;
 
         // First add some value to the closure for alice
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 3, uint128(value), uint128(tokenValue));
+        valueFacet.addValue(
+            alice,
+            3,
+            uint128(value),
+            uint128(tokenValue),
+            limits
+        );
 
         // First mint some tokens
         valueTokenFacet.mint(value, tokenValue, 3);
 
         vm.expectRevert();
-        valueFacet.removeValue(alice, 3, uint128(value), uint128(tokenValue));
+        valueFacet.removeValue(
+            alice,
+            3,
+            uint128(value),
+            uint128(tokenValue),
+            limits
+        );
 
         valueTokenFacet.burn(value, tokenValue, 3);
 
@@ -99,7 +120,8 @@ contract ValueTokenFacetTest is MultiSetupTest {
             alice,
             3,
             uint128(value),
-            uint128(tokenValue)
+            uint128(tokenValue),
+            limits
         );
         vm.stopPrank();
 
@@ -118,10 +140,11 @@ contract ValueTokenFacetTest is MultiSetupTest {
     function test_BurnValue_RevertWhenTokenValueExceedsValue() public {
         uint256 value = 1000e18;
         uint256 tokenValue = 1500e18; // Token value exceeds total value
+        uint256[MAX_TOKENS] memory limits;
 
         // First add some value to the closure for alice
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 3, uint128(value), uint128(500e18));
+        valueFacet.addValue(alice, 3, uint128(value), uint128(500e18), limits);
         vm.stopPrank();
 
         // First mint some tokens
@@ -162,10 +185,17 @@ contract ValueTokenFacetTest is MultiSetupTest {
     function test_TransferValue() public {
         uint256 value = 1000e18;
         uint256 tokenValue = 500e18;
+        uint256[MAX_TOKENS] memory limits;
 
         // First add some value to the closure for alice
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 3, uint128(value), uint128(tokenValue));
+        valueFacet.addValue(
+            alice,
+            3,
+            uint128(value),
+            uint128(tokenValue),
+            limits
+        );
         vm.stopPrank();
 
         // Mint tokens to alice
@@ -185,10 +215,17 @@ contract ValueTokenFacetTest is MultiSetupTest {
     function test_MintTransferBurnFlow() public {
         uint256 value = 1000e18;
         uint256 tokenValue = 500e18;
+        uint256[MAX_TOKENS] memory limits;
 
         // First add some value to the closure for alice
         vm.startPrank(alice);
-        valueFacet.addValue(alice, 3, uint128(value), uint128(tokenValue));
+        valueFacet.addValue(
+            alice,
+            3,
+            uint128(value),
+            uint128(tokenValue),
+            limits
+        );
         vm.stopPrank();
 
         // Mint tokens to alice
@@ -220,8 +257,9 @@ contract ValueTokenFacetTest is MultiSetupTest {
     }
 
     function test_unstakeFromLock() public {
+        uint256[MAX_TOKENS] memory limits;
         vm.prank(alice);
-        valueFacet.addValue(alice, 3, 100e18, 0);
+        valueFacet.addValue(alice, 3, 100e18, 0, limits);
         vm.prank(owner);
         lockFacet.lock(tokens[1]);
         vm.startPrank(alice);

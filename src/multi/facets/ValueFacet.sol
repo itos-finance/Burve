@@ -22,6 +22,13 @@ interface ValueErrors {
     error PastSlippageBounds();
 }
 
+struct ValueSendRFT {
+    uint8 idx;
+    address[] tokens;
+    int256[] deltas;
+    VertexId[] vids;
+}
+
 /*
  Value functions are so large we split the operations across 5 facets.
  But you should access them through the single IBurveMultiValue interface.
@@ -32,11 +39,13 @@ contract ValueFacet is ReentrancyGuardTransient {
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
     /// which validates the requiredBalances are small enough according to some logic.
+    /// @param amountLimits Revert if required balance is greater than this. (0 indicates no restriction).
     function addValue(
         address recipient,
         uint16 _closureId,
         uint128 value,
-        uint128 bgtValue
+        uint128 bgtValue,
+        uint256[MAX_TOKENS] calldata amountLimits
     )
         external
         nonReentrant
@@ -50,32 +59,12 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
         uint256[MAX_TOKENS] memory requiredNominal = c.addValue(value);
-        // Fetch balances
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        VertexId[] memory vids = new VertexId[](c.n);
-        address[] memory tokens = new address[](c.n);
-        int256[] memory deltas = new int256[](c.n);
-        uint8 idx = 0;
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (!cid.contains(i)) continue; // Irrelevant token.
-            address token = tokenReg.tokens[i];
-            uint256 realNeeded = AdjustorLib.toReal(
-                token,
-                requiredNominal[i],
-                true
-            );
-            requiredBalances[i] = realNeeded;
-            vids[idx] = VertexLib.newId(i);
-            tokens[idx] = token;
-            deltas[idx] = SafeCast.toInt256(realNeeded);
-            ++idx;
-        }
-        RFTLib.settle(msg.sender, tokens, deltas, "");
-        // Now move the received tokens into the vertices.
-        for (uint8 i = 0; i < tokens.length; ++i) {
-            uint256 amount = SafeCast.toUint256(deltas[i]);
-            Store.vertex(vids[i]).deposit(cid, amount);
-        }
+        requiredBalances = _addValueDeposit(
+            cid,
+            c,
+            requiredNominal,
+            amountLimits
+        );
         // Okay to do this after transfers because we have a reentrancy guard.
         c.finalize(
             VertexId.wrap(0),
@@ -87,13 +76,57 @@ contract ValueFacet is ReentrancyGuardTransient {
         emit IBurveMultiEvents.AddValue(recipient, _closureId, value);
     }
 
+    /// Internal deposit operations for adding value.
+    function _addValueDeposit(
+        ClosureId cid,
+        Closure storage c,
+        uint256[MAX_TOKENS] memory requiredNominal,
+        uint256[MAX_TOKENS] memory amountLimits
+    ) private returns (uint256[MAX_TOKENS] memory requiredBalances) {
+        // Fetch balances
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        ValueSendRFT memory rftSend = ValueSendRFT({
+            idx: 0,
+            tokens: new address[](c.n),
+            deltas: new int256[](c.n),
+            vids: new VertexId[](c.n)
+        });
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!cid.contains(i)) continue; // Irrelevant token.
+            address token = tokenReg.tokens[i];
+            uint256 realNeeded = AdjustorLib.toReal(
+                token,
+                requiredNominal[i],
+                true
+            );
+            requiredBalances[i] = realNeeded;
+            if (amountLimits[i] > 0)
+                require(
+                    realNeeded <= amountLimits[i],
+                    ValueErrors.PastSlippageBounds()
+                ); // Check slippage bounds.
+            rftSend.vids[rftSend.idx] = VertexLib.newId(i);
+            rftSend.tokens[rftSend.idx] = token;
+            rftSend.deltas[rftSend.idx] = SafeCast.toInt256(realNeeded);
+            ++rftSend.idx;
+        }
+        RFTLib.settle(msg.sender, rftSend.tokens, rftSend.deltas, "");
+        // Now move the received tokens into the vertices.
+        for (uint8 i = 0; i < rftSend.idx; ++i) {
+            uint256 amount = SafeCast.toUint256(rftSend.deltas[i]);
+            Store.vertex(rftSend.vids[i]).deposit(cid, amount);
+        }
+    }
+
     /// Remove exactly this much value to the given closure and receive all tokens involved.
     /// @dev Wrap this with a helper contract which validates the received balances are sufficient.
+    /// @param amountLimits Revert if received balance is less than this per token. (0 indicates no restriction).
     function removeValue(
         address recipient,
         uint16 _closureId,
         uint128 value,
-        uint128 bgtValue
+        uint128 bgtValue,
+        uint256[MAX_TOKENS] calldata amountLimits
     )
         external
         nonReentrant
@@ -114,12 +147,32 @@ contract ValueFacet is ReentrancyGuardTransient {
             -int256(uint256(value)),
             -int256(uint256(bgtValue))
         );
+        receivedBalances = _removeValueWithdrawal(
+            recipient,
+            cid,
+            c,
+            nominalReceives,
+            amountLimits
+        );
+        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
+    }
 
+    /// Internal withdrawal operations for removing value.
+    function _removeValueWithdrawal(
+        address recipient,
+        ClosureId cid,
+        Closure storage c,
+        uint256[MAX_TOKENS] memory nominalReceives,
+        uint256[MAX_TOKENS] memory amountLimits
+    ) private returns (uint256[MAX_TOKENS] memory realReceives) {
         // Send balances
         TokenRegistry storage tokenReg = Store.tokenRegistry();
-        address[] memory tokens = new address[](c.n);
-        int256[] memory deltas = new int256[](c.n);
-        uint8 idx = 0;
+        ValueSendRFT memory rftSend = ValueSendRFT({
+            idx: 0,
+            tokens: new address[](c.n),
+            deltas: new int256[](c.n),
+            vids: new VertexId[](0)
+        });
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!cid.contains(i)) continue;
             address token = tokenReg.tokens[i];
@@ -128,15 +181,19 @@ contract ValueFacet is ReentrancyGuardTransient {
                 nominalReceives[i],
                 false
             );
-            receivedBalances[i] = realSend;
+            realReceives[i] = realSend;
+            if (amountLimits[i] > 0)
+                require(
+                    realSend >= amountLimits[i],
+                    ValueErrors.PastSlippageBounds()
+                ); // Check slippage bounds.
             // Users can remove value even if the token is locked. It actually helps derisk us.
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
-            tokens[idx] = token;
-            deltas[idx] = -SafeCast.toInt256(realSend);
-            ++idx;
+            rftSend.tokens[rftSend.idx] = token;
+            rftSend.deltas[rftSend.idx] = -SafeCast.toInt256(realSend);
+            ++rftSend.idx;
         }
-        RFTLib.settle(recipient, tokens, deltas, "");
-        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
+        RFTLib.settle(recipient, rftSend.tokens, rftSend.deltas, "");
     }
 
     function collectEarnings(

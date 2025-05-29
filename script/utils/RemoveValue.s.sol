@@ -28,11 +28,13 @@ contract RemoveValue is BaseScript {
         console2.log("Recipient:", recipient);
 
         // Remove value from the closure
+        uint256[MAX_TOKENS] memory limits;
         uint256[MAX_TOKENS] memory receivedBalances = valueFacet.removeValue(
             recipient,
             closureId,
             uint128(value),
-            uint128(bgtValue)
+            uint128(bgtValue),
+            limits
         );
 
         // Log the received balances for each token

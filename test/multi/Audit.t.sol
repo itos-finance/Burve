@@ -21,6 +21,7 @@ import {IAdjustor} from "../../src/integrations/adjustor/IAdjustor.sol";
 import {NullAdjustor} from "../../src/integrations/adjustor/NullAdjustor.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 
 contract AuditTest is Test {
     /* Deployer */
@@ -144,6 +145,7 @@ contract AuditTest is Test {
     }
 
     function testHowRemoveSingleForValueWorks() public {
+        uint256[MAX_TOKENS] memory limits;
         deal(address(USDC), address(this), 10000000e6);
         deal(address(WETH), address(this), 10000000e18);
         deal(address(WBTC), address(this), 10000000e8);
@@ -154,7 +156,7 @@ contract AuditTest is Test {
         WBTC.approve(address(diamond), type(uint256).max);
         tokenWithMoreDecimals.approve(address(diamond), type(uint256).max);
 
-        valueFacet.addValue(address(this), 15, 100e18, 0);
+        valueFacet.addValue(address(this), 15, 100e18, 0, limits);
 
         valueFacet.removeSingleForValue(
             address(this),

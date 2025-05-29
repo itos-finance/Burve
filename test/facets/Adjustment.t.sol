@@ -42,7 +42,15 @@ contract AdjustmentTest is MultiSetupTest {
         // Add value using both tokens
         uint128 valueToAdd = 1e18;
         uint128 bgtValue = 0;
-        valueFacet.addValue(address(this), 0x7, valueToAdd, bgtValue);
+        uint256[MAX_TOKENS] memory limits;
+        valueFacet.addValue(address(this), 0x7, valueToAdd, bgtValue, limits);
+
+        // See if limits will stop us.
+        for (uint8 i = 0; i < MAX_TOKENS; i++) {
+            limits[i] = 3e17;
+        }
+        vm.expectRevert();
+        valueFacet.addValue(address(this), 0x7, valueToAdd, bgtValue, limits);
 
         // Check final balances
         uint256 finalBalance0 = MockERC20(tokens[0]).balanceOf(address(this));
@@ -135,6 +143,7 @@ contract AdjustmentTest is MultiSetupTest {
     }
 
     function testRemoveValue() public {
+        uint256[MAX_TOKENS] memory limits;
         // First add some value to remove
         uint128 valueToAdd = 1e18;
         valueFacet.addValueSingle(
@@ -173,7 +182,8 @@ contract AdjustmentTest is MultiSetupTest {
             address(this),
             0x7,
             valueToRemove,
-            bgtValueToRemove
+            bgtValueToRemove,
+            limits
         );
 
         // Check final balances

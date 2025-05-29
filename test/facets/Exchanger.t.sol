@@ -43,7 +43,8 @@ contract ExchangerTest is MultiSetupTest {
         uint128 value = 1e25;
         uint128 bgtValue = 5e24;
         vm.startPrank(alice);
-        valueFacet.addValue(alice, closureId, value, bgtValue);
+        uint256[MAX_TOKENS] memory limits;
+        valueFacet.addValue(alice, closureId, value, bgtValue, limits);
         vm.stopPrank();
 
         // Perform swap from token0 to token1
@@ -75,7 +76,8 @@ contract ExchangerTest is MultiSetupTest {
             alice,
             closureId,
             uint128(posValue),
-            uint128(posBgtValue)
+            uint128(posBgtValue),
+            limits
         );
         valueFacet.collectEarnings(alice, closureId);
         vm.stopPrank();
