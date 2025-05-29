@@ -7,19 +7,19 @@ import {console2} from "forge-std/console2.sol";
 import {MockERC20} from "../../test/mocks/MockERC20.sol";
 import {MockERC4626} from "../../test/mocks/MockERC4626.sol";
 import {SimplexDiamond as BurveDiamond} from "../../src/multi/Diamond.sol";
-import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
+import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
+import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {VaultFacet} from "../../src/multi/facets/VaultFacet.sol";
 import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
 
 abstract contract BaseScript is Script {
     // Core contracts
     BurveDiamond public diamond;
-    ValueFacet public valueFacet;
+    IBurveMultiValue public valueFacet;
     SwapFacet public swapFacet;
-    SimplexFacet public simplexFacet;
+    IBurveMultiSimplex public simplexFacet;
     LockFacet public lockFacet;
     VaultFacet public vaultFacet;
     ValueTokenFacet public valueTokenFacet;
@@ -42,9 +42,9 @@ abstract contract BaseScript is Script {
 
         // Initialize core contracts
         diamond = BurveDiamond(payable(diamondAddr));
-        valueFacet = ValueFacet(diamondAddr);
+        valueFacet = IBurveMultiValue(diamondAddr);
         swapFacet = SwapFacet(diamondAddr);
-        simplexFacet = SimplexFacet(diamondAddr);
+        simplexFacet = IBurveMultiSimplex(diamondAddr);
         lockFacet = LockFacet(diamondAddr);
         vaultFacet = VaultFacet(diamondAddr);
         valueTokenFacet = ValueTokenFacet(diamondAddr);

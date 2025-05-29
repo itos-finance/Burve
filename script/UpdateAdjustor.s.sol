@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
+import {SimplexSetFacet} from "../src/multi/facets/SimplexFacet.sol";
 import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
 import {DecimalAdjustor} from "../src/integrations/adjustor/DecimalAdjustor.sol";
 
@@ -13,7 +13,7 @@ contract UpdateAdjustor is Script {
 
     /* Diamond */
     address public diamond;
-    SimplexFacet public simplexFacet;
+    SimplexSetFacet public simplexFacet;
 
     string public envFile = "script/bepolia-btc.json";
 
@@ -28,7 +28,7 @@ contract UpdateAdjustor is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Get the simplex facet
-        simplexFacet = SimplexFacet(diamond);
+        simplexFacet = SimplexSetFacet(diamond);
 
         // Deploy new decimal adjustor
         IAdjustor decimalAdj = new DecimalAdjustor();

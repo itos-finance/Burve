@@ -8,10 +8,9 @@ import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {InitLib, BurveFacets} from "../src/multi/InitLib.sol";
 import {SimplexDiamond as BurveDiamond} from "../src/multi/Diamond.sol";
-import {SimplexFacet} from "../src/multi/facets/SimplexFacet.sol";
+import {IBurveMultiSimplex} from "../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {LockFacet} from "../src/multi/facets/LockFacet.sol";
 import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
-import {ValueFacet} from "../src/multi/facets/ValueFacet.sol";
 import {ValueTokenFacet} from "../src/multi/facets/ValueTokenFacet.sol";
 import {VaultType} from "../src/multi/vertex/VaultProxy.sol";
 import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
@@ -27,9 +26,8 @@ contract DeployFromEnv is Script {
 
     /* Diamond */
     address public diamond;
-    ValueFacet public valueFacet;
     ValueTokenFacet public valueTokenFacet;
-    SimplexFacet public simplexFacet;
+    IBurveMultiSimplex public simplexFacet;
     SwapFacet public swapFacet;
     LockFacet public lockFacet;
 
@@ -55,9 +53,8 @@ contract DeployFromEnv is Script {
         diamond = address(new BurveDiamond(facets, "ValueToken", "BVT"));
         console2.log("Burve deployed at:", diamond);
 
-        valueFacet = ValueFacet(diamond);
         valueTokenFacet = ValueTokenFacet(diamond);
-        simplexFacet = SimplexFacet(diamond);
+        simplexFacet = IBurveMultiSimplex(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
 

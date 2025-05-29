@@ -14,10 +14,11 @@ import {IERC165} from "Commons/ERC/interfaces/IERC165.sol";
 import {Store} from "./Store.sol";
 import {BurveFacets} from "./InitLib.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
-import {AddValueFacet, RemoveValueFacet, ValueFacet} from "./facets/ValueFacet.sol";
+import {ValueFacet, ValueSingleFacet} from "./facets/ValueFacet.sol";
+import {IBurveMultiValue} from "./interfaces/IBurveMultiValue.sol";
+import {IBurveMultiSimplex} from "./interfaces/IBurveMultiSimplex.sol";
 import {ValueTokenFacet} from "./facets/ValueTokenFacet.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import {SimplexFacet} from "./facets/SimplexFacet.sol";
 import {LockFacet} from "./facets/LockFacet.sol";
 import {VaultFacet} from "./facets/VaultFacet.sol";
 import {SimplexLib} from "./Simplex.sol";
@@ -33,7 +34,7 @@ contract SimplexDiamond is IDiamond {
         AdminLib.initOwner(msg.sender);
         SimplexLib.init(name, symbol, facets.adjustor, 0, 0);
 
-        FacetCut[] memory cuts = new FacetCut[](11);
+        FacetCut[] memory cuts = new FacetCut[](15);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -78,23 +79,12 @@ contract SimplexDiamond is IDiamond {
 
         {
             bytes4[] memory valueSelectors = new bytes4[](3);
-            valueSelectors[0] = AddValueFacet.addValue.selector;
-            valueSelectors[1] = AddValueFacet.addValueSingle.selector;
-            valueSelectors[2] = AddValueFacet.addSingleForValue.selector;
-            cuts[3] = FacetCut({
-                facetAddress: facets.addValueFacet,
-                action: FacetCutAction.Add,
-                functionSelectors: valueSelectors
-            });
-        }
+            valueSelectors[0] = IBurveMultiValue.addValue.selector;
+            valueSelectors[1] = IBurveMultiValue.removeValue.selector;
+            valueSelectors[2] = IBurveMultiValue.collectEarnings.selector;
 
-        {
-            bytes4[] memory valueSelectors = new bytes4[](3);
-            valueSelectors[0] = RemoveValueFacet.removeValue.selector;
-            valueSelectors[1] = RemoveValueFacet.removeValueSingle.selector;
-            valueSelectors[2] = RemoveValueFacet.removeSingleForValue.selector;
-            cuts[4] = FacetCut({
-                facetAddress: facets.removeValueFacet,
+            cuts[3] = FacetCut({
+                facetAddress: facets.valueFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: valueSelectors
             });
@@ -102,10 +92,42 @@ contract SimplexDiamond is IDiamond {
 
         {
             bytes4[] memory valueSelectors = new bytes4[](2);
-            valueSelectors[0] = ValueFacet.queryValue.selector;
-            valueSelectors[1] = ValueFacet.collectEarnings.selector;
+            valueSelectors[0] = IBurveMultiValue.addValueSingle.selector;
+            valueSelectors[1] = IBurveMultiValue.removeValueSingle.selector;
+
+            cuts[4] = FacetCut({
+                facetAddress: facets.valueSingleFacet,
+                action: FacetCutAction.Add,
+                functionSelectors: valueSelectors
+            });
+        }
+
+        {
+            bytes4[] memory valueSelectors = new bytes4[](1);
+            valueSelectors[0] = IBurveMultiValue.addSingleForValue.selector;
             cuts[5] = FacetCut({
-                facetAddress: facets.valueFacet,
+                facetAddress: facets.addTokenValueFacet,
+                action: FacetCutAction.Add,
+                functionSelectors: valueSelectors
+            });
+        }
+
+        {
+            bytes4[] memory valueSelectors = new bytes4[](1);
+            valueSelectors[0] = IBurveMultiValue.removeSingleForValue.selector;
+            cuts[6] = FacetCut({
+                facetAddress: facets.removeTokenValueFacet,
+                action: FacetCutAction.Add,
+                functionSelectors: valueSelectors
+            });
+        }
+
+        {
+            bytes4[] memory valueSelectors = new bytes4[](1);
+            valueSelectors[0] = IBurveMultiValue.queryValue.selector;
+
+            cuts[7] = FacetCut({
+                facetAddress: facets.queryValueFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: valueSelectors
             });
@@ -115,7 +137,7 @@ contract SimplexDiamond is IDiamond {
             bytes4[] memory swapSelectors = new bytes4[](2);
             swapSelectors[0] = SwapFacet.swap.selector;
             swapSelectors[1] = SwapFacet.simSwap.selector;
-            cuts[6] = FacetCut({
+            cuts[8] = FacetCut({
                 facetAddress: facets.swapFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: swapSelectors
@@ -123,37 +145,57 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory simplexSelectors = new bytes4[](27);
-            simplexSelectors[0] = SimplexFacet.getName.selector;
-            simplexSelectors[1] = SimplexFacet.getClosureValue.selector;
-            simplexSelectors[2] = SimplexFacet.getClosureFees.selector;
-            simplexSelectors[3] = SimplexFacet.getSimplexFees.selector;
-            simplexSelectors[4] = SimplexFacet.getEdgeFee.selector;
-            simplexSelectors[5] = SimplexFacet.protocolEarnings.selector;
-            simplexSelectors[6] = SimplexFacet.getTokens.selector;
-            simplexSelectors[7] = SimplexFacet.getNumVertices.selector;
-            simplexSelectors[8] = SimplexFacet.getIdx.selector;
-            simplexSelectors[9] = SimplexFacet.getVertexId.selector;
-            simplexSelectors[10] = SimplexFacet.addVertex.selector;
-            simplexSelectors[11] = SimplexFacet.addClosure.selector;
-            simplexSelectors[12] = SimplexFacet.withdraw.selector;
-            simplexSelectors[13] = SimplexFacet.getEsX128.selector;
-            simplexSelectors[14] = SimplexFacet.getEX128.selector;
-            simplexSelectors[15] = SimplexFacet.setEX128.selector;
-            simplexSelectors[16] = SimplexFacet.getAdjustor.selector;
-            simplexSelectors[17] = SimplexFacet.setAdjustor.selector;
-            simplexSelectors[18] = SimplexFacet.getBGTExchanger.selector;
-            simplexSelectors[19] = SimplexFacet.setBGTExchanger.selector;
-            simplexSelectors[20] = SimplexFacet.getInitTarget.selector;
-            simplexSelectors[21] = SimplexFacet.setInitTarget.selector;
-            simplexSelectors[22] = SimplexFacet.getSearchParams.selector;
-            simplexSelectors[23] = SimplexFacet.setSearchParams.selector;
-            simplexSelectors[24] = SimplexFacet.setName.selector;
-            simplexSelectors[25] = SimplexFacet.setSimplexFees.selector;
-            simplexSelectors[26] = SimplexFacet.setEdgeFee.selector;
+            bytes4[] memory simplexSelectors = new bytes4[](3);
+            simplexSelectors[0] = IBurveMultiSimplex.addVertex.selector;
+            simplexSelectors[1] = IBurveMultiSimplex.addClosure.selector;
+            simplexSelectors[2] = IBurveMultiSimplex.withdraw.selector;
 
-            cuts[7] = FacetCut({
-                facetAddress: facets.simplexFacet,
+            cuts[9] = FacetCut({
+                facetAddress: facets.simplexAdminFacet,
+                action: FacetCutAction.Add,
+                functionSelectors: simplexSelectors
+            });
+        }
+
+        {
+            bytes4[] memory simplexSelectors = new bytes4[](8);
+            simplexSelectors[0] = IBurveMultiSimplex.setEX128.selector;
+            simplexSelectors[1] = IBurveMultiSimplex.setAdjustor.selector;
+            simplexSelectors[2] = IBurveMultiSimplex.setBGTExchanger.selector;
+            simplexSelectors[3] = IBurveMultiSimplex.setInitTarget.selector;
+            simplexSelectors[4] = IBurveMultiSimplex.setSearchParams.selector;
+            simplexSelectors[5] = IBurveMultiSimplex.setName.selector;
+            simplexSelectors[6] = IBurveMultiSimplex.setSimplexFees.selector;
+            simplexSelectors[7] = IBurveMultiSimplex.setEdgeFee.selector;
+
+            cuts[10] = FacetCut({
+                facetAddress: facets.simplexSetFacet,
+                action: FacetCutAction.Add,
+                functionSelectors: simplexSelectors
+            });
+        }
+
+        {
+            bytes4[] memory simplexSelectors = new bytes4[](16);
+            simplexSelectors[0] = IBurveMultiSimplex.getName.selector;
+            simplexSelectors[1] = IBurveMultiSimplex.getClosureValue.selector;
+            simplexSelectors[2] = IBurveMultiSimplex.getClosureFees.selector;
+            simplexSelectors[3] = IBurveMultiSimplex.getSimplexFees.selector;
+            simplexSelectors[4] = IBurveMultiSimplex.getEdgeFee.selector;
+            simplexSelectors[5] = IBurveMultiSimplex.protocolEarnings.selector;
+            simplexSelectors[6] = IBurveMultiSimplex.getTokens.selector;
+            simplexSelectors[7] = IBurveMultiSimplex.getNumVertices.selector;
+            simplexSelectors[8] = IBurveMultiSimplex.getIdx.selector;
+            simplexSelectors[9] = IBurveMultiSimplex.getVertexId.selector;
+            simplexSelectors[10] = IBurveMultiSimplex.getEsX128.selector;
+            simplexSelectors[11] = IBurveMultiSimplex.getEX128.selector;
+            simplexSelectors[12] = IBurveMultiSimplex.getAdjustor.selector;
+            simplexSelectors[13] = IBurveMultiSimplex.getBGTExchanger.selector;
+            simplexSelectors[14] = IBurveMultiSimplex.getInitTarget.selector;
+            simplexSelectors[15] = IBurveMultiSimplex.getSearchParams.selector;
+
+            cuts[11] = FacetCut({
+                facetAddress: facets.simplexGetFacet,
                 action: FacetCutAction.Add,
                 functionSelectors: simplexSelectors
             });
@@ -169,7 +211,7 @@ contract SimplexDiamond is IDiamond {
             selectors[5] = LockFacet.removeLocker.selector;
             selectors[6] = LockFacet.removeUnlocker.selector;
 
-            cuts[8] = IDiamond.FacetCut({
+            cuts[12] = IDiamond.FacetCut({
                 facetAddress: address(new LockFacet()),
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
@@ -186,7 +228,7 @@ contract SimplexDiamond is IDiamond {
             selectors[5] = VaultFacet.hotSwap.selector;
             selectors[6] = VaultFacet.viewVaults.selector;
 
-            cuts[9] = IDiamond.FacetCut({
+            cuts[13] = IDiamond.FacetCut({
                 facetAddress: facets.vaultFacet,
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
@@ -207,7 +249,7 @@ contract SimplexDiamond is IDiamond {
             selectors[9] = ValueTokenFacet.mint.selector;
             selectors[10] = ValueTokenFacet.burn.selector;
 
-            cuts[10] = IDiamond.FacetCut({
+            cuts[14] = IDiamond.FacetCut({
                 facetAddress: facets.valueTokenFacet,
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors

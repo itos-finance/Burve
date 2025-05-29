@@ -11,7 +11,6 @@ import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 
 import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";

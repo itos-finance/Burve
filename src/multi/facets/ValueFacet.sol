@@ -23,9 +23,12 @@ interface ValueErrors {
 }
 
 /*
- @notice The facet for minting liquidity.
+ Value functions are so large we split the operations across 5 facets.
+ But you should access them through the single IBurveMultiValue interface.
 */
-contract AddValueFacet is ReentrancyGuardTransient {
+
+/// Generic operations relating to value stored in the pool.
+contract ValueFacet is ReentrancyGuardTransient {
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
     /// which validates the requiredBalances are small enough according to some logic.
@@ -76,6 +79,95 @@ contract AddValueFacet is ReentrancyGuardTransient {
         emit IBurveMultiEvents.AddValue(recipient, _closureId, value);
     }
 
+    /// Remove exactly this much value to the given closure and receive all tokens involved.
+    /// @dev Wrap this with a helper contract which validates the received balances are sufficient.
+    function removeValue(
+        address recipient,
+        uint16 _closureId,
+        uint128 value,
+        uint128 bgtValue
+    )
+        external
+        nonReentrant
+        returns (uint256[MAX_TOKENS] memory receivedBalances)
+    {
+        if (value == 0) revert ValueErrors.DeMinimisDeposit();
+        require(
+            bgtValue <= value,
+            ValueErrors.InsufficientValueForBgt(value, bgtValue)
+        );
+        ClosureId cid = ClosureId.wrap(_closureId);
+        Closure storage c = Store.closure(cid);
+        uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
+        c.finalize(
+            VertexId.wrap(0),
+            0,
+            -int256(uint256(value)),
+            -int256(uint256(bgtValue))
+        );
+
+        // Send balances
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!cid.contains(i)) continue;
+            address token = tokenReg.tokens[i];
+            uint256 realSend = AdjustorLib.toReal(
+                token,
+                nominalReceives[i],
+                false
+            );
+            receivedBalances[i] = realSend;
+            // Users can remove value even if the token is locked. It actually helps derisk us.
+            Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
+            TransferHelper.safeTransfer(token, recipient, realSend);
+        }
+        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
+    }
+
+    function collectEarnings(
+        address recipient,
+        uint16 closureId
+    )
+        external
+        returns (
+            uint256[MAX_TOKENS] memory collectedBalances,
+            uint256 collectedBgt
+        )
+    {
+        ClosureId cid = ClosureId.wrap(closureId);
+        // Catch up on rehypothecation gains before we claim fees.
+        Store.closure(cid).trimAllBalances();
+        uint256[MAX_TOKENS] memory collectedShares;
+        (collectedShares, collectedBgt) = Store.assets().claimFees(
+            msg.sender,
+            cid
+        );
+        if (collectedBgt > 0)
+            IBGTExchanger(Store.simplex().bgtEx).withdraw(
+                recipient,
+                collectedBgt
+            );
+        TokenRegistry storage tokenReg = Store.tokenRegistry();
+        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (collectedShares[i] > 0) {
+                VertexId vid = VertexLib.newId(i);
+                // Real amounts.
+                collectedBalances[i] = ReserveLib.withdraw(
+                    vid,
+                    collectedShares[i]
+                );
+                TransferHelper.safeTransfer(
+                    tokenReg.tokens[i],
+                    recipient,
+                    collectedBalances[i]
+                );
+            }
+        }
+    }
+}
+
+contract ValueSingleFacet is ReentrancyGuardTransient {
     /// Add exactly this much value to the given closure by providing a single token.
     /// @param maxRequired Revert if required balance is greater than this. (0 indicates no restriction).
     function addValueSingle(
@@ -132,6 +224,57 @@ contract AddValueFacet is ReentrancyGuardTransient {
         emit IBurveMultiEvents.AddValue(recipient, _closureId, value);
     }
 
+    /// Remove exactly this much value to the given closure by receiving a single token.
+    /// @param minReceive Revert if removedBalance is smaller than this.
+    function removeValueSingle(
+        address recipient,
+        uint16 _closureId,
+        uint128 value,
+        uint128 bgtValue,
+        address token,
+        uint128 minReceive
+    ) external nonReentrant returns (uint256 removedBalance) {
+        if (value == 0) revert ValueErrors.DeMinimisDeposit();
+        require(
+            bgtValue <= value,
+            ValueErrors.InsufficientValueForBgt(value, bgtValue)
+        );
+        ClosureId cid = ClosureId.wrap(_closureId);
+        Closure storage c = Store.closure(cid); // Validates cid.
+        VertexId vid = VertexLib.newId(token); // Validates token.
+        (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
+            value,
+            vid
+        );
+        Store.assets().remove(msg.sender, cid, value, bgtValue);
+        uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
+        Store.vertex(vid).withdraw(cid, realRemoved, false);
+        uint256 realTax = FullMath.mulDiv(
+            realRemoved,
+            nominalTax,
+            removedNominal
+        );
+        emit IBurveMultiEvents.ClosureFeesEarned(
+            _closureId,
+            vid.idx(),
+            nominalTax,
+            realTax
+        );
+        c.finalize(
+            vid,
+            realTax,
+            -int256(uint256(value)),
+            -int256(uint256(bgtValue))
+        );
+        removedBalance = realRemoved - realTax; // How much the user actually gets.
+        require(removedBalance >= minReceive, ValueErrors.PastSlippageBounds());
+        TransferHelper.safeTransfer(token, recipient, removedBalance);
+        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
+    }
+}
+
+/// Adding and removing liquidity by specifying an exact token balance.
+contract AddTokenValueFacet is ReentrancyGuardTransient {
     /// Add exactly this much of the given token for value in the given closure.
     /// @param minValue Revert if valueReceived is smaller than this.
     function addSingleForValue(
@@ -185,104 +328,7 @@ contract AddValueFacet is ReentrancyGuardTransient {
     }
 }
 
-/*
- @notice The facet for minting liquidity.
-*/
-contract RemoveValueFacet is ReentrancyGuardTransient {
-    /// Remove exactly this much value to the given closure and receive all tokens involved.
-    /// @dev Wrap this with a helper contract which validates the received balances are sufficient.
-    function removeValue(
-        address recipient,
-        uint16 _closureId,
-        uint128 value,
-        uint128 bgtValue
-    )
-        external
-        nonReentrant
-        returns (uint256[MAX_TOKENS] memory receivedBalances)
-    {
-        if (value == 0) revert ValueErrors.DeMinimisDeposit();
-        require(
-            bgtValue <= value,
-            ValueErrors.InsufficientValueForBgt(value, bgtValue)
-        );
-        ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid);
-        uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
-        c.finalize(
-            VertexId.wrap(0),
-            0,
-            -int256(uint256(value)),
-            -int256(uint256(bgtValue))
-        );
-
-        // Send balances
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (!cid.contains(i)) continue;
-            address token = tokenReg.tokens[i];
-            uint256 realSend = AdjustorLib.toReal(
-                token,
-                nominalReceives[i],
-                false
-            );
-            receivedBalances[i] = realSend;
-            // Users can remove value even if the token is locked. It actually helps derisk us.
-            Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
-            TransferHelper.safeTransfer(token, recipient, realSend);
-        }
-        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
-    }
-
-    /// Remove exactly this much value to the given closure by receiving a single token.
-    /// @param minReceive Revert if removedBalance is smaller than this.
-    function removeValueSingle(
-        address recipient,
-        uint16 _closureId,
-        uint128 value,
-        uint128 bgtValue,
-        address token,
-        uint128 minReceive
-    ) external nonReentrant returns (uint256 removedBalance) {
-        if (value == 0) revert ValueErrors.DeMinimisDeposit();
-        require(
-            bgtValue <= value,
-            ValueErrors.InsufficientValueForBgt(value, bgtValue)
-        );
-        ClosureId cid = ClosureId.wrap(_closureId);
-        Closure storage c = Store.closure(cid); // Validates cid.
-        VertexId vid = VertexLib.newId(token); // Validates token.
-        (uint256 removedNominal, uint256 nominalTax) = c.removeValueSingle(
-            value,
-            vid
-        );
-        Store.assets().remove(msg.sender, cid, value, bgtValue);
-        uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
-        Store.vertex(vid).withdraw(cid, realRemoved, false);
-        uint256 realTax = FullMath.mulDiv(
-            realRemoved,
-            nominalTax,
-            removedNominal
-        );
-        emit IBurveMultiEvents.ClosureFeesEarned(
-            _closureId,
-            vid.idx(),
-            nominalTax,
-            realTax
-        );
-        c.finalize(
-            vid,
-            realTax,
-            -int256(uint256(value)),
-            -int256(uint256(bgtValue))
-        );
-        removedBalance = realRemoved - realTax; // How much the user actually gets.
-        require(removedBalance >= minReceive, ValueErrors.PastSlippageBounds());
-        TransferHelper.safeTransfer(token, recipient, removedBalance);
-        emit IBurveMultiEvents.RemoveValue(recipient, _closureId, value);
-    }
-
+contract RemoveTokenValueFacet is ReentrancyGuardTransient {
     /// Remove exactly this much of the given token for value in the given closure.
     /// @param maxValue Revert if valueGiven is larger than this. (Not enforced if zero.)
     function removeSingleForValue(
@@ -356,8 +402,7 @@ contract RemoveValueFacet is ReentrancyGuardTransient {
     }
 }
 
-/// Generic operations relating to value stored in the pool.
-contract ValueFacet {
+contract QueryValueFacet {
     /// Return the held value balance and earnings by an address in a given closure.
     function queryValue(
         address owner,
@@ -396,46 +441,5 @@ contract ValueFacet {
             }
         }
         bgtEarnings += FullMath.mulX128(bpvX128, bgtValue, false);
-    }
-
-    function collectEarnings(
-        address recipient,
-        uint16 closureId
-    )
-        external
-        returns (
-            uint256[MAX_TOKENS] memory collectedBalances,
-            uint256 collectedBgt
-        )
-    {
-        ClosureId cid = ClosureId.wrap(closureId);
-        // Catch up on rehypothecation gains before we claim fees.
-        Store.closure(cid).trimAllBalances();
-        uint256[MAX_TOKENS] memory collectedShares;
-        (collectedShares, collectedBgt) = Store.assets().claimFees(
-            msg.sender,
-            cid
-        );
-        if (collectedBgt > 0)
-            IBGTExchanger(Store.simplex().bgtEx).withdraw(
-                recipient,
-                collectedBgt
-            );
-        TokenRegistry storage tokenReg = Store.tokenRegistry();
-        for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (collectedShares[i] > 0) {
-                VertexId vid = VertexLib.newId(i);
-                // Real amounts.
-                collectedBalances[i] = ReserveLib.withdraw(
-                    vid,
-                    collectedShares[i]
-                );
-                TransferHelper.safeTransfer(
-                    tokenReg.tokens[i],
-                    recipient,
-                    collectedBalances[i]
-                );
-            }
-        }
     }
 }

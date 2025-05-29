@@ -9,13 +9,13 @@ import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
 import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {StoreManipulatorFacet} from "./StoreManipulatorFacet.u.sol";
 import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
-import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
+import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
+import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
 import {VaultFacet} from "../../src/multi/facets/VaultFacet.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
@@ -28,10 +28,10 @@ contract MultiSetupTest is Test {
 
     /* Diamond */
     address public diamond;
-    ValueFacet public valueFacet;
+    IBurveMultiValue public valueFacet;
     ValueTokenFacet public valueTokenFacet;
     VaultFacet public vaultFacet;
-    SimplexFacet public simplexFacet;
+    IBurveMultiSimplex public simplexFacet;
     SwapFacet public swapFacet;
     LockFacet public lockFacet;
     StoreManipulatorFacet public storeManipulatorFacet; // testing only
@@ -59,10 +59,10 @@ contract MultiSetupTest is Test {
         BurveFacets memory bFacets = InitLib.deployFacets();
         diamond = address(new SimplexDiamond(bFacets, "ValueToken", "BVT"));
 
-        valueFacet = ValueFacet(diamond);
+        valueFacet = IBurveMultiValue(diamond);
         valueTokenFacet = ValueTokenFacet(diamond);
         vaultFacet = VaultFacet(diamond);
-        simplexFacet = SimplexFacet(diamond);
+        simplexFacet = IBurveMultiSimplex(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
 

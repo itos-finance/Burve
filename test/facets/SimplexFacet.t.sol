@@ -13,7 +13,7 @@ import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockERC4626} from "../mocks/MockERC4626.sol";
 import {MultiSetupTest} from "./MultiSetup.u.sol";
 import {SearchParams} from "../../src/multi/Value.sol";
-import {SimplexFacet} from "../../src/multi/facets/SimplexFacet.sol";
+import {SimplexAdminFacet, SimplexSetFacet} from "../../src/multi/facets/SimplexFacet.sol";
 import {Simplex, SimplexLib} from "../../src/multi/Simplex.sol";
 import {Store} from "../../src/multi/Store.sol";
 import {TokenRegLib} from "../../src/multi/Token.sol";
@@ -179,7 +179,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                SimplexFacet.InsufficientStartingTarget.selector,
+                SimplexAdminFacet.InsufficientStartingTarget.selector,
                 1e6,
                 SimplexLib.DEFAULT_INIT_TARGET
             )
@@ -206,7 +206,12 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // add vertex A
         vm.expectEmit(true, true, false, true);
-        emit SimplexFacet.VertexAdded(tokenA, vaultA, vidA, VaultType.E4626);
+        emit SimplexAdminFacet.VertexAdded(
+            tokenA,
+            vaultA,
+            vidA,
+            VaultType.E4626
+        );
         simplexFacet.addVertex(tokenA, vaultA, VaultType.E4626);
 
         // check vertex A
@@ -228,7 +233,12 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // add vertex B
         vm.expectEmit(true, true, false, true);
-        emit SimplexFacet.VertexAdded(tokenB, vaultB, vidB, VaultType.E4626);
+        emit SimplexAdminFacet.VertexAdded(
+            tokenB,
+            vaultB,
+            vidB,
+            VaultType.E4626
+        );
         simplexFacet.addVertex(tokenB, vaultB, VaultType.E4626);
 
         // check vertex A
@@ -301,7 +311,11 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.ProtocolFeesWithdrawn(address(token), 8e18, 7e18);
+        emit SimplexAdminFacet.ProtocolFeesWithdrawn(
+            address(token),
+            8e18,
+            7e18
+        );
         simplexFacet.withdraw(address(token));
 
         // check balances
@@ -337,7 +351,11 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.ProtocolFeesWithdrawn(address(token), 7e18, 7e18);
+        emit SimplexAdminFacet.ProtocolFeesWithdrawn(
+            address(token),
+            7e18,
+            7e18
+        );
         simplexFacet.withdraw(address(token));
 
         // check balances
@@ -364,7 +382,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // withdraw
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.ProtocolFeesWithdrawn(address(token), 1e18, 0);
+        emit SimplexAdminFacet.ProtocolFeesWithdrawn(address(token), 1e18, 0);
         simplexFacet.withdraw(address(token));
 
         // check balances
@@ -430,7 +448,7 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, false, true);
-        emit SimplexFacet.EfficiencyFactorChanged(
+        emit SimplexSetFacet.EfficiencyFactorChanged(
             owner,
             tokens[3],
             10 << 128,
@@ -465,11 +483,8 @@ contract SimplexFacetTest is MultiSetupTest {
             ,
 
         ) = simplexFacet.getClosureValue(0x3);
-        (
-            uint256[MAX_TOKENS] memory preEarningsPerValueX128,
-            ,
-
-        ) = simplexFacet.getClosureFees(0x3);
+        (uint256[MAX_TOKENS] memory preEarningsPerValueX128, , ) = simplexFacet
+            .getClosureFees(0x3);
         (
             uint256 preValue,
             ,
@@ -478,7 +493,7 @@ contract SimplexFacetTest is MultiSetupTest {
         ) = valueFacet.queryValue(address(this), 0x3);
 
         vm.expectEmit(true, true, false, true);
-        emit SimplexFacet.EfficiencyFactorChanged(
+        emit SimplexSetFacet.EfficiencyFactorChanged(
             owner,
             tokens[0],
             10 << 128,
@@ -547,11 +562,8 @@ contract SimplexFacetTest is MultiSetupTest {
             ,
 
         ) = simplexFacet.getClosureValue(0x3);
-        (
-            uint256[MAX_TOKENS] memory preEarningsPerValueX128,
-            ,
-
-        ) = simplexFacet.getClosureFees(0x3);
+        (uint256[MAX_TOKENS] memory preEarningsPerValueX128, , ) = simplexFacet
+            .getClosureFees(0x3);
         (
             uint256 preValue,
             ,
@@ -567,7 +579,7 @@ contract SimplexFacetTest is MultiSetupTest {
         _fundAccount(owner);
 
         vm.expectEmit(true, true, false, true);
-        emit SimplexFacet.EfficiencyFactorChanged(
+        emit SimplexSetFacet.EfficiencyFactorChanged(
             owner,
             tokens[0],
             10 << 128,
@@ -645,7 +657,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // check change event
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.AdjustorChanged(
+        emit SimplexSetFacet.AdjustorChanged(
             owner,
             simplexFacet.getAdjustor(),
             adjustorA
@@ -667,7 +679,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // check change event
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.AdjustorChanged(owner, adjustorA, adjustorB);
+        emit SimplexSetFacet.AdjustorChanged(owner, adjustorA, adjustorB);
 
         simplexFacet.setAdjustor(adjustorB);
         assertEq(simplexFacet.getAdjustor(), adjustorB);
@@ -708,7 +720,7 @@ contract SimplexFacetTest is MultiSetupTest {
         // set exchanger A
         address bgtExchangerA = makeAddr("bgtExchangerA");
         vm.expectEmit(true, true, true, true);
-        emit SimplexFacet.BGTExchangerChanged(
+        emit SimplexSetFacet.BGTExchangerChanged(
             owner,
             address(0x0),
             bgtExchangerA
@@ -718,7 +730,7 @@ contract SimplexFacetTest is MultiSetupTest {
         // set exchanger B
         address bgtExchangerB = makeAddr("bgtExchangerB");
         vm.expectEmit(true, true, true, true);
-        emit SimplexFacet.BGTExchangerChanged(
+        emit SimplexSetFacet.BGTExchangerChanged(
             owner,
             bgtExchangerA,
             bgtExchangerB
@@ -731,7 +743,7 @@ contract SimplexFacetTest is MultiSetupTest {
     function testRevertBGTExchangerIsZeroAddress() public {
         vm.startPrank(owner);
 
-        vm.expectRevert(SimplexFacet.BGTExchangerIsZeroAddress.selector);
+        vm.expectRevert(SimplexSetFacet.BGTExchangerIsZeroAddress.selector);
         simplexFacet.setBGTExchanger(address(0x0));
 
         vm.stopPrank();
@@ -754,7 +766,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // set init target 1e6
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.InitTargetChanged(
+        emit SimplexSetFacet.InitTargetChanged(
             owner,
             SimplexLib.DEFAULT_INIT_TARGET,
             1e6
@@ -763,12 +775,12 @@ contract SimplexFacetTest is MultiSetupTest {
 
         // set init target 0
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.InitTargetChanged(owner, 1e6, 0);
+        emit SimplexSetFacet.InitTargetChanged(owner, 1e6, 0);
         simplexFacet.setInitTarget(0);
 
         // set init target 1e18
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.InitTargetChanged(owner, 0, 1e18);
+        emit SimplexSetFacet.InitTargetChanged(owner, 0, 1e18);
         simplexFacet.setInitTarget(1e18);
 
         vm.stopPrank();
@@ -794,7 +806,7 @@ contract SimplexFacetTest is MultiSetupTest {
         SearchParams memory sp = SearchParams(10, 500, 1e18);
 
         vm.expectEmit(true, false, false, true);
-        emit SimplexFacet.SearchParamsChanged(
+        emit SimplexSetFacet.SearchParamsChanged(
             owner,
             sp.maxIter,
             sp.deMinimusX128,
@@ -817,7 +829,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                SimplexFacet.NonPositiveDeMinimusX128.selector,
+                SimplexSetFacet.NonPositiveDeMinimusX128.selector,
                 sp.deMinimusX128
             )
         );
@@ -833,7 +845,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                SimplexFacet.NonPositiveDeMinimusX128.selector,
+                SimplexSetFacet.NonPositiveDeMinimusX128.selector,
                 sp.deMinimusX128
             )
         );
@@ -905,7 +917,7 @@ contract SimplexFacetTest is MultiSetupTest {
         vm.startPrank(owner);
 
         vm.expectEmit(false, false, false, true);
-        emit SimplexFacet.NewName("name", "symbol");
+        emit SimplexSetFacet.NewName("name", "symbol");
         simplexFacet.setName("name", "symbol");
 
         (string memory name, string memory symbol) = simplexFacet.getName();
