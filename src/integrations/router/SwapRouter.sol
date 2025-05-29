@@ -44,8 +44,8 @@ contract SwapRouter is RFTPayer, Auto165 {
     /// @param routes Closure routes to swap over.
     /// @dev There is no input validation that routes are all exact input or exact output.
     /// Or that the amount limit appropriately matches. Correctness is the responsability of the caller.
-    /// Exact Input - route amountSpecified values are positive, amountLimit is positive to confirm minimum amount out.
-    /// Exact Output - route amountSpecified values are negative, amountLimit is negative to confirm maximum amount in.
+    /// Exact In:  route amountSpecified values are positive, amountLimit is negative to check minimum amount out.
+    /// Exact Out: route amountSpecified values are negative, amountLimit is positive to check maximum amount in.
     function swap(
         address swapper,
         address recipient,
