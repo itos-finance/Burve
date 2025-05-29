@@ -55,11 +55,13 @@ contract ValueFacet is ReentrancyGuardTransient {
     /// Add exactly this much value to the given closure by providing all tokens involved.
     /// @dev Use approvals to limit slippage, or you can wrap this with a helper contract
     /// which validates the requiredBalances are small enough according to some logic.
+    /// @param amountLimits Revert if required balance is greater than this. (0 indicates no restriction).
     function addValue(
         address recipient,
         uint16 _closureId,
         uint128 value,
-        uint128 bgtValue
+        uint128 bgtValue,
+        uint256[MAX_TOKENS] calldata amountLimits
     )
         external
         nonReentrant
@@ -84,6 +86,8 @@ contract ValueFacet is ReentrancyGuardTransient {
                 true
             );
             requiredBalances[i] = realNeeded;
+            if (amountLimits[i] > 0)
+                require(realNeeded <= amountLimits[i], PastSlippageBounds()); // Check slippage bounds.
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
@@ -173,11 +177,13 @@ contract ValueFacet is ReentrancyGuardTransient {
 
     /// Remove exactly this much value to the given closure and receive all tokens involved.
     /// @dev Wrap this with a helper contract which validates the received balances are sufficient.
+    /// @param amountLimits Revert if received balance is less than this per token. (0 indicates no restriction).
     function removeValue(
         address recipient,
         uint16 _closureId,
         uint128 value,
-        uint128 bgtValue
+        uint128 bgtValue,
+        uint256[MAX_TOKENS] calldata amountLimits
     )
         external
         nonReentrant
@@ -203,6 +209,8 @@ contract ValueFacet is ReentrancyGuardTransient {
                 false
             );
             receivedBalances[i] = realSend;
+            if (amountLimits[i] > 0)
+                require(realSend >= amountLimits[i], PastSlippageBounds()); // Check slippage bounds.
             // Users can remove value even if the token is locked. It actually helps derisk us.
             Store.vertex(VertexLib.newId(i)).withdraw(cid, realSend, false);
             TransferHelper.safeTransfer(token, recipient, realSend);
