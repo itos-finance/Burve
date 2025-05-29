@@ -24,6 +24,11 @@ contract E4626ViewAdjustorTest is Test {
         vault = address(
             new MockERC4626(eth, "Liquid staked Ether 2.0", "stETH")
         );
+        MockERC20(asset).mint(address(this), 100e18);
+        MockERC20(asset).approve(vault, type(uint256).max);
+        // Deposit and mint to the vault so the ratio is not an even number.
+        MockERC4626(vault).deposit(10e18, address(this));
+        MockERC20(asset).mint(address(vault), 37e18);
 
         ERC20 mystery = new MockERC20("unknown", "?", 18);
         mysteryAsset = address(mystery);
@@ -42,15 +47,15 @@ contract E4626ViewAdjustorTest is Test {
 
     function testToNominalUint() public view {
         uint256 real = 10e18;
-        uint256 shares = adj.toNominal(vault, real, true);
-        assertEq(shares, IERC4626(vault).convertToShares(real));
+        uint256 nom = adj.toNominal(vault, real, true);
+        assertEq(nom, IERC4626(vault).convertToAssets(real));
     }
 
-    function testToNominalUintCallsConvertToShares() public {
+    function testToNominalUintCallsConvertToAssets() public {
         uint256 real = 10e18;
         vm.expectCall(
             vault,
-            abi.encodeCall(IERC4626(vault).convertToShares, (real))
+            abi.encodeCall(IERC4626(vault).convertToAssets, (real))
         );
         adj.toNominal(vault, real, true);
     }
@@ -71,36 +76,30 @@ contract E4626ViewAdjustorTest is Test {
 
     function testToNominalIntPositive() public view {
         int256 real = 10e18;
-        int256 shares = adj.toNominal(vault, real, true);
-        assertEq(
-            shares,
-            int256(IERC4626(vault).convertToShares(uint256(real)))
-        );
+        int256 nom = adj.toNominal(vault, real, true);
+        assertEq(nom, int256(IERC4626(vault).convertToAssets(uint256(real))));
     }
 
     function testToNominalIntNegative() public view {
         int256 real = -10e18;
-        int256 shares = adj.toNominal(vault, real, true);
-        assertEq(
-            shares,
-            -int256(IERC4626(vault).convertToShares(uint256(-real)))
-        );
+        int256 nom = adj.toNominal(vault, real, true);
+        assertEq(nom, -int256(IERC4626(vault).convertToAssets(uint256(-real))));
     }
 
-    function testToNominalIntPositiveCallsConvertToShares() public {
+    function testToNominalIntPositiveCallsConvertToAssets() public {
         int256 real = 10e18;
         vm.expectCall(
             vault,
-            abi.encodeCall(IERC4626(vault).convertToShares, (uint256(real)))
+            abi.encodeCall(IERC4626(vault).convertToAssets, (uint256(real)))
         );
         adj.toNominal(vault, real, true);
     }
 
-    function testToNominalIntNegativeCallsConvertToShares() public {
+    function testToNominalIntNegativeCallsConvertToAssets() public {
         int256 real = -10e18;
         vm.expectCall(
             vault,
-            abi.encodeCall(IERC4626(vault).convertToShares, (uint256(-real)))
+            abi.encodeCall(IERC4626(vault).convertToAssets, (uint256(-real)))
         );
         adj.toNominal(vault, real, true);
     }
@@ -120,22 +119,22 @@ contract E4626ViewAdjustorTest is Test {
     // toReal uint tests
 
     function testToRealUint() public view {
-        uint256 shares = 10e18;
-        uint256 real = adj.toReal(vault, shares, true);
-        assertEq(real, IERC4626(vault).convertToAssets(shares));
+        uint256 nom = 10e18;
+        uint256 real = adj.toReal(vault, nom, true);
+        assertEq(real, IERC4626(vault).convertToShares(nom));
     }
 
-    function testToRealUintCallsConvertToAssets() public {
-        uint256 shares = 10e18;
+    function testToRealUintCallsConvertToShares() public {
+        uint256 nom = 10e18;
         vm.expectCall(
             vault,
-            abi.encodeCall(IERC4626(vault).convertToAssets, (shares))
+            abi.encodeCall(IERC4626(vault).convertToShares, (nom))
         );
-        adj.toReal(vault, shares, true);
+        adj.toReal(vault, nom, true);
     }
 
     function testRevertToRealUintAssetMismatch() public {
-        uint256 shares = 10e18;
+        uint256 nom = 10e18;
         vm.expectRevert(
             abi.encodeWithSelector(
                 E4626ViewAdjustor.AssetMismatch.selector,
@@ -143,49 +142,43 @@ contract E4626ViewAdjustorTest is Test {
                 asset
             )
         );
-        adj.toReal(mysteryVault, shares, true);
+        adj.toReal(mysteryVault, nom, true);
     }
 
     // toReal int tests
 
     function testToRealIntPositive() public view {
-        int256 shares = 10e18;
-        int256 real = adj.toReal(vault, shares, true);
-        assertEq(
-            real,
-            int256(IERC4626(vault).convertToAssets(uint256(shares)))
-        );
+        int256 nom = 10e18;
+        int256 real = adj.toReal(vault, nom, true);
+        assertEq(real, int256(IERC4626(vault).convertToShares(uint256(nom))));
     }
 
     function testToRealIntNegative() public view {
-        int256 shares = -10e18;
-        int256 real = adj.toReal(vault, shares, true);
-        assertEq(
-            real,
-            -int256(IERC4626(vault).convertToAssets(uint256(-shares)))
-        );
+        int256 nom = -10e18;
+        int256 real = adj.toReal(vault, nom, true);
+        assertEq(real, -int256(IERC4626(vault).convertToShares(uint256(-nom))));
     }
 
-    function testToRealIntPositiveCallsConvertToAssets() public {
-        int256 shares = 10e18;
+    function testToRealIntPositiveCallsConvertToShares() public {
+        int256 nom = 10e18;
         vm.expectCall(
             vault,
-            abi.encodeCall(IERC4626(vault).convertToAssets, (uint256(shares)))
+            abi.encodeCall(IERC4626(vault).convertToShares, (uint256(nom)))
         );
-        adj.toReal(vault, shares, true);
+        adj.toReal(vault, nom, true);
     }
 
-    function testToRealIntNegativeCallsConvertToAssets() public {
-        int256 shares = -10e18;
+    function testToRealIntNegativeCallsConvertToShares() public {
+        int256 nom = -10e18;
         vm.expectCall(
             vault,
-            abi.encodeCall(IERC4626(vault).convertToAssets, (uint256(-shares)))
+            abi.encodeCall(IERC4626(vault).convertToShares, (uint256(-nom)))
         );
-        adj.toReal(vault, shares, true);
+        adj.toReal(vault, nom, true);
     }
 
     function testRevertToRealIntAssetMismatch() public {
-        int256 shares = 10e18;
+        int256 nom = 10e18;
         vm.expectRevert(
             abi.encodeWithSelector(
                 E4626ViewAdjustor.AssetMismatch.selector,
@@ -193,6 +186,6 @@ contract E4626ViewAdjustorTest is Test {
                 asset
             )
         );
-        adj.toReal(mysteryVault, shares, true);
+        adj.toReal(mysteryVault, nom, true);
     }
 }
