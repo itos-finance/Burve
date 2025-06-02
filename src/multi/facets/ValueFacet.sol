@@ -225,6 +225,9 @@ contract ValueFacet is ReentrancyGuardTransient {
         int256[] memory deltas = new int256[](n);
         uint8 idx = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!cid.contains(i)) continue;
+            // We always need real tokens there for balance checks.
+            tokens[idx] = tokenReg.tokens[i];
             if (collectedShares[i] > 0) {
                 VertexId vid = VertexLib.newId(i);
                 // Real amounts.
@@ -232,7 +235,6 @@ contract ValueFacet is ReentrancyGuardTransient {
                     vid,
                     collectedShares[i]
                 );
-                tokens[idx] = tokenReg.tokens[i];
                 deltas[idx] = -SafeCast.toInt256(collectedBalances[i]);
             }
             ++idx;
