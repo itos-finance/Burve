@@ -19,6 +19,9 @@ struct Vertex {
 using VertexImpl for Vertex global;
 
 library VertexImpl {
+    /// Minimum balance difference for a trim.
+    uint256 public constant MIN_TRIM = 10;
+
     /// Thrown when a vertex is locked so it cannot accept more deposits, or swaps out.
     error VertexLocked(VertexId vid);
     /// Emitted when the pool is holding insufficient balance for a token.
@@ -73,6 +76,11 @@ library VertexImpl {
             return (0, 0);
         }
         uint256 residualReal = realBalance - targetReal;
+        // We don't compound when the residual is small as rounding will inflate reserve share balances.
+        if (residualReal < MIN_TRIM) {
+            return (0, 0);
+        }
+
         vProxy.withdraw(cid, residualReal);
         bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
         reserveSharesEarned = ReserveLib.deposit(

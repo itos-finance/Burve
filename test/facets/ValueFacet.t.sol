@@ -435,6 +435,7 @@ contract ValueFacetTest is MultiSetupTest {
         MockERC20(tokens[1]).mint(address(vaults[1]), 1e12);
         (, , earnings, bgtEarnings) = valueFacet.queryValue(address(this), 0xA);
         assertEq(bgtEarnings, 0);
+        assertGt(earnings[1], 0);
         earnings1 = earnings[1];
 
         vm.startPrank(owner);
