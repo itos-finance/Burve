@@ -66,10 +66,11 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory adminSelectors = new bytes4[](3);
+            bytes4[] memory adminSelectors = new bytes4[](4);
             adminSelectors[0] = BaseAdminFacet.transferOwnership.selector;
-            adminSelectors[1] = BaseAdminFacet.owner.selector;
-            adminSelectors[2] = BaseAdminFacet.adminRights.selector;
+            adminSelectors[1] = BaseAdminFacet.acceptOwnership.selector;
+            adminSelectors[2] = BaseAdminFacet.owner.selector;
+            adminSelectors[3] = BaseAdminFacet.adminRights.selector;
             cuts[2] = FacetCut({
                 facetAddress: address(new BaseAdminFacet()),
                 action: FacetCutAction.Add,
