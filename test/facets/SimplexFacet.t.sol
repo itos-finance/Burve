@@ -837,8 +837,8 @@ contract SimplexFacetTest is MultiSetupTest {
         uint16 closureId = 0x7;
 
         // overwrite closure in storage
-        uint256 _baseFeeX128 = 1;
-        uint256 _protocolTakeX128 = 2;
+        uint128 _baseFeeX128 = 1;
+        uint128 _protocolTakeX128 = 2;
         uint256[MAX_TOKENS] memory _earningsPerValueX128;
         uint256 _bgtPerBgtValueX128 = 3;
         uint256[MAX_TOKENS] memory _unexchangedPerBgtValueX128;

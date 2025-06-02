@@ -18,11 +18,7 @@ import {UnsafeMath} from "Commons/Math/UnsafeMath.sol";
 struct Closure {
     ClosureId cid; // Indicates our token set.
     uint8 n; // number of tokens in this closure
-    /* Edge info */
     uint256 targetX128; // targetValue of a single token. n * target is the total value.
-    uint256 baseFeeX128; // Fees charge per swap for this closure.
-    /* Earnings info */
-    uint256 protocolTakeX128; // Protocol's rev share of fees earned.
     /* Current asset holdings */
     uint256[MAX_TOKENS] balances; // The balances we need for swapping in this closure.
     uint256 valueStaked; // The total amount of value tokens currently earning in this closure. <= n * target.
@@ -32,6 +28,9 @@ struct Closure {
     uint256[MAX_TOKENS] earningsPerValueX128; // The earnings checkpoint for a single non-bgt value token.
     uint256 bgtPerBgtValueX128; // BGT earnings checkpoint for bgt value tokens.
     uint256[MAX_TOKENS] unexchangedPerBgtValueX128; // Backup for when exchanges are unavailable.
+    // Fees, removed in final version.
+    uint128 baseFeeX128;
+    uint128 protocolTakeX128;
 }
 
 /// In-memory helper struct for saving stack space when iterating when modifying value from a single token.
@@ -94,8 +93,8 @@ library ClosureImpl {
         Closure storage self,
         ClosureId cid,
         uint256 target,
-        uint256 baseFeeX128,
-        uint256 protocolTakeX128
+        uint128 baseFeeX128,
+        uint128 protocolTakeX128
     ) internal returns (uint256[MAX_TOKENS] storage balancesNeeded) {
         self.cid = cid;
         self.targetX128 = target << 128;
@@ -124,8 +123,7 @@ library ClosureImpl {
     /// @return requiredBalances The amount of each token (in nominal terms) that we need to
     function addValue(
         Closure storage self,
-        uint256 value,
-        uint256 bgtValue
+        uint256 value
     ) internal returns (uint256[MAX_TOKENS] memory requiredBalances) {
         trimAllBalances(self);
         // Round up so they add dust.
@@ -142,8 +140,6 @@ library ClosureImpl {
             valueX128 /
             self.n +
             ((valueX128 % self.n) > 0 ? 1 : 0);
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
         // Value is handled. Now handle balances.
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!self.cid.contains(i)) continue;
@@ -153,20 +149,19 @@ library ClosureImpl {
                 true
             );
             // This happens after because the vault will have
-            self.setBalance(i, self.balances[i] + requiredBalances[i]);
+            self.balances[i] += requiredBalances[i];
         }
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
     /// Add value to a closure by adding to a single token in the closure.
     /// @return requiredAmount The total amount required from the user.
-    /// @return tax The amount paid as fees.
+    /// @return nominalTax The amount paid as fees.
     function addValueSingle(
         Closure storage self,
         uint256 value,
-        uint256 bgtValue,
         VertexId vid
-    ) internal returns (uint256 requiredAmount, uint256 tax) {
+    ) internal returns (uint256 requiredAmount, uint256 nominalTax) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         // We still need to trim all balances here because value is changing.
         trimAllBalances(self);
@@ -211,19 +206,17 @@ library ClosureImpl {
                 true
             );
         }
+        self.balances[valIter.vIdx] = finalAmount;
         {
             uint256 untaxedRequired = finalAmount - fairVBalance;
-            self.setBalance(valIter.vIdx, finalAmount);
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
             uint256 taxedRequired = UnsafeMath.divRoundingUp(
                 untaxedRequired << 128,
-                ONEX128 - self.baseFeeX128
+                ONEX128 - taxRateX128
             );
-            tax = taxedRequired - untaxedRequired;
+            nominalTax = taxedRequired - untaxedRequired;
             requiredAmount += taxedRequired;
         }
-        // This needs to happen after any fee earnings.
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -233,8 +226,7 @@ library ClosureImpl {
     /// @return withdrawnBalances The amount of each token (in nominal terms) that the remove takes out of the pool
     function removeValue(
         Closure storage self,
-        uint256 value,
-        uint256 bgtValue
+        uint256 value
     ) internal returns (uint256[MAX_TOKENS] memory withdrawnBalances) {
         trimAllBalances(self);
         // Round down to leave dust.
@@ -246,8 +238,6 @@ library ClosureImpl {
         uint256 valueX128 = value << 128;
         // We round down here to like addValue we keep more target value in the pool.
         self.targetX128 -= valueX128 / self.n;
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
         // Value is handled. Now handle balances.
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
             if (!self.cid.contains(i)) continue;
@@ -256,20 +246,19 @@ library ClosureImpl {
                 self.balances[i],
                 false
             );
-            self.setBalance(i, self.balances[i] - withdrawnBalances[i]);
+            self.balances[i] -= withdrawnBalances[i];
             emit NewClosureBalances(self.cid, self.targetX128, self.balances);
         }
     }
 
     /// Remove value from a closure through a single token.
-    /// @return removedAmount The total amount to removed from the vertex.
-    /// @return tax The amount of remove that is for the tax.
+    /// @return removedAmount The total amount to remove from the vertex.
+    /// @return nominalTax The amount of remove that is for the tax.
     function removeValueSingle(
         Closure storage self,
         uint256 value,
-        uint256 bgtValue,
         VertexId vid
-    ) internal returns (uint256 removedAmount, uint256 tax) {
+    ) internal returns (uint256 removedAmount, uint256 nominalTax) {
         require(!isAnyLocked(self), CannotRemoveWithLockedVertex(self.cid));
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
@@ -312,12 +301,12 @@ library ClosureImpl {
             true
         );
         uint256 untaxedRemove = fairVBalance - finalAmount;
-        self.setBalance(valIter.vIdx, finalAmount);
-        tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, true);
+        self.balances[valIter.vIdx] = finalAmount;
+        {
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
+            nominalTax = FullMath.mulX128(untaxedRemove, taxRateX128, true);
+        }
         removedAmount += untaxedRemove;
-        // This needs to happen last.
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -326,21 +315,24 @@ library ClosureImpl {
         Closure storage self,
         VertexId vid,
         uint256 amount,
-        uint256 bgtPercentX256,
         SearchParams memory searchParams
-    ) internal returns (uint256 value, uint256 bgtValue, uint256 tax) {
+    ) internal returns (uint256 value, uint256 nominalTax) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
         uint8 idx = vid.idx();
-        // For simplicity, we tax the entire amount in first. This overcharges slightly but an exact solution
-        // would overcomplicate the contract and any approximation is game-able.
-        tax = FullMath.mulX128(amount, self.baseFeeX128, true);
-        amount -= tax;
-        // Use the ValueLib's newton's method to solve for the value added and update target.
+        {
+            // For simplicity, we tax the entire amount in first. This overcharges slightly but an exact solution
+            // would overcomplicate the contract and any approximation is game-able.
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
+            nominalTax = FullMath.mulX128(amount, taxRateX128, true);
+            amount -= nominalTax;
+            // Use the ValueLib's newton's method to solve for the value added and update target.
+            // So we up the balance first for the ValueLib call, then set the new target before validating balances.
+            self.balances[idx] += amount;
+        }
+
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        // This is tricky. We up the balance first for the ValueLib call, then set to do the checks.
-        // We need to set the new target before we can setBalance, but we need up to balance to calc new target.
-        self.balances[idx] += amount;
+
         uint256 newTargetX128;
         {
             (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
@@ -354,12 +346,7 @@ library ClosureImpl {
         }
         // The pool is now entirely correct by just updating the target and value balances.
         value = ((newTargetX128 - self.targetX128) * self.n) >> 128; // Round down received value balance.
-        bgtValue = FullMath.mulX256(value, bgtPercentX256, true); // Round up to handle the 0% and 100% case exactly.
         self.targetX128 = newTargetX128;
-        // Now that we set the new target we can set balance to check validity.
-        self.setBalance(idx, self.balances[idx]);
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -368,23 +355,25 @@ library ClosureImpl {
         Closure storage self,
         VertexId vid,
         uint256 amount,
-        uint256 bgtPercentX256,
         SearchParams memory searchParams
-    ) internal returns (uint256 value, uint256 bgtValue, uint256 tax) {
+    ) internal returns (uint256 value, uint256 nominalTax) {
         require(!isAnyLocked(self), CannotRemoveWithLockedVertex(self.cid));
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
         uint8 idx = vid.idx();
-        // We tax first so the amount which moves up the value they're paying.
-        uint256 taxedRemove = UnsafeMath.divRoundingUp(
-            amount << 128,
-            ONEX128 - self.baseFeeX128
-        );
-        tax = taxedRemove - amount;
-        // Use the ValueLib's newton's method to solve for the value removed and update target.
+        // We tax first the amount removed so the value they're paying is taxed.
+        {
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
+            uint256 taxedRemove = UnsafeMath.divRoundingUp(
+                amount << 128,
+                ONEX128 - taxRateX128
+            );
+            nominalTax = taxedRemove - amount;
+            // Use the ValueLib's newton's method to solve for the value removed and update target.
+            // We update the balance first, see addTokenForValue for reason.
+            self.balances[idx] -= taxedRemove;
+        }
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        // This is tricky and strange, but see addTokenForValue for reason.
-        self.balances[idx] -= taxedRemove;
         uint256 newTargetX128;
         {
             (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
@@ -400,11 +389,7 @@ library ClosureImpl {
         uint256 valueX128 = ((self.targetX128 - newTargetX128) * self.n);
         value = valueX128 >> 128;
         if ((value << 128) > 0) value += 1; // We need to round up.
-        bgtValue = FullMath.mulX256(value, bgtPercentX256, true); // Round up to handle the 0% and 100% case exactly.
         self.targetX128 = newTargetX128;
-        self.setBalance(idx, self.balances[idx]);
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -417,7 +402,11 @@ library ClosureImpl {
         uint256 inAmount
     )
         internal
-        returns (uint256 outAmount, uint256 tax, uint256 valueExchangedX128)
+        returns (
+            uint256 outAmount,
+            uint256 nominalTax,
+            uint256 valueExchangedX128
+        )
     {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
@@ -426,10 +415,13 @@ library ClosureImpl {
         // The value in this pool won't change.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
-        uint8 inIdx = inVid.idx();
-        tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
-        inAmount -= tax;
+        {
+            uint128 taxRateX128 = self.baseFeeX128;
+            nominalTax = FullMath.mulX128(inAmount, taxRateX128, true);
+            inAmount -= nominalTax;
+        }
         // Calculate the value added by the in token.
+        uint8 inIdx = inVid.idx();
         valueExchangedX128 =
             ValueLib.v(
                 self.targetX128,
@@ -443,7 +435,7 @@ library ClosureImpl {
                 self.balances[inIdx],
                 true
             );
-        self.setBalance(inIdx, self.balances[inIdx] + inAmount);
+        self.balances[inIdx] += inAmount;
         uint8 outIdx = outVid.idx();
         // To round down the out amount, we want to remove value at lower values on the curve.
         // But we want to round up the newOutBalance which means we want a higher newOutValue.
@@ -469,7 +461,7 @@ library ClosureImpl {
             true
         );
         outAmount = self.balances[outIdx] - newOutBalance;
-        self.setBalance(outIdx, newOutBalance);
+        self.balances[outIdx] = newOutBalance;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -482,7 +474,11 @@ library ClosureImpl {
         uint256 outAmount
     )
         internal
-        returns (uint256 inAmount, uint256 tax, uint256 valueExchangedX128)
+        returns (
+            uint256 inAmount,
+            uint256 nominalTax,
+            uint256 valueExchangedX128
+        )
     {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
@@ -513,7 +509,7 @@ library ClosureImpl {
                 self.balances[outIdx] - outAmount,
                 false
             );
-        self.setBalance(outIdx, self.balances[outIdx] - outAmount);
+        self.balances[outIdx] -= outAmount;
         // To round up the in amount, we want to add value at higher values on the curve.
         // But we want to round down the newInBalance which means we want a lower newInValue.
         // Ultimately these are both valid and both negligible, so it doesn't matter.
@@ -531,13 +527,14 @@ library ClosureImpl {
             false
         );
         uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
-        self.setBalance(inIdx, newInBalance);
+        self.balances[inIdx] = newInBalance;
+        uint128 taxRateX128 = self.baseFeeX128;
         // Finally we tax the in amount.
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
-            ONEX128 - self.baseFeeX128
+            ONEX128 - taxRateX128
         );
-        tax = inAmount - untaxedInAmount;
+        nominalTax = inAmount - untaxedInAmount;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -600,8 +597,11 @@ library ClosureImpl {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
         uint8 inIdx = inVid.idx();
-        uint256 tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
-        inAmount -= tax;
+        {
+            uint128 taxRateX128 = self.baseFeeX128;
+            uint256 tax = FullMath.mulX128(inAmount, taxRateX128, true);
+            inAmount -= tax;
+        }
         // Calculate the value added by the in token.
         valueExchangedX128 =
             ValueLib.v(
@@ -680,9 +680,10 @@ library ClosureImpl {
         );
         uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
         // Finally we tax the in amount.
+        uint128 taxRateX128 = self.baseFeeX128;
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
-            ONEX128 - self.baseFeeX128
+            ONEX128 - taxRateX128
         );
     }
 
@@ -705,13 +706,36 @@ library ClosureImpl {
         );
     }
 
-    /// Add REAL fees collected for a given token. Can't be more than 2**128.
-    /// Called by higher level operations that actually collect balances after swaps and value changes.
+    /// Called at the end of any of the above operations to settle fees and value changes.
+    /// @dev This assumes we've already received the necessary tokens on contract.
+    function finalize(
+        Closure storage self,
+        VertexId earnedVid,
+        uint256 realEarnings,
+        int256 valueChange,
+        int256 bgtValueChange
+    ) internal {
+        validateBalances(self);
+        if (realEarnings > 0) addEarnings(self, earnedVid, realEarnings);
+        if (valueChange > 0) {
+            self.valueStaked += uint256(valueChange);
+            self.bgtValueStaked += uint256(bgtValueChange);
+        } else {
+            self.valueStaked -= uint256(-valueChange);
+            self.bgtValueStaked -= uint256(-bgtValueChange);
+        }
+    }
+
+    /* Helpers */
+
+    /// Add real fees collected for a given token.
+    /// @dev Can't be more than 2**128.
+    /// @dev Called by other operations that actually collect balances after swaps and value changes.
     function addEarnings(
         Closure storage self,
         VertexId vid,
         uint256 earnings
-    ) internal {
+    ) private {
         uint8 idx = vid.idx();
         // Round protocol take down.
         uint256 protocolAmount = FullMath.mulX128(
@@ -749,8 +773,6 @@ library ClosureImpl {
             (self.valueStaked - self.bgtValueStaked);
         // Denom is non-zero because all pools start with non-zero non-bgt value.
     }
-
-    /* Helpers */
 
     /// Update the bgt earnings with the current staking balances.
     /// Called before any value changes, swaps, or fee collections.
@@ -856,34 +878,34 @@ library ClosureImpl {
         }
     }
 
-    /// When we update the balance, we want to double check it stays within bounds.
-    function setBalance(
-        Closure storage self,
-        uint8 idx,
-        uint256 newBalance
-    ) internal {
-        // We make sure the balance is above the minimum according to the efficiency factor
-        // which guarantees the value will be positive.
-        // And also the balance does not go above twice the target, so we limit our exposure to any given token.
-        uint256 minX = FullMath.mulX256(
-            Store.simplex().minXPerTX128[idx],
-            self.targetX128,
-            true
-        );
-        uint256 twiceTarget = self.targetX128 >> 127;
-        if (
-            newBalance < minX ||
-            twiceTarget < newBalance ||
-            HARD_BALANCE_CAP < newBalance
-        )
-            revert TokenBalanceOutOfBounds(
-                self.cid,
-                idx,
-                newBalance,
-                minX,
-                twiceTarget < HARD_BALANCE_CAP ? twiceTarget : HARD_BALANCE_CAP
-            );
-        self.balances[idx] = newBalance;
+    /// After updating balances, we want to double check they're within bounds.
+    function validateBalances(Closure storage self) private view {
+        uint256[MAX_TOKENS] memory minXsPerTX128 = Store.simplex().minXPerTX128;
+
+        for (
+            VertexId vIter = VertexLib.minId();
+            !vIter.isStop();
+            vIter = vIter.inc()
+        ) {
+            if (self.cid.contains(vIter)) {
+                uint8 i = vIter.idx();
+                uint256 minX = FullMath.mulX256(
+                    minXsPerTX128[i],
+                    self.targetX128,
+                    true
+                );
+                uint256 maxX = self.targetX128 >> 127;
+                if (maxX > HARD_BALANCE_CAP) maxX = HARD_BALANCE_CAP;
+                if (self.balances[i] < minX || self.balances[i] > maxX)
+                    revert TokenBalanceOutOfBounds(
+                        self.cid,
+                        i,
+                        self.balances[i],
+                        minX,
+                        maxX
+                    );
+            }
+        }
     }
 
     /// Helper method to save stack depth when calculating single value changes.
@@ -926,7 +948,7 @@ library ClosureImpl {
     /// Check if any of the tokens in this closure are locked.
     function isAnyLocked(
         Closure storage self
-    ) internal returns (bool isLocked) {
+    ) internal view returns (bool isLocked) {
         for (
             VertexId vIter = VertexLib.minId();
             !vIter.isStop();
@@ -937,5 +959,28 @@ library ClosureImpl {
             }
         }
         return false;
+    }
+
+    /// When operating on the entire closure, if we need to pay any taxes
+    /// we need to pay them at half the max tax rate among our edges for a given vertex.
+    function getClosureFeeRateX128(
+        Closure storage self,
+        VertexId inVid
+    ) private view returns (uint128 taxRateX128) {
+        for (
+            VertexId vIter = VertexLib.minId();
+            !vIter.isStop();
+            vIter = vIter.inc()
+        ) {
+            // No self edge.
+            if (vIter.isEq(inVid)) continue;
+
+            if (self.cid.contains(vIter)) {
+                uint128 edgeTaxRateX128 = self.baseFeeX128;
+                if (edgeTaxRateX128 > taxRateX128)
+                    taxRateX128 = edgeTaxRateX128;
+            }
+        }
+        taxRateX128 /= 2; // Round down.
     }
 }

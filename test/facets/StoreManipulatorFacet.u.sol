@@ -28,8 +28,8 @@ contract StoreManipulatorFacet {
 
     function setClosureFees(
         uint16 closureId,
-        uint256 baseFeeX128,
-        uint256 protocolTakeX128,
+        uint128 baseFeeX128,
+        uint128 protocolTakeX128,
         uint256[MAX_TOKENS] memory earningsPerValueX128,
         uint256 bgtPerBgtValueX128,
         uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
