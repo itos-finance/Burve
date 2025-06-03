@@ -9,4 +9,8 @@ contract NoopVault is ERC4626 {
         string memory name,
         string memory symbol
     ) ERC20(name, symbol) ERC4626(asset) {}
+
+    function _decimalsOffset() internal view override returns (uint8) {
+        return 2;
+    }
 }
