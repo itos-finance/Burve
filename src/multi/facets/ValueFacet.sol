@@ -519,7 +519,7 @@ contract QueryValueFacet {
         );
         uint256 nonValue = value - bgtValue;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (earnings[i] > 0) {
+            if (cid.contains(i)) {
                 VertexId vid = VertexLib.newId(i);
                 earnings[i] = ReserveLib.query(vid, earnings[i]);
                 earnings[i] += FullMath.mulX128(

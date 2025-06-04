@@ -137,6 +137,7 @@ library VaultE4626Impl {
         uint256 newShares = totalAssets == 0
             ? discountedAmount
             : FullMath.mulDiv(self.totalShares, discountedAmount, totalAssets);
+        // New shares round down, leaving some dust.
         self.shares[cid] += newShares;
         self.totalShares += newShares;
         temp.vars[1] += amount;
@@ -162,7 +163,7 @@ library VaultE4626Impl {
             self.totalShares,
             amount,
             totalAssets
-        ); // Rounds down, leaves some share dust in the vault.
+        ); // Rounds down so someone can't repeatedly remove 1 wei and 1 share and inflate value of remaining shares.
         self.shares[cid] -= sharesToRemove;
         self.totalShares -= sharesToRemove;
         temp.vars[2] += amount;
