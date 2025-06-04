@@ -237,18 +237,12 @@ contract SimplexDiamond is IDiamond {
         }
 
         {
-            bytes4[] memory selectors = new bytes4[](11);
-            selectors[0] = ValueTokenFacet.name.selector;
-            selectors[1] = ValueTokenFacet.symbol.selector;
-            selectors[2] = ERC20.decimals.selector;
-            selectors[3] = ERC20.totalSupply.selector;
-            selectors[4] = ERC20.balanceOf.selector;
-            selectors[5] = ERC20.transfer.selector;
-            selectors[6] = ERC20.allowance.selector;
-            selectors[7] = ERC20.approve.selector;
-            selectors[8] = ERC20.transferFrom.selector;
-            selectors[9] = ValueTokenFacet.mint.selector;
-            selectors[10] = ValueTokenFacet.burn.selector;
+            bytes4[] memory selectors = new bytes4[](5);
+            selectors[0] = ValueTokenFacet.balanceOf.selector;
+            selectors[1] = ValueTokenFacet.transfer.selector;
+            selectors[2] = ValueTokenFacet.allowance.selector;
+            selectors[3] = ValueTokenFacet.approve.selector;
+            selectors[4] = ValueTokenFacet.transferFrom.selector;
 
             cuts[14] = IDiamond.FacetCut({
                 facetAddress: facets.valueTokenFacet,

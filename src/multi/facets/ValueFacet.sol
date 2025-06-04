@@ -140,6 +140,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
+        // The remove value ensures we trim before we remove.
         Store.assets().remove(msg.sender, cid, value, bgtValue);
         c.finalize(
             VertexId.wrap(0),
@@ -323,6 +324,7 @@ contract ValueSingleFacet is ReentrancyGuardTransient {
             value,
             vid
         );
+        // The remove value ensures we trim before we remove.
         Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
         Store.vertex(vid).withdraw(cid, realRemoved, false);

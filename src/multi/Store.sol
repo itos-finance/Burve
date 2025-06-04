@@ -11,6 +11,7 @@ import {VertexId} from "./vertex/Id.sol";
 import {TokenRegistry} from "./Token.sol";
 import {Simplex} from "./Simplex.sol";
 import {Locker} from "./facets/LockFacet.sol";
+import {ValueAllowances} from "./facets/ValueTokenFacet.sol";
 import {IAdjustor} from "../integrations/adjustor/IAdjustor.sol";
 
 struct Storage {
@@ -20,6 +21,7 @@ struct Storage {
     Simplex simplex;
     Locker _locker;
     Reserve _reserve;
+    ValueAllowances _valueAllowances;
     // Graph elements
     mapping(ClosureId => Closure) closures;
     mapping(VertexId => Vertex) vertices;
@@ -88,5 +90,13 @@ library Store {
 
     function reserve() internal view returns (Reserve storage r) {
         return load()._reserve;
+    }
+
+    function valueAllowances()
+        internal
+        view
+        returns (ValueAllowances storage va)
+    {
+        return load()._valueAllowances;
     }
 }

@@ -2,36 +2,128 @@
 pragma solidity ^0.8.27;
 
 import {Store} from "../Store.sol";
-import {Closure} from "../closure/Closure.sol";
+import {Asset} from "../Asset.sol";
 import {ClosureId} from "../closure/Id.sol";
-import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+
+struct ValueAllowances {
+    mapping(uint16 => mapping(address => mapping(address => uint256))) _allowances;
+    mapping(uint16 => mapping(address => mapping(address => uint256))) _bgtAllowances;
+}
 
 /// An ERC20 interface for the Value token which is mint and burned by unstaking/staking value.
-contract ValueTokenFacet is ERC20 {
-    /// BGT earning value must be less than overall value when staking or unstaking.
-    error InsufficientValueForBgt(uint256 value, uint256 bgtValue);
+contract ValueTokenFacet {
+    /// Thrown when trying to spend more value than allowed by the owner.
+    error InsufficientValueAllowance(
+        address owner,
+        address spender,
+        uint16 _cid,
+        uint256 valueAllowance,
+        uint256 value
+    );
+    /// Thrown when trying to spend more bgt value than allowed by the owner.
+    error InsufficientBgtValueAllowance(
+        address owner,
+        address spender,
+        uint16 _cid,
+        uint256 bgtValueAllowance,
+        uint256 bgtValue
+    );
 
-    constructor() ERC20("", "") {}
-
-    function mint(uint256 value, uint256 bgtValue, uint16 _cid) external {
-        require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
+    function balanceOf(
+        address account,
+        uint16 _cid
+    ) public view returns (uint256 value, uint256 bgtValue) {
         ClosureId cid = ClosureId.wrap(_cid);
-        Closure storage c = Store.closure(cid); // Validates cid.
-        c.unstakeValue(value, bgtValue);
+        Asset storage a = Store.assets().assets[account][cid];
+        value = a.value;
+        bgtValue = a.bgtValue;
+    }
+
+    function transfer(
+        address receipient,
+        uint16 _cid,
+        uint256 value,
+        uint256 bgtValue
+    ) external {
+        ClosureId cid = ClosureId.wrap(_cid);
+        Store.closure(cid).trimAllBalances();
         Store.assets().remove(msg.sender, cid, value, bgtValue);
-        _mint(msg.sender, value);
+        Store.assets().add(receipient, cid, value, bgtValue);
     }
 
-    function burn(uint256 value, uint256 bgtValue, uint16 _cid) external {
-        require(bgtValue <= value, InsufficientValueForBgt(value, bgtValue));
-        _burn(msg.sender, value);
+    function allowance(
+        address owner,
+        address spender,
+        uint16 _cid
+    ) public view returns (uint256 valueAllowance, uint256 bgtAllowance) {
+        ValueAllowances storage allowances = Store.valueAllowances();
+        valueAllowance = allowances._allowances[_cid][owner][spender];
+        bgtAllowance = allowances._bgtAllowances[_cid][owner][spender];
+    }
+
+    function approve(
+        address spender,
+        uint16 _cid,
+        uint256 value,
+        uint256 bgtValue
+    ) public returns (bool) {
+        ValueAllowances storage allowances = Store.valueAllowances();
+        allowances._allowances[_cid][msg.sender][spender] = value;
+        allowances._bgtAllowances[_cid][msg.sender][spender] = bgtValue;
+        return true;
+    }
+
+    function transferFrom(
+        address owner,
+        address recipient,
+        uint16 _cid,
+        uint256 value,
+        uint256 bgtValue
+    ) public returns (bool) {
+        address spender = msg.sender;
+        ValueAllowances storage allowances = Store.valueAllowances();
+        {
+            // Deduct value allowance.
+            uint256 valueAllowance = allowances._allowances[_cid][owner][
+                spender
+            ];
+            if (valueAllowance < value) {
+                revert InsufficientValueAllowance(
+                    owner,
+                    spender,
+                    _cid,
+                    valueAllowance,
+                    value
+                );
+            } else if (valueAllowance < type(uint256).max) {
+                allowances._allowances[_cid][owner][spender] -= value;
+            }
+        }
+        {
+            uint256 bgtAllowance = allowances._bgtAllowances[_cid][owner][
+                spender
+            ];
+            if (bgtAllowance < bgtValue) {
+                revert InsufficientBgtValueAllowance(
+                    owner,
+                    spender,
+                    _cid,
+                    bgtAllowance,
+                    bgtValue
+                );
+            } else if (bgtAllowance < type(uint256).max) {
+                allowances._bgtAllowances[_cid][owner][spender] -= bgtValue;
+            }
+        }
         ClosureId cid = ClosureId.wrap(_cid);
-        Closure storage c = Store.closure(cid); // Validates cid.
-        c.stakeValue(value, bgtValue);
-        Store.assets().add(msg.sender, cid, value, bgtValue);
+        Store.closure(cid).trimAllBalances();
+        Store.assets().remove(owner, cid, value, bgtValue);
+        Store.assets().add(recipient, cid, value, bgtValue);
+        return true;
     }
 
-    /* Override base contract */
+    /* If we include more ERC20 features in the future. */
+    /*
     function name() public view override returns (string memory) {
         string memory _name = Store.simplex().name;
         return string.concat("brv", _name);
@@ -41,4 +133,5 @@ contract ValueTokenFacet is ERC20 {
         string memory _symbol = Store.simplex().symbol;
         return string.concat("brv", _symbol);
     }
+    */
 }
