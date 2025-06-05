@@ -202,6 +202,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint16 closureId
     )
         external
+        nonReentrant
         returns (
             uint256[MAX_TOKENS] memory collectedBalances,
             uint256 collectedBgt

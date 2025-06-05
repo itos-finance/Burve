@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import {Store} from "../Store.sol";
 import {Asset} from "../Asset.sol";
 import {ClosureId} from "../closure/Id.sol";
+import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 
 struct ValueAllowances {
     mapping(uint16 => mapping(address => mapping(address => uint256))) _allowances;
@@ -11,7 +12,7 @@ struct ValueAllowances {
 }
 
 /// An ERC20 interface for the Value token which is mint and burned by unstaking/staking value.
-contract ValueTokenFacet {
+contract ValueTokenFacet is ReentrancyGuardTransient {
     /// Thrown when trying to spend more value than allowed by the owner.
     error InsufficientValueAllowance(
         address owner,
@@ -44,11 +45,12 @@ contract ValueTokenFacet {
         uint16 _cid,
         uint256 value,
         uint256 bgtValue
-    ) external {
+    ) external nonReentrant returns (bool) {
         ClosureId cid = ClosureId.wrap(_cid);
         Store.closure(cid).trimAllBalances();
         Store.assets().remove(msg.sender, cid, value, bgtValue);
         Store.assets().add(receipient, cid, value, bgtValue);
+        return true;
     }
 
     function allowance(
@@ -79,7 +81,7 @@ contract ValueTokenFacet {
         uint16 _cid,
         uint256 value,
         uint256 bgtValue
-    ) public returns (bool) {
+    ) public nonReentrant returns (bool) {
         address spender = msg.sender;
         ValueAllowances storage allowances = Store.valueAllowances();
         {
