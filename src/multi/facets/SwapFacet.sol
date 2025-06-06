@@ -28,9 +28,17 @@ contract SwapFacet is ReentrancyGuardTransient {
         address indexed outToken,
         uint256 inAmount,
         uint256 outAmount,
-        uint256 valueExchangedX128,
-        uint256 nomFeesPaid
+        uint256 valueExchangedX128
     ); // Real amounts.
+
+    /// Fees earned from a a swap.
+    /// @dev This specifies an edge to attribute the fees to.
+    event SwapFeesEarned(
+        VertexId indexed inVid,
+        VertexId indexed outVid,
+        uint256 nominalFees,
+        uint256 realFees
+    );
 
     /// Thrown when the amount in/out requested by the swap is larger/smaller than acceptable.
     error SlippageSurpassed(
@@ -127,9 +135,11 @@ contract SwapFacet is ReentrancyGuardTransient {
                 address(this),
                 inAmount
             );
-            c.addEarnings(inVid, realTax);
             Store.vertex(inVid).deposit(cid, inAmount - realTax);
             Store.vertex(outVid).withdraw(cid, outAmount, true);
+            // Finalize the closure with no value change.
+            emit SwapFeesEarned(inVid, outVid, nominalTax, realTax);
+            c.finalize(inVid, realTax, 0, 0);
             require(outAmount > 0, VacuousSwap());
             TransferHelper.safeTransfer(outToken, recipient, outAmount);
         }
@@ -141,8 +151,7 @@ contract SwapFacet is ReentrancyGuardTransient {
             outToken,
             inAmount,
             outAmount,
-            valueExchangedX128,
-            nominalTax
+            valueExchangedX128
         );
     }
 
