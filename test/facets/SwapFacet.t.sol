@@ -524,7 +524,7 @@ contract SwapFacetTest is MultiSetupTest {
             0x7
         );
         vm.prank(owner);
-        simplexFacet.setClosureFees(0x7, 1 << 126, 1 << 127); // 1/4, 1/2
+        simplexFacet.setSimplexFees(1 << 126, 1 << 127); // 1/4, 1/2
         (uint256 simFeeIn, uint256 simFeeOut, ) = swapFacet.simSwap(
             tokens[2],
             tokens[1],
@@ -601,7 +601,7 @@ contract SwapFacetTest is MultiSetupTest {
         );
 
         vm.prank(owner);
-        simplexFacet.setDefaultEdgeFeeX128(1 << 124); // 1/16
+        simplexFacet.setSimplexFees(1 << 124, 0); // 1/16
 
         vm.prank(alice);
         (uint256 def0, uint256 def1, ) = swapFacet.simSwap(
@@ -643,12 +643,12 @@ contract SwapFacetTest is MultiSetupTest {
         assertLt(outAmount, def1);
         vm.prank(alice);
         (test0, test1, ) = swapFacet.simSwap(tokens[0], tokens[1], -1e18, 0x7);
-        assertGt(test0, def0);
-        assertEq(test1, def1);
+        assertGt(test0, FullMath.mulDiv(def0, 1e18, def1));
+        assertEq(test1, 1e18);
 
         // Now a change to the default fee won't do anything.
         vm.prank(owner);
-        simplexFacet.setDefaultEdgeFeeX128(1 << 127); // 1/2
+        simplexFacet.setSimplexFees(1 << 127, 0); // 1/2
         vm.prank(alice);
         (test0, test1, ) = swapFacet.simSwap(tokens[0], tokens[1], 1e18, 0x7);
         assertEq(test0, inAmount);

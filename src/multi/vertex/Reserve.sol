@@ -17,7 +17,7 @@ library ReserveLib {
     ClosureId public constant RESERVEID = ClosureId.wrap(0);
     uint8 public constant SHARE_RESOLUTION = 100;
 
-    /// Deposit into the reserve and get shares.
+    /// Deposit into the reserve real amounts and get shares.
     /// @dev We round shares down.
     function deposit(
         VertexId vid,
@@ -28,7 +28,7 @@ library ReserveLib {
         vProxy.commit();
     }
 
-    /// Deposit into the reserve for shares with an existing VaultProxy
+    /// Deposit into the reserve real amounts for shares with an existing VaultProxy
     function deposit(
         VaultProxy memory vProxy,
         VertexId vid,

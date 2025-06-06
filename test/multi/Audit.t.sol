@@ -130,14 +130,15 @@ contract AuditTest is Test {
 
         uint256 oneX128 = 1 << 128;
         uint128 baseFeeX128 = uint128(oneX128 / 1000);
-        simplexFacet.addClosure(1, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(2, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(3, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(4, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(5, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(6, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(7, INITIAL_VALUE, baseFeeX128, 0);
-        simplexFacet.addClosure(15, INITIAL_VALUE, baseFeeX128, 0);
+        simplexFacet.setSimplexFees(baseFeeX128, 0);
+        simplexFacet.addClosure(1, INITIAL_VALUE);
+        simplexFacet.addClosure(2, INITIAL_VALUE);
+        simplexFacet.addClosure(3, INITIAL_VALUE);
+        simplexFacet.addClosure(4, INITIAL_VALUE);
+        simplexFacet.addClosure(5, INITIAL_VALUE);
+        simplexFacet.addClosure(6, INITIAL_VALUE);
+        simplexFacet.addClosure(7, INITIAL_VALUE);
+        simplexFacet.addClosure(15, INITIAL_VALUE);
 
         vm.stopPrank();
     }

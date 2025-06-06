@@ -50,6 +50,7 @@ contract SimplexFacetTest is MultiSetupTest {
         uint128 startingTarget = 2e18;
         uint128 baseFeeX128 = 1e10;
         uint128 protocolTakeX128 = 1e6;
+        simplexFacet.setSimplexFees(baseFeeX128, protocolTakeX128);
 
         // deal owner required tokens and approve transfer
         deal(tokens[0], owner, startingTarget);
@@ -66,12 +67,7 @@ contract SimplexFacetTest is MultiSetupTest {
         );
 
         // add closure
-        simplexFacet.addClosure(
-            0x1,
-            startingTarget,
-            baseFeeX128,
-            protocolTakeX128
-        );
+        simplexFacet.addClosure(0x1, startingTarget);
 
         // check balances
         assertEq(token.balanceOf(owner), balanceOwner - startingTarget);
@@ -124,6 +120,7 @@ contract SimplexFacetTest is MultiSetupTest {
         uint128 startingTarget = 100e24;
         uint128 baseFeeX128 = 1e10;
         uint128 protocolTakeX128 = 1e6;
+        simplexFacet.setSimplexFees(baseFeeX128, protocolTakeX128);
 
         // deal owner required tokens and approve transfer
         // notice usdc has different real requirements due to the result of the adjustor
@@ -149,12 +146,7 @@ contract SimplexFacetTest is MultiSetupTest {
         );
 
         // add closure
-        simplexFacet.addClosure(
-            closureId,
-            startingTarget,
-            baseFeeX128,
-            protocolTakeX128
-        );
+        simplexFacet.addClosure(closureId, startingTarget);
 
         // check balances
         assertEq(token0.balanceOf(owner), balanceOwner0 - 100e24);
@@ -190,14 +182,14 @@ contract SimplexFacetTest is MultiSetupTest {
                 SimplexLib.DEFAULT_INIT_TARGET
             )
         );
-        simplexFacet.addClosure(0x1, 1e6, 1e10, 1e6);
+        simplexFacet.addClosure(0x1, 1e6);
 
         vm.stopPrank();
     }
 
     function testRevertAddClosureNotOwner() public {
         vm.expectRevert(AdminLib.NotOwner.selector);
-        simplexFacet.addClosure(0x1, 1e8, 1e10, 1e6);
+        simplexFacet.addClosure(0x1, 1e8);
     }
 
     // -- addVertex tests ----
@@ -815,9 +807,10 @@ contract SimplexFacetTest is MultiSetupTest {
     // -- closureFees tests ----
 
     function testGetClosureFeesDefault() public view {
+        (uint256 baseFeeX128, uint256 protocolTakeX128) = simplexFacet
+            .getSimplexFees();
+
         (
-            uint256 baseFeeX128,
-            uint256 protocolTakeX128,
             uint256[MAX_TOKENS] memory earningsPerValueX128,
             uint256 bgtPerBgtValueX128,
             uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
@@ -837,8 +830,8 @@ contract SimplexFacetTest is MultiSetupTest {
         uint16 closureId = 0x7;
 
         // overwrite closure in storage
-        uint256 _baseFeeX128 = 1;
-        uint256 _protocolTakeX128 = 2;
+        uint128 _baseFeeX128 = 1;
+        uint128 _protocolTakeX128 = 2;
         uint256[MAX_TOKENS] memory _earningsPerValueX128;
         uint256 _bgtPerBgtValueX128 = 3;
         uint256[MAX_TOKENS] memory _unexchangedPerBgtValueX128;
@@ -857,9 +850,9 @@ contract SimplexFacetTest is MultiSetupTest {
         );
 
         // get closure fees
+        (uint256 baseFeeX128, uint256 protocolTakeX128) = simplexFacet
+            .getSimplexFees();
         (
-            uint256 baseFeeX128,
-            uint256 protocolTakeX128,
             uint256[MAX_TOKENS] memory earningsPerValueX128,
             uint256 bgtPerBgtValueX128,
             uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
@@ -888,13 +881,13 @@ contract SimplexFacetTest is MultiSetupTest {
     function testSetClosureFees() public {
         // set fees
         vm.startPrank(owner);
-        simplexFacet.setClosureFees(0x7, 150, 250);
+        simplexFacet.setSimplexFees(150, 250);
         vm.stopPrank();
 
         // get fees
+        (uint256 baseFeeX128, uint256 protocolTakeX128) = simplexFacet
+            .getSimplexFees();
         (
-            uint256 baseFeeX128,
-            uint256 protocolTakeX128,
             uint256[MAX_TOKENS] memory earningsPerValueX128,
             uint256 bgtPerBgtValueX128,
             uint256[MAX_TOKENS] memory unexchangedPerBgtValueX128
@@ -910,19 +903,8 @@ contract SimplexFacetTest is MultiSetupTest {
         }
     }
 
-    function testRevertSetClosureFeesUninitializedClosure() public {
-        vm.startPrank(owner);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(Store.UninitializedClosure.selector, 0x1999)
-        );
-        simplexFacet.setClosureFees(0x1999, 150, 250);
-
-        vm.stopPrank();
-    }
-
-    function testRevertSetClosureFeesNotOwner() public {
+    function testRevertSetSimplexFeesNotOwner() public {
         vm.expectRevert(AdminLib.NotOwner.selector);
-        simplexFacet.setClosureFees(0x7, 150, 250);
+        simplexFacet.setSimplexFees(150, 250);
     }
 }

@@ -176,6 +176,6 @@ contract DeployBurve is Script {
                 );
             }
         }
-        simplexFacet.addClosure(cid, INITIAL_VALUE, 0, 0);
+        simplexFacet.addClosure(cid, INITIAL_VALUE);
     }
 }

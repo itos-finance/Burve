@@ -76,7 +76,7 @@ contract SimplexTest is Test {
     }
 
     function testGetEsX128Init() public {
-        SimplexLib.init("ValueToken", "BVT", address(0x0));
+        SimplexLib.init("ValueToken", "BVT", address(0x0), 0, 0);
 
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         for (uint256 i = 0; i < MAX_TOKENS; i++) {
@@ -102,7 +102,7 @@ contract SimplexTest is Test {
     }
 
     function testGetEX128Init() public {
-        SimplexLib.init("ValueToken", "BVT", address(0x0));
+        SimplexLib.init("ValueToken", "BVT", address(0x0), 0, 0);
 
         uint256 esX128 = SimplexLib.getEX128(0);
         assertEq(esX128, 10 << 128);
@@ -142,7 +142,7 @@ contract SimplexTest is Test {
 
     function testGetAdjustorInit() public {
         address adjustor = makeAddr("initAdjustor");
-        SimplexLib.init("ValueToken", "BVT", adjustor);
+        SimplexLib.init("ValueToken", "BVT", adjustor, 0, 0);
         assertEq(SimplexLib.getAdjustor(), adjustor);
     }
 
@@ -171,7 +171,7 @@ contract SimplexTest is Test {
     }
 
     function testGetInitTargetInit() public {
-        SimplexLib.init("ValueToken", "BVT", address(0x0));
+        SimplexLib.init("ValueToken", "BVT", address(0x0), 0, 0);
         assertEq(SimplexLib.getInitTarget(), SimplexLib.DEFAULT_INIT_TARGET);
     }
 
@@ -189,7 +189,7 @@ contract SimplexTest is Test {
     // -- searchParam tests ----
 
     function testGetSearchParamsDefault() public {
-        SimplexLib.init("ValueToken", "BVT", address(0x0));
+        SimplexLib.init("ValueToken", "BVT", address(0x0), 0, 0);
 
         SearchParams memory sp = SimplexLib.getSearchParams();
         assertEq(sp.maxIter, 5);

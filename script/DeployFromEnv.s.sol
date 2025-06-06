@@ -132,7 +132,8 @@ contract DeployFromEnv is Script {
                 IMintableERC20(tokens[i]).approve(address(diamond), 1e33);
             }
         }
-        simplexFacet.addClosure(cid, INITIAL_VALUE, 1 << 127, 1 << 127);
+        simplexFacet.addClosure(cid, INITIAL_VALUE);
+        simplexFacet.setSimplexFees(1 << 127, 1 << 127);
     }
 }
 

@@ -89,7 +89,7 @@ library ClosureImpl {
     function init(
         Closure storage self,
         ClosureId cid,
-        uint256 target,
+        uint256 target
     ) internal returns (uint256[MAX_TOKENS] storage balancesNeeded) {
         self.cid = cid;
         self.targetX128 = target << 128;
@@ -206,16 +206,14 @@ library ClosureImpl {
         {
             uint256 untaxedRequired = finalAmount - fairVBalance;
             self.setBalance(valIter.vIdx, finalAmount);
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
             uint256 taxedRequired = UnsafeMath.divRoundingUp(
                 untaxedRequired << 128,
-                ONEX128 - self.baseFeeX128
+                ONEX128 - taxRateX128
             );
             tax = taxedRequired - untaxedRequired;
             requiredAmount += taxedRequired;
         }
-        // This needs to happen after any fee earnings.
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -254,7 +252,7 @@ library ClosureImpl {
     }
 
     /// Remove value from a closure through a single token.
-    /// @return removedAmount The total amount to removed from the vertex.
+    /// @return removedAmount The total amount to remove from the vertex.
     /// @return tax The amount of remove that is for the tax.
     function removeValueSingle(
         Closure storage self,
@@ -305,7 +303,10 @@ library ClosureImpl {
         );
         uint256 untaxedRemove = fairVBalance - finalAmount;
         self.setBalance(valIter.vIdx, finalAmount);
-        tax = FullMath.mulX128(untaxedRemove, self.baseFeeX128, true);
+        {
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
+            tax = FullMath.mulX128(untaxedRemove, taxRateX128, true);
+        }
         removedAmount += untaxedRemove;
         // This needs to happen last.
         self.valueStaked -= value;
@@ -320,19 +321,23 @@ library ClosureImpl {
         uint256 amount,
         uint256 bgtPercentX256,
         SearchParams memory searchParams
-    ) internal returns (uint256 value, uint256 bgtValue, uint256 tax) {
+    ) internal returns (uint256 value, uint256 bgtValue, uint256 nominalTax) {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
         uint8 idx = vid.idx();
-        // For simplicity, we tax the entire amount in first. This overcharges slightly but an exact solution
-        // would overcomplicate the contract and any approximation is game-able.
-        tax = FullMath.mulX128(amount, self.baseFeeX128, true);
-        amount -= tax;
-        // Use the ValueLib's newton's method to solve for the value added and update target.
+        {
+            // For simplicity, we tax the entire amount in first. This overcharges slightly but an exact solution
+            // would overcomplicate the contract and any approximation is game-able.
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
+            nominalTax = FullMath.mulX128(amount, taxRateX128, true);
+            amount -= nominalTax;
+            // Use the ValueLib's newton's method to solve for the value added and update target.
+            // So we up the balance first for the ValueLib call, then set the new target before validating balances.
+            self.balances[idx] += amount;
+        }
+
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
-        // This is tricky. We up the balance first for the ValueLib call, then set to do the checks.
-        // We need to set the new target before we can setBalance, but we need up to balance to calc new target.
-        self.balances[idx] += amount;
+
         uint256 newTargetX128;
         {
             (uint256[] memory mesX128, uint256[] memory mxs) = ValueLib
@@ -367,13 +372,19 @@ library ClosureImpl {
         require(self.cid.contains(vid), IrrelevantVertex(self.cid, vid));
         trimAllBalances(self);
         uint8 idx = vid.idx();
-        // We tax first so the amount which moves up the value they're paying.
-        uint256 taxedRemove = UnsafeMath.divRoundingUp(
-            amount << 128,
-            ONEX128 - self.baseFeeX128
-        );
-        tax = taxedRemove - amount;
-        // Use the ValueLib's newton's method to solve for the value removed and update target.
+        // We tax first the amount removed so the value they're paying is taxed.
+        uint256 taxedRemove;
+        {
+            uint128 taxRateX128 = getClosureFeeRateX128(self, vid);
+            taxedRemove = UnsafeMath.divRoundingUp(
+                amount << 128,
+                ONEX128 - taxRateX128
+            );
+            tax = taxedRemove - amount;
+            // Use the ValueLib's newton's method to solve for the value removed and update target.
+            // We update the balance first, see addTokenForValue for reason.
+            self.balances[idx] -= taxedRemove;
+        }
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // This is tricky and strange, but see addTokenForValue for reason.
         self.balances[idx] -= taxedRemove;
@@ -409,7 +420,11 @@ library ClosureImpl {
         uint256 inAmount
     )
         internal
-        returns (uint256 outAmount, uint256 tax, uint256 valueExchangedX128)
+        returns (
+            uint256 outAmount,
+            uint256 nominalTax,
+            uint256 valueExchangedX128
+        )
     {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
@@ -418,10 +433,13 @@ library ClosureImpl {
         // The value in this pool won't change.
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
-        uint8 inIdx = inVid.idx();
-        tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
-        inAmount -= tax;
+        {
+            uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
+            nominalTax = FullMath.mulX128(inAmount, taxRateX128, true);
+            inAmount -= nominalTax;
+        }
         // Calculate the value added by the in token.
+        uint8 inIdx = inVid.idx();
         valueExchangedX128 =
             ValueLib.v(
                 self.targetX128,
@@ -474,7 +492,11 @@ library ClosureImpl {
         uint256 outAmount
     )
         internal
-        returns (uint256 inAmount, uint256 tax, uint256 valueExchangedX128)
+        returns (
+            uint256 inAmount,
+            uint256 nominalTax,
+            uint256 valueExchangedX128
+        )
     {
         require(self.cid.contains(inVid), IrrelevantVertex(self.cid, inVid));
         require(self.cid.contains(outVid), IrrelevantVertex(self.cid, outVid));
@@ -524,12 +546,13 @@ library ClosureImpl {
         );
         uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
         self.setBalance(inIdx, newInBalance);
+        uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
         // Finally we tax the in amount.
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
-            ONEX128 - self.baseFeeX128
+            ONEX128 - taxRateX128
         );
-        tax = inAmount - untaxedInAmount;
+        nominalTax = inAmount - untaxedInAmount;
         emit NewClosureBalances(self.cid, self.targetX128, self.balances);
     }
 
@@ -592,8 +615,11 @@ library ClosureImpl {
         uint256[MAX_TOKENS] storage esX128 = SimplexLib.getEsX128();
         // First tax the in token.
         uint8 inIdx = inVid.idx();
-        uint256 tax = FullMath.mulX128(inAmount, self.baseFeeX128, true);
-        inAmount -= tax;
+        {
+            uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
+            uint256 tax = FullMath.mulX128(inAmount, taxRateX128, true);
+            inAmount -= tax;
+        }
         // Calculate the value added by the in token.
         valueExchangedX128 =
             ValueLib.v(
@@ -672,9 +698,10 @@ library ClosureImpl {
         );
         uint256 untaxedInAmount = newInBalance - self.balances[inIdx];
         // Finally we tax the in amount.
+        uint128 taxRateX128 = SimplexLib.getEdgeFeeX128(inVid, outVid);
         inAmount = UnsafeMath.divRoundingUp(
             untaxedInAmount << 128,
-            ONEX128 - self.baseFeeX128
+            ONEX128 - taxRateX128
         );
     }
 
@@ -697,8 +724,9 @@ library ClosureImpl {
         );
     }
 
-    /// Add REAL fees collected for a given token. Can't be more than 2**128.
-    /// Called by higher level operations that actually collect balances after swaps and value changes.
+    /// Add real fees collected for a given token.
+    /// @dev Can't be more than 2**128.
+    /// @dev Called by other operations that actually collect balances after swaps and value changes.
     function addEarnings(
         Closure storage self,
         VertexId vid,
@@ -708,7 +736,7 @@ library ClosureImpl {
         // Round protocol take down.
         uint256 protocolAmount = FullMath.mulX128(
             earnings,
-            self.protocolTakeX128,
+            SimplexLib.getProtocolTakeX128(),
             false
         );
         SimplexLib.protocolTake(idx, protocolAmount);
@@ -929,5 +957,31 @@ library ClosureImpl {
             }
         }
         return false;
+    }
+
+    /// When operating on the entire closure, if we need to pay any taxes
+    /// we need to pay them at half the max tax rate among our edges for a given vertex.
+    function getClosureFeeRateX128(
+        Closure storage self,
+        VertexId inVid
+    ) private view returns (uint128 taxRateX128) {
+        for (
+            VertexId vIter = VertexLib.minId();
+            !vIter.isStop();
+            vIter = vIter.inc()
+        ) {
+            // No self edge.
+            if (vIter.isEq(inVid)) continue;
+
+            if (self.cid.contains(vIter)) {
+                uint128 edgeTaxRateX128 = SimplexLib.getEdgeFeeX128(
+                    inVid,
+                    vIter
+                );
+                if (edgeTaxRateX128 > taxRateX128)
+                    taxRateX128 = edgeTaxRateX128;
+            }
+        }
+        taxRateX128 /= 2; // Round down.
     }
 }
