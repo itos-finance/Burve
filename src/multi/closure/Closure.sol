@@ -709,13 +709,18 @@ library ClosureImpl {
         int256 bgtValueChange
     ) internal {
         validateBalances(self);
-        if (realEarnings > 0) addEarnings(self, earnedVid, realEarnings);
-        if (valueChange > 0) {
+        if (valueChange == 0) {
+            if (realEarnings > 0) addEarnings(self, earnedVid, realEarnings);
+        } else if (valueChange > 0) {
+            // If we're adding value, we give the earnings to everyone else first.
+            if (realEarnings > 0) addEarnings(self, earnedVid, realEarnings);
             self.valueStaked += uint256(valueChange);
             self.bgtValueStaked += uint256(bgtValueChange);
         } else {
             self.valueStaked -= uint256(-valueChange);
             self.bgtValueStaked -= uint256(-bgtValueChange);
+            // If we're removing value, we give the earnings to everyone else left.
+            if (realEarnings > 0) addEarnings(self, earnedVid, realEarnings);
         }
     }
 
