@@ -132,13 +132,6 @@ contract SimplexSetFacet {
 
     event NewName(string newName, string symbol);
 
-    event DefaultEdgeSet(
-        uint128 amplitude,
-        int24 lowTick,
-        int24 highTick,
-        uint24 fee,
-        uint8 feeProtocol
-    );
     /// Emitted when the adjustor is changed.
     event AdjustorChanged(
         address indexed admin,
