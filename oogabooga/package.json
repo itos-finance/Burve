@@ -1,0 +1,12 @@
+{
+  "name": "oogabooga",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Brian Broeking",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "node-fetch": "^3.3.2",
+    "viem": "^2.31.0"
+  }
+}

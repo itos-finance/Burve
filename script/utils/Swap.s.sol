@@ -9,9 +9,9 @@ contract Swap is BaseScript {
         // Load configuration from environment
         address recipient = vm.envOr("RECIPIENT", _getSender());
         uint16 closureId = uint16(vm.envOr("CLOSURE_ID", uint256(7)));
-        address tokenIn = address(tokens[0]);
+        address tokenIn = address(tokens[2]);
         address tokenOut = address(tokens[1]);
-        uint256 amountIn = vm.envOr("AMOUNT_IN", uint256(1_000));
+        uint256 amountIn = vm.envOr("AMOUNT_IN", uint256(1e18));
         uint256 minAmountOut = vm.envOr("MIN_AMOUNT_OUT", uint256(0));
 
         // Start broadcasting
