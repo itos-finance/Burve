@@ -1,11 +1,7 @@
-import "dotenv/config";
-import {
-	createWalletClient,
-	createPublicClient,
-	http,
-	decodeFunctionData,
-} from "viem";
+import { createWalletClient, createPublicClient, http } from "viem";
 import fetch from "node-fetch";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Replace with your actual private key and chain info
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -19,7 +15,7 @@ const swapParams = {
 	tokenIn: process.env.TOKEN_IN,
 	amount: BigInt(1e18),
 	tokenOut: process.env.TOKEN_OUT,
-	to: process.env.TO,
+	to: "0x6B00E4570C187440fD6899D7aa4aDfe5ff199e4A", // the opener contract
 	slippage: Number(process.env.SLIPPAGE || 0.01),
 };
 

@@ -3,14 +3,14 @@ pragma solidity ^0.8.27;
 
 import {TransferHelper} from "Commons/Util/TransferHelper.sol";
 import {IRFTPayer} from "Commons/Util/RFT.sol";
-
 import {IOBRouter} from "./IOBRouter.sol";
 import {IBurveMultiValue} from "../../multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../multi/interfaces/IBurveMultiSimplex.sol";
 import {IAdjustor} from "../adjustor/IAdjustor.sol";
-
 import {FullMath} from "../../FullMath.sol";
 import {MAX_TOKENS} from "../../multi/Constants.sol";
+import {console2} from "forge-std/console2.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract Opener is IRFTPayer {
     address BEPOLIA_EXECUTOR = 0xADEC0cE4efdC385A44349bD0e55D4b404d5367B4;
@@ -20,7 +20,7 @@ contract Opener is IRFTPayer {
     uint256[] amountsOut;
 
     constructor() {
-        router = IOBRouter(BEPOLIA_EXECUTOR);
+        router = IOBRouter(BERACHAIN_EXECUTOR);
     }
 
     error InvalidCaller();
@@ -35,19 +35,29 @@ contract Opener is IRFTPayer {
         uint256 bgtPercentX256,
         uint256[MAX_TOKENS] memory amountLimits
     ) external {
+        amountsOut = new uint256[](tokens.length);
         amountsOut[0] = nonSwappingAmount;
+
         /// note we start from index 1
-        for (uint256 i = 1; i < txData.length; i++) {
+        for (uint256 i = 0; i < txData.length; i++) {
+            IERC20(tokens[i + 1]).approve(
+                BERACHAIN_EXECUTOR,
+                nonSwappingAmount
+            );
             (bool success, bytes memory data) = BEPOLIA_EXECUTOR.call(
                 txData[i]
             );
 
+            console2.log("success", success);
+            // console2.logBytes("data", data);
+
             if (!success) revert OogaBoogaFailure();
 
             // store the amountOut from the oogabooga swap
-            amountsOut[i] = abi.decode(data, (uint256));
+            amountsOut[i + 1] = IERC20(tokens[i + 1]).balanceOf(address(this)); // abi.decode(data, (uint256));
         }
 
+        console2.log("here");
         // calculate the max value to add
         (
             uint8 n,
@@ -70,13 +80,13 @@ contract Opener is IRFTPayer {
             j++;
         }
 
-        uint256[] percentagesX128 = new uint256[](n);
+        uint256[] memory percentagesX128 = new uint256[](n);
         for (uint256 i = 0; i < closureBalances.length; i++) {
             percentagesX128[i] = (amountsOut[i] << 128) / closureBalances[i];
         }
 
         uint256 minValue = type(uint256).max;
-        for (uint256 i = 0; i < percentagesX128; i++) {
+        for (uint256 i = 0; i < percentagesX128.length; i++) {
             uint256 target = (targetX128 * percentagesX128[i]) /
                 (1 << 128) /
                 (1 << 128);
@@ -86,13 +96,13 @@ contract Opener is IRFTPayer {
             }
         }
 
-        uint256 bgtValue = (minValue * bgtPercentX256) / (1 << 256);
+        uint256 bgtValue = FullMath.mulX256(bgtPercentX256, minValue, true);
 
         IBurveMultiValue(pool).addValue(
             msg.sender,
             closureId,
-            value,
-            bgtValue,
+            uint128(minValue),
+            uint128(bgtValue),
             amountLimits
         );
 
@@ -103,7 +113,7 @@ contract Opener is IRFTPayer {
                     msg.sender,
                     closureId,
                     tokens[i],
-                    amountsOut[i],
+                    uint128(amountsOut[i]),
                     bgtPercentX256, // lazy
                     0
                 );
