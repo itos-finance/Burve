@@ -34,12 +34,12 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
 
     function mint(
         address pool,
-        uint8 inTokenIdx,
+        uint8 inTokenIdx, // TODO: Change to address
         uint256 inAmount,
         bytes[MAX_TOKENS] calldata txData,
         uint16 closureId,
         uint256 bgtPercentX256,
-        uint256[MAX_TOKENS] calldata amountLimits,
+        uint256[MAX_TOKENS] memory amountLimits,
         uint256 minValueReceived
     ) external nonReentrant returns (uint256 addedValue) {
         _pool = pool;
@@ -79,6 +79,13 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         }
         myBalances[inTokenIdx] = IERC20(tokens[inTokenIdx]).balanceOf(address(this));
 
+        // Check that everything fits within our token limits. There's no expected price changes.
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (myBalances[i] > amountLimits[i]) {
+                revert AmountSlippageExceeded();
+            }
+        }
+
         // Determine how much value we can add.
         {
         (
@@ -110,6 +117,12 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             FullMath.mulX256(targetX128, minPercentX256, false),
             n,
             false);
+        }
+
+        for (uint256 i = 0; i < MAX_TOKENS; i++) {
+            if (amountLimits[i] > 0) {
+                amountsLimits[i] = FullMath.mulX256(amountLimits[i], minPercentX256, true);
+            }
         }
 
         // Round up to handle the 100% case exactly.
