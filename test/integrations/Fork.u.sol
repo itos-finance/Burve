@@ -28,7 +28,7 @@ contract BurveForkableTest is ForkableTest {
 
     // Token and vault arrays
     address[] public tokens;
-    IERC4626[] public vaults;
+    address[] public vaults;
 
     // Accounts
     address public owner;
@@ -53,17 +53,14 @@ contract BurveForkableTest is ForkableTest {
         simplexFacet = IBurveMultiSimplex(diamond);
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
-        // Add store manipulator facet for testing
-        _cutStoreManipulatorFacet();
-        storeManipulatorFacet = StoreManipulatorFacet(diamond);
 
         string memory envJson = vm.readFile(envFile);
         tokens = vm.parseJsonAddressArray(envJson, ".tokens");
         vaults = vm.parseJsonAddressArray(envJson, ".vaults");
 
-        simplexFacet.addVertex(tokens[i], address(vaults[i]), VaultType.E4626);
-        simplexFacet.addVertex(tokens[i], address(vaults[i]), VaultType.E4626);
-        simplexFacet.addVertex(tokens[i], address(vaults[i]), VaultType.E4626);
+        simplexFacet.addVertex(tokens[0], vaults[0], VaultType.E4626);
+        simplexFacet.addVertex(tokens[1], vaults[1], VaultType.E4626);
+        simplexFacet.addVertex(tokens[2], vaults[2], VaultType.E4626);
 
         _initializeClosure(0x3, 1e18);
         _initializeClosure(0x4, 1e18);
@@ -72,7 +69,31 @@ contract BurveForkableTest is ForkableTest {
         _initializeClosure(0x7, 1e18);
     }
 
-    function forkSetup() internal override {}
+    function forkSetup() internal override {
+        // Deploy diamond and facets
+        BurveFacets memory bFacets = InitLib.deployFacets();
+        diamond = address(new SimplexDiamond(bFacets, "ValueToken", "BVT"));
+        valueFacet = IBurveMultiValue(diamond);
+        valueTokenFacet = ValueTokenFacet(diamond);
+        vaultFacet = VaultFacet(diamond);
+        simplexFacet = IBurveMultiSimplex(diamond);
+        swapFacet = SwapFacet(diamond);
+        lockFacet = LockFacet(diamond);
+
+        string memory envJson = vm.readFile(envFile);
+        tokens = vm.parseJsonAddressArray(envJson, ".tokens");
+        vaults = vm.parseJsonAddressArray(envJson, ".vaults");
+
+        simplexFacet.addVertex(tokens[0], vaults[0], VaultType.E4626);
+        simplexFacet.addVertex(tokens[1], vaults[1], VaultType.E4626);
+        simplexFacet.addVertex(tokens[2], vaults[2], VaultType.E4626);
+
+        _initializeClosure(0x3, 1e18);
+        _initializeClosure(0x4, 1e18);
+        _initializeClosure(0x5, 1e18);
+        _initializeClosure(0x6, 1e18);
+        _initializeClosure(0x7, 1e18);
+    }
 
     /// Initalize a zero fee closure with the initial value amount.
     function _initializeClosure(uint16 cid, uint128 initValue) internal {
