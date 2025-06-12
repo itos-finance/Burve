@@ -23,7 +23,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
     address public immutable router;
     address public transient _pool;
 
-    constructor(address _router) Auto165() {
+    constructor(address _router) {
         router = _router;
     }
 
@@ -52,7 +52,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
         address pool,
         address inToken,
         uint256 inAmount,
-        bytes[MAX_TOKENS] memory txData,
+        bytes[MAX_TOKENS] memory txData, // Can this be calldata?
         uint16 closureId,
         uint256 bgtPercentX256,
         uint256[MAX_TOKENS] calldata minSpend,
@@ -119,24 +119,24 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
         ) = IBurveMultiSimplex(pool).getClosureValue(closureId);
 
         address adjustor = IBurveMultiSimplex(pool).getAdjustor();
-        uint256 minPercentX64 = type(uint64).max;
+        uint256 minPercentX128 = type(uint128).max;
         for (uint256 i = 0; i < closureBalances.length; i++) {
             if (closureBalances[i] == 0) continue;
             // We know closure balances line up with tokens
             uint256 realBalance = IAdjustor(adjustor).toReal(
                 tokens[i],
-                closureBalances[i], 
+                closureBalances[i],
                 true
             );
-            uint256 percentX64 = FullMath.mulDiv(myBalances[i], 1 << 64, realBalance);
-            if (percentX64 < minPercentX64) {
-                minPercentX64 = percentX64;
+            uint256 percentX128 = FullMath.mulDiv(myBalances[i], 1 << 128, realBalance);
+            if (percentX128 < minPercentX128) {
+                minPercentX128 = percentX128;
             }
         }
-    
+
         // round the value we add down to make sure we fit.
         addedValue = FullMath.mulX128(
-            FullMath.mulDiv(targetX128, minPercentX64, 1 << 64),
+            FullMath.mulDiv(targetX128, minPercentX128, 1 << 64),
             n,
             false);
         }
