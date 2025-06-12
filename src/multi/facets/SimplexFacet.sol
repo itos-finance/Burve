@@ -27,6 +27,8 @@ contract SimplexFacet {
     );
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
+    /// Thrown when there is too much unexpected slippage when changing the efficiency factor.
+    error SetESlippageExceeded(uint256 needed, uint256 maxRequired);
 
     event NewName(string newName, string symbol);
     event VertexAdded(
@@ -276,8 +278,13 @@ contract SimplexFacet {
     /// @notice Sets the efficiency factor for a given token.
     /// @param token The address of the token.
     /// @param eX128 The efficiency factor to set.
+    /// @param maxRequired When decreasing E and requiring more tokens, this limits the slippage.
     /// @dev Only callable by the contract owner.
-    function setEX128(address token, uint256 eX128) external {
+    function setEX128(
+        address token,
+        uint256 eX128,
+        uint256 maxRequired
+    ) external {
         AdminLib.validateOwner();
         uint8 idx = TokenRegLib.getIdx(token);
         uint256 oldEX128 = SimplexLib.setEX128(idx, eX128);
@@ -321,6 +328,10 @@ contract SimplexFacet {
             }
         }
         if (needed > 0) {
+            require(
+                needed <= maxRequired,
+                SetESlippageExceeded(needed, maxRequired)
+            );
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
