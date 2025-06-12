@@ -32,6 +32,8 @@ contract SimplexAdminFacet {
         uint256 earned
     );
 
+    error SetESlippageExceeded(uint256 needed, uint256 maxRequired);
+
     /// Thrown when adding a closure if the specified starting target is less than the required init target.
     error InsufficientStartingTarget(
         uint128 startingTarget,
@@ -170,8 +172,13 @@ contract SimplexSetFacet {
     /// @notice Sets the efficiency factor for a given token.
     /// @param token The address of the token.
     /// @param eX128 The efficiency factor to set.
+    /// @param maxRequired When decreasing E and requiring more tokens, this limits the slippage.
     /// @dev Only callable by the contract owner.
-    function setEX128(address token, uint256 eX128) external {
+    function setEX128(
+        address token,
+        uint256 eX128,
+        uint256 maxRequired
+    ) external {
         AdminLib.validateOwner();
         uint8 idx = TokenRegLib.getIdx(token);
         uint256 oldEX128 = SimplexLib.setEX128(idx, eX128);
@@ -215,6 +222,10 @@ contract SimplexSetFacet {
             }
         }
         if (needed > 0) {
+            require(
+                needed <= maxRequired,
+                SetESlippageExceeded(needed, maxRequired)
+            );
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,
