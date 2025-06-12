@@ -21,13 +21,6 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     address public immutable router;
     address public transient _pool;
 
-    struct OogaboogaParams {
-        IOBRouter.swapTokenInfo info;
-        bytes pathDefinition;
-        address executor;
-        uint32 referralCode;
-    }
-
     constructor(address _router) {
         router = _router;
     }
@@ -43,7 +36,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         address pool,
         uint8 inTokenIdx,
         uint256 inAmount,
-        bytes[MAX_TOKENS] memory params,
+        bytes[MAX_TOKENS] calldata txData,
         uint16 closureId,
         uint256 bgtPercentX256,
         uint256[MAX_TOKENS] calldata amountLimits,
@@ -73,12 +66,12 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             if (i == inTokenIdx) {
                 continue;
             }
-            
+
             // Skip tokens we don't want.
-            if (params[i].length == 0) continue;
+            if (txData[i].length == 0) continue;
 
             // Swap for the tokens we do.
-            (bool success, bytes memory data) = router.call(params[i]);
+            (bool success, ) = router.call(txData[i]);
             if (!success) revert RouterFailure();
 
             // store the amountOut from the oogabooga swap
