@@ -5,9 +5,8 @@ pragma solidity ^0.8.27;
 
 import {MultiSetupTest} from "../facets/MultiSetup.u.sol";
 import {console2 as console} from "forge-std/console2.sol";
-import {VertexImpl} from "../../src/multi/vertex/Vertex.sol";
 import {VertexId} from "../../src/multi/vertex/Id.sol";
-import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
+import {VaultType, VaultProxyImpl} from "../../src/multi/vertex/VaultProxy.sol";
 import {MockERC4626WithdrawlLimited} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
@@ -55,12 +54,12 @@ contract VaultMultiTest is MultiSetupTest {
         // We can still deposit into it.
         valueFacet.addValueSingle(owner, 0x3, 5e18, 0, tokens[0], 0);
         // But we can't withdraw more than the limit.
-        VertexId vid = VertexId.wrap(1 << 8); // VertexId for token0
         vm.expectRevert(
             abi.encodeWithSelector(
-                VertexImpl.WithdrawLimited.selector,
-                vid,
-                2007094546280063563
+                VaultProxyImpl.WithdrawLimited.selector,
+                0x3,
+                2007094546280063563,
+                1e18 + 3 // 3 from the backup vault.
             )
         );
         valueFacet.removeValueSingle(owner, 0x3, 2e18, 0, tokens[0], 0);
@@ -71,9 +70,10 @@ contract VaultMultiTest is MultiSetupTest {
         // But can't swap out more than the limit.
         vm.expectRevert(
             abi.encodeWithSelector(
-                VertexImpl.WithdrawLimited.selector,
-                vid,
-                10246160703694265782
+                VaultProxyImpl.WithdrawLimited.selector,
+                0x3,
+                10246160703694265782,
+                1e18 + 3
             )
         );
         swapFacet.swap(owner, tokens[1], tokens[0], 10e18, 0, 0x3);
@@ -90,9 +90,10 @@ contract VaultMultiTest is MultiSetupTest {
         // We can no longer withdraw past the limit.
         vm.expectRevert(
             abi.encodeWithSelector(
-                VertexImpl.WithdrawLimited.selector,
-                vid,
-                2033158300660175021
+                VaultProxyImpl.WithdrawLimited.selector,
+                0x3,
+                2033158300660175021,
+                1e18
             )
         );
         valueFacet.removeValueSingle(owner, 0x3, 2e18, 0, tokens[0], 0);
