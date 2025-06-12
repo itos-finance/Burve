@@ -15,7 +15,7 @@ const swapParams = {
 	tokenIn: process.env.TOKEN_IN,
 	amount: BigInt(1e18),
 	tokenOut: process.env.TOKEN_OUT,
-	to: "0x6B00E4570C187440fD6899D7aa4aDfe5ff199e4A", // the opener contract
+	to: "0x0eDEd3901a62e8ef4764B61eEdCB2108F35b91e7", // the opener contract
 	slippage: Number(process.env.SLIPPAGE || 0.01),
 };
 
@@ -50,9 +50,10 @@ const swap = async (client, publicClient, swapParams) => {
 	console.log("swapParams", { swapParams });
 
 	const res = await fetch(publicApiUrl, { headers });
-	const { tx, routerParams } = await res.json();
+	const { tx, routerParams, routerAddr } = await res.json();
 	console.log("tx", tx);
 	console.log("routerParams", routerParams);
+	console.log("routerAddr", routerAddr);
 
 	console.log("Submitting swap...");
 	const hash = await client.sendTransaction({
