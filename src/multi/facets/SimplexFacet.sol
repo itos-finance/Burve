@@ -32,8 +32,6 @@ contract SimplexAdminFacet {
         uint256 earned
     );
 
-    error SetESlippageExceeded(uint256 needed, uint256 maxRequired);
-
     /// Thrown when adding a closure if the specified starting target is less than the required init target.
     error InsufficientStartingTarget(
         uint128 startingTarget,
@@ -131,6 +129,8 @@ contract SimplexSetFacet {
     error BGTExchangerIsZeroAddress();
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
+    /// Thrown when the slippage for setting E is exceeded.
+    error SetESlippageExceeded(uint256 needed, uint256 maxRequired);
 
     event NewName(string newName, string symbol);
 

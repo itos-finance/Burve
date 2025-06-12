@@ -64,7 +64,7 @@ interface IBurveMultiSimplex {
     function addClosure(uint16 _cid, uint128 startingTarget) external;
     function withdraw(address token) external returns (uint256 amount);
     /* Setters */
-    function setEX128(address token, uint256 eX128) external;
+    function setEX128(address token, uint256 eX128, uint256 maxSpend) external;
     function setAdjustor(address adjustor) external;
     function setBGTExchanger(address bgtExchanger) external;
     function setInitTarget(uint256 initTarget) external;

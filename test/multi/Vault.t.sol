@@ -7,6 +7,7 @@ import {MultiSetupTest} from "../facets/MultiSetup.u.sol";
 import {console2 as console} from "forge-std/console2.sol";
 import {VertexId} from "../../src/multi/vertex/Id.sol";
 import {VaultType, VaultProxyImpl} from "../../src/multi/vertex/VaultProxy.sol";
+import {VertexImpl} from "../../src/multi/vertex/Vertex.sol";
 import {MockERC4626WithdrawlLimited, MockERC4626} from "../mocks/MockERC4626.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
