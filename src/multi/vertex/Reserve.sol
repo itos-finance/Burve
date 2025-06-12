@@ -63,6 +63,7 @@ library ReserveLib {
 
     /// Withdraw the redemption value of the given shares to this contract from the vault.
     /// @dev We round down the redeemed value for safety reasons.
+    /// @dev Reverts if we cannot withdraw the desired amount.
     function withdraw(
         VertexId vid,
         uint256 shares
