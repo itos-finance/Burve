@@ -50,17 +50,6 @@ library ClosureImpl {
         uint256 maxValue,
         uint256 actualValue
     );
-    error InsufficientStakeCapacity(
-        ClosureId cid,
-        uint256 maxValue,
-        uint256 actualValue,
-        uint256 attemptedStake
-    );
-    error InsufficientUnstakeAvailable(
-        ClosureId cid,
-        uint256 stakeValue,
-        uint256 attemptedUnstake
-    );
     error IrrelevantVertex(ClosureId cid, VertexId vid);
     /// Token balances have to stay between 0 and double the target value.
     error TokenBalanceOutOfBounds(
@@ -471,52 +460,6 @@ library ClosureImpl {
             self.targetX128,
             self.balances
         );
-    }
-
-    /// Remove staked value tokens from this closure. Asset checks if you have said value tokens to begin with.
-    /// This doens't change the target or remove tokens. Just allows for someone use to stake now.
-    function unstakeValue(
-        Closure storage self,
-        uint256 value,
-        uint256 bgtValue
-    ) internal {
-        trimAllBalances(self);
-        require(!isAnyLocked(self), CannotRemoveWithLockedVertex(self.cid));
-        // Unstakers can't remove more than deminimus.
-        if (self.valueStaked < value + SimplexLib.deMinimusValue())
-            revert InsufficientUnstakeAvailable(
-                self.cid,
-                self.valueStaked,
-                value
-            );
-        self.valueStaked -= value;
-        self.bgtValueStaked -= bgtValue;
-    }
-
-    /// Stake value tokens in this closure if there is value to be redeemed.
-    function stakeValue(
-        Closure storage self,
-        uint256 value,
-        uint256 bgtValue
-    ) internal {
-        trimAllBalances(self);
-        uint256 maxValue = (self.targetX128 * self.n) >> 128;
-        if (self.valueStaked > maxValue + SimplexLib.deMinimusValue())
-            emit WarningExcessValueDetected(
-                self.cid,
-                maxValue,
-                self.valueStaked
-            );
-        if (self.valueStaked + value > maxValue)
-            revert InsufficientStakeCapacity(
-                self.cid,
-                maxValue,
-                self.valueStaked,
-                value
-            );
-
-        self.valueStaked += value;
-        self.bgtValueStaked += bgtValue;
     }
 
     /// Calculate the amounts for swapping in an exact amount of one token for another.
