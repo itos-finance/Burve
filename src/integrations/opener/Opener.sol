@@ -21,13 +21,6 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     address public immutable router;
     address public transient _pool;
 
-    struct OogaboogaParams {
-        IOBRouter.swapTokenInfo info;
-        bytes pathDefinition;
-        address executor;
-        uint32 referralCode;
-    }
-
     constructor(address _router) {
         router = _router;
     }
@@ -44,7 +37,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     /// @param pool The pool to add value to.
     /// @param inToken The token to swap from.
     /// @param inAmount The amount of the inToken to swap.
-    /// @param params The calldata to execute on the OogaBooga executor for swapping.
+    /// @param txData The calldata to execute on the router for swapping.
     /// @param closureId The closure to add value to.
     /// @param bgtPercentX256 The percentage of the added value to be converted to BGT value.
     /// @param minSpend The swap calldata ensures we don't overspend, and the minValueReceived ensures
@@ -57,7 +50,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         address pool,
         address inToken,
         uint256 inAmount,
-        bytes[MAX_TOKENS] memory params,
+        bytes[MAX_TOKENS] memory txData,
         uint16 closureId,
         uint256 bgtPercentX256,
         uint256[MAX_TOKENS] calldata minSpend,
@@ -100,12 +93,12 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             if (i == inTokenIdx) {
                 continue;
             }
-            
+
             // Skip tokens we don't want.
-            if (params[i].length == 0) continue;
+            if (txData[i].length == 0) continue;
 
             // Swap for the tokens we do.
-            (bool success, bytes memory data) = router.call(params[i]);
+            (bool success, ) = router.call(txData[i]);
             if (!success) revert RouterFailure();
 
             // store the amountOut from the oogabooga swap
