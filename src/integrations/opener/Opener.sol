@@ -25,6 +25,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         executor = _executor;
     }
 
+    error InvalidToken();
     error InvalidPool();
     error InvalidCaller();
     error InvalidRequest();
@@ -32,14 +33,27 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     error ValueSlippageExceeded();
     error OogaBoogaFailure();
 
+    /// Add value to a closure by swapping from one token to many tokens before depositing.
+    /// @param pool The pool to add value to.
+    /// @param inToken The token to swap from.
+    /// @param inAmount The amount of the inToken to swap.
+    /// @param txData The calldata to execute on the OogaBooga executor for swapping.
+    /// @param closureId The closure to add value to.
+    /// @param bgtPercentX256 The percentage of the added value to be converted to BGT value.
+    /// @param minSpend The swap calldata ensures we don't overspend, and the minValueReceived ensures
+    /// we don't under-receive. But is stranger, but we use it to make sure we spend at least this much
+    /// when adding value using all tokens. This ensures that the proportion of tokens we deposit is
+    /// within our expectations and no malicious actor has added too much or removed too much of one token.
+    /// @param minValueReceived The minimum value to be received.
+    /// @return addedValue The actual value added to the closure.
     function mint(
         address pool,
-        uint8 inTokenIdx, // TODO: Change to address
+        address inToken,
         uint256 inAmount,
-        bytes[MAX_TOKENS] calldata txData,
+        bytes[MAX_TOKENS] memory txData,
         uint16 closureId,
         uint256 bgtPercentX256,
-        uint256[MAX_TOKENS] memory amountLimits,
+        uint256[MAX_TOKENS] memory minSpend,
         uint256 minValueReceived
     ) external nonReentrant returns (uint256 addedValue) {
         _pool = pool;
@@ -48,6 +62,19 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             .getTokens();
         require(tokens.length <= MAX_TOKENS, InvalidPool());
         uint256[] memory myBalances = new uint256[](tokens.length);
+
+        // Check if the token is valid.
+        uint256 inTokenIdx = MAX_TOKENS;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == inToken) {
+                // We found the token we want to use.
+                inTokenIdx = i;
+                break;
+            }
+        }
+        if (inTokenIdx >= MAX_TOKENS) {
+            revert InvalidToken();
+        }
 
         // Get the tokens ready to send to the OB executor.
         TransferHelper.safeTransferFrom(
@@ -78,13 +105,6 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             myBalances[i] = IERC20(tokens[i]).balanceOf(address(this));
         }
         myBalances[inTokenIdx] = IERC20(tokens[inTokenIdx]).balanceOf(address(this));
-
-        // Check that everything fits within our token limits. There's no expected price changes.
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (myBalances[i] > amountLimits[i]) {
-                revert AmountSlippageExceeded();
-            }
-        }
 
         // Determine how much value we can add.
         {
@@ -119,15 +139,10 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             false);
         }
 
-        for (uint256 i = 0; i < MAX_TOKENS; i++) {
-            if (amountLimits[i] > 0) {
-                amountsLimits[i] = FullMath.mulX256(amountLimits[i], minPercentX256, true);
-            }
-        }
-
         // Round up to handle the 100% case exactly.
         uint256 bgtValue = FullMath.mulX256(bgtPercentX256, addedValue, true);
 
+        uint256[MAX_TOKENS] memory amountLimits; // We leave this empty because we check for slippage ourselves.
         IBurveMultiValue(pool).addValue(
             msg.sender,
             closureId,
@@ -139,6 +154,12 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         // Single deposit any remaining amounts of each token
         for (uint256 i = 0; i < tokens.length; i++) {
             uint128 balance = SafeCast.toUint128(IERC20(tokens[i]).balanceOf(address(this)));
+            uint256 spend = myBalances[i] - balance;
+            // If for some reason we have a large residual of any token, that means the prices were moved
+            // out of proportion from our expectations, potentially from a malicious actor.
+            if (spend < minSpend[i]) {
+                revert AmountSlippageExceeded();
+            }
             if (balance > 0) {
                 addedValue += IBurveMultiValue(pool).addSingleForValue(
                     msg.sender,
