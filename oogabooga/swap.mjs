@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, http } from "viem";
+import { createWalletClient, createPublicClient, http, getAddress } from "viem";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 dotenv.config();
@@ -54,6 +54,9 @@ const swap = async (client, publicClient, swapParams) => {
 	console.log("tx", tx);
 	console.log("routerParams", routerParams);
 	console.log("routerAddr", routerAddr);
+
+	const exec = getAddress(routerParams.executor);
+	console.log("exec", exec);
 
 	console.log("Submitting swap...");
 	const hash = await client.sendTransaction({

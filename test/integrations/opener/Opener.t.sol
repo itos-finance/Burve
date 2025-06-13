@@ -31,29 +31,30 @@ contract TestOpener is BurveForkableTest {
         deal(tokens[0], address(this), 5e18);
         IERC20(tokens[0]).approve(address(opener), 5e18);
         IOBRouter.swapTokenInfo memory info = IOBRouter.swapTokenInfo({
-            inputToken: address(0),
-            inputAmount: 0,
-            outputToken: address(0),
-            outputQuote: 0,
-            outputMin: 0,
-            outputReceiver: address(0)
+            inputToken: address(0x549943e04f40284185054145c6E4e9568C1D3241),
+            inputAmount: 1000000000000000000,
+            outputToken: address(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce),
+            outputQuote: 11988462483865600,
+            outputMin: 9919685778590269,
+            outputReceiver: address(0x0eDEd3901a62e8ef4764B61eEdCB2108F35b91e7)
         });
 
-        Opener.OogaboogaParams[MAX_TOKENS] memory params;
-        params[1] = Opener.OogaboogaParams({
-            info: info,
-            pathDefinition: abi.encode(),
-            executor: address(0x1),
-            referralCode: 0
-        });
+        bytes[MAX_TOKENS] memory params;
+        params[1] = abi.encodeWithSelector(
+            IOBRouter.swap.selector,
+            info,
+            hex"FCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce00000000000000000000000000000000000000000c9f2c9cd046750000000000000000000000000000000000000000000000000000000437b99bb57bc4000000000000000000000000000000000000000000000000000099c6b851f0542000000001549943e04f40284185054145c6E4e9568C1D324101ffff11A4aFef880F5cE1f63c9fb48F661E27F8B4216401549943e04f40284185054145c6E4e9568C1D3241062a2b0eea575f659a1aaf18c1df5d93e0528245",
+            address(0x062a2B0eeA575f659a1aaf18c1DF5D93E0528245),
+            2
+        );
+
         uint16 closureId = 3;
-        uint256 nonSwappingAmount = 1e6;
         uint256 bgtPercentX256 = 0;
         uint256[MAX_TOKENS] memory amountLimits;
         opener.mint(
             diamond,
             0,
-            2e18,
+            1e18,
             params,
             closureId,
             bgtPercentX256,

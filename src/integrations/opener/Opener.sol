@@ -18,7 +18,7 @@ address constant BEPOLIA_EXECUTOR = 0xADEC0cE4efdC385A44349bD0e55D4b404d5367B4;
 address constant BERACHAIN_EXECUTOR = 0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7;
 
 contract Opener is IRFTPayer, ReentrancyGuardTransient {
-    IOBRouter public immutable router;
+    address public immutable router;
     address public transient _pool;
 
     struct OogaboogaParams {
@@ -29,7 +29,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     }
 
     constructor(address _router) {
-        router = IOBRouter(_router);
+        router = _router;
     }
 
     error InvalidPool();
@@ -37,13 +37,13 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     error InvalidRequest();
     error AmountSlippageExceeded();
     error ValueSlippageExceeded();
-    error OogaBoogaFailure();
+    error RouterFailure();
 
     function mint(
         address pool,
         uint8 inTokenIdx,
         uint256 inAmount,
-        OogaboogaParams[MAX_TOKENS] calldata params,
+        bytes[MAX_TOKENS] memory params,
         uint16 closureId,
         uint256 bgtPercentX256,
         uint256[MAX_TOKENS] calldata amountLimits,
@@ -64,7 +64,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             inAmount
         );
         IERC20(tokens[inTokenIdx]).approve(
-                address(router),
+                router,
                 inAmount
             );
 
@@ -73,12 +73,13 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             if (i == inTokenIdx) {
                 continue;
             }
-
+            
             // Skip tokens we don't want.
-            if (params[i].executor == address(0)) continue;
+            if (params[i].length == 0) continue;
 
             // Swap for the tokens we do.
-            router.swap(params[i].info, params[i].pathDefinition, params[i].executor, params[i].referralCode);
+            (bool success, bytes memory data) = router.call(params[i]);
+            if (!success) revert RouterFailure();
 
             // store the amountOut from the oogabooga swap
             myBalances[i] = IERC20(tokens[i]).balanceOf(address(this));
