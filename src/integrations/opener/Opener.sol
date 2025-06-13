@@ -37,7 +37,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
     /// @param pool The pool to add value to.
     /// @param inToken The token to swap from.
     /// @param inAmount The amount of the inToken to swap.
-    /// @param txData The calldata to execute on the OogaBooga executor for swapping.
+    /// @param txData The calldata to execute on the router for swapping.
     /// @param closureId The closure to add value to.
     /// @param bgtPercentX256 The percentage of the added value to be converted to BGT value.
     /// @param minSpend The swap calldata ensures we don't overspend, and the minValueReceived ensures
