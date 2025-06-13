@@ -108,13 +108,6 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
         }
         myBalances[inTokenIdx] = IERC20(tokens[inTokenIdx]).balanceOf(address(this));
 
-        // Check that everything fits within our token limits. There's no expected price changes.
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (myBalances[i] > amountLimits[i]) {
-                revert AmountSlippageExceeded();
-            }
-        }
-
         // Determine how much value we can add.
         {
         (
@@ -147,6 +140,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
             n,
             false);
         }
+
         // Round up to handle the 100% case exactly.
         uint256 bgtValue = FullMath.mulX256(bgtPercentX256, addedValue, true);
 
