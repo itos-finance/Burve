@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.28;
 
 import {TransferHelper} from "Commons/Util/TransferHelper.sol";
 import {IRFTPayer} from "Commons/Util/RFT.sol";
@@ -18,11 +18,18 @@ address constant BEPOLIA_EXECUTOR = 0xADEC0cE4efdC385A44349bD0e55D4b404d5367B4;
 address constant BERACHAIN_EXECUTOR = 0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7;
 
 contract Opener is IRFTPayer, ReentrancyGuardTransient {
-    address public immutable executor;
+    IOBRouter public immutable router;
     address public transient _pool;
 
-    constructor(address _executor) {
-        executor = _executor;
+    struct OogaboogaParams {
+        IOBRouter.swapTokenInfo info;
+        bytes pathDefinition;
+        address executor;
+        uint32 referralCode;
+    }
+
+    constructor(address _router) {
+        router = IOBRouter(_router);
     }
 
     error InvalidPool();
@@ -36,7 +43,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         address pool,
         uint8 inTokenIdx,
         uint256 inAmount,
-        bytes[MAX_TOKENS] calldata txData,
+        OogaboogaParams[MAX_TOKENS] calldata params,
         uint16 closureId,
         uint256 bgtPercentX256,
         uint256[MAX_TOKENS] calldata amountLimits,
@@ -57,7 +64,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             inAmount
         );
         IERC20(tokens[inTokenIdx]).approve(
-                executor,
+                address(router),
                 inAmount
             );
 
@@ -68,11 +75,10 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             }
 
             // Skip tokens we don't want.
-            if (txData[i].length == 0) continue;
+            if (params[i].executor == address(0)) continue;
 
             // Swap for the tokens we do.
-            (bool success, bytes memory data) = executor.call(txData[i]);
-            if (!success) revert OogaBoogaFailure();
+            router.swap(params[i].info, params[i].pathDefinition, params[i].executor, params[i].referralCode);
 
             // store the amountOut from the oogabooga swap
             myBalances[i] = IERC20(tokens[i]).balanceOf(address(this));
