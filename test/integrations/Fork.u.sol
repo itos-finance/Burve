@@ -35,7 +35,7 @@ contract BurveForkableTest is ForkableTest {
     address public alice;
     address public bob;
 
-    string public envFile = "script/berachain/usd.json";
+    string public envFile = "script/berachain/btc.json";
 
     function preSetup() internal override {
         owner = makeAddr("owner");
@@ -62,11 +62,11 @@ contract BurveForkableTest is ForkableTest {
         simplexFacet.addVertex(tokens[1], vaults[1], VaultType.E4626);
         simplexFacet.addVertex(tokens[2], vaults[2], VaultType.E4626);
 
-        _initializeClosure(0x3, 1e18);
-        _initializeClosure(0x4, 1e18);
-        _initializeClosure(0x5, 1e18);
-        _initializeClosure(0x6, 1e18);
-        _initializeClosure(0x7, 1e18);
+        _initializeClosure(0x3, 2e18);
+        _initializeClosure(0x4, 2e18);
+        _initializeClosure(0x5, 2e18);
+        _initializeClosure(0x6, 2e18);
+        _initializeClosure(0x7, 2e18);
     }
 
     function forkSetup() internal override {
@@ -88,11 +88,11 @@ contract BurveForkableTest is ForkableTest {
         simplexFacet.addVertex(tokens[1], vaults[1], VaultType.E4626);
         simplexFacet.addVertex(tokens[2], vaults[2], VaultType.E4626);
 
-        _initializeClosure(0x3, 1e18);
-        _initializeClosure(0x4, 1e18);
-        _initializeClosure(0x5, 1e18);
-        _initializeClosure(0x6, 1e18);
-        _initializeClosure(0x7, 1e18);
+        _initializeClosure(0x3, 2e18);
+        _initializeClosure(0x4, 2e18);
+        _initializeClosure(0x5, 2e18);
+        _initializeClosure(0x6, 2e18);
+        _initializeClosure(0x7, 2e18);
     }
 
     /// Initalize a zero fee closure with the initial value amount.

@@ -10,12 +10,12 @@ const CHAIN_ID = Number(process.env.CHAIN_ID || 31337);
 
 // const OOGABOOGA_API_URL = "https://bartio.api.oogabooga.io";
 const OOGABOOGA_API_URL = "https://mainnet.api.oogabooga.io";
-// Example SwapParams
+
 const swapParams = {
-	tokenIn: process.env.TOKEN_IN,
-	amount: BigInt(1e18),
-	tokenOut: process.env.TOKEN_OUT,
-	to: "0x0eDEd3901a62e8ef4764B61eEdCB2108F35b91e7", // the opener contract
+	tokenIn: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
+	amount: BigInt(1e8),
+	tokenOut: "0x541FD749419CA806a8bc7da8ac23D346f2dF8B77",
+	to: "0x3FFaA9331633e3d8A97eaC109c4086645a8d659d", // the opener contract
 	slippage: Number(process.env.SLIPPAGE || 0.01),
 };
 
@@ -52,23 +52,23 @@ const swap = async (client, publicClient, swapParams) => {
 	const res = await fetch(publicApiUrl, { headers });
 	const { tx, routerParams, routerAddr } = await res.json();
 	console.log("tx", tx);
-	console.log("routerParams", routerParams);
+	console.log("routerParams", JSON.stringify(routerParams));
 	console.log("routerAddr", routerAddr);
 
 	const exec = getAddress(routerParams.executor);
 	console.log("exec", exec);
 
-	console.log("Submitting swap...");
-	const hash = await client.sendTransaction({
-		from: tx.from,
-		to: tx.to,
-		data: tx.data,
-		value: tx.value ? BigInt(tx.value) : 0n,
-	});
-	console.log("hash", hash);
+	// console.log("Submitting swap...");
+	// const hash = await client.sendTransaction({
+	// 	from: tx.from,
+	// 	to: tx.to,
+	// 	data: tx.data,
+	// 	value: tx.value ? BigInt(tx.value) : 0n,
+	// });
+	// console.log("hash", hash);
 
-	const rcpt = await publicClient.waitForTransactionReceipt({ hash });
-	console.log("Swap complete", rcpt.status);
+	// const rcpt = await publicClient.waitForTransactionReceipt({ hash });
+	// console.log("Swap complete", rcpt.status);
 };
 
 const abi = [
