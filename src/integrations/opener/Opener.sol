@@ -43,7 +43,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
     /// @param closureId The closure to add value to.
     /// @param bgtPercentX256 The percentage of the added value to be converted to BGT value.
     /// @param minSpend The swap calldata ensures we don't overspend, and the minValueReceived ensures
-    /// we don't under-receive. But is stranger, but we use it to make sure we spend at least this much
+    /// we don't under-receive. This is stranger, but we use it to make sure we spend at least this much
     /// when adding value using all tokens. This ensures that the proportion of tokens we deposit is
     /// within our expectations and no malicious actor has added too much or removed too much of one token.
     /// @param minValueReceived The minimum value to be received.
