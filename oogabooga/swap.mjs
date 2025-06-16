@@ -14,7 +14,7 @@ const OOGABOOGA_API_URL = "https://mainnet.api.oogabooga.io";
 const swapParams = {
 	tokenIn: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
 	amount: BigInt(1e8),
-	tokenOut: "0x541FD749419CA806a8bc7da8ac23D346f2dF8B77",
+	tokenOut: "0x657e8C867D8B37dCC18fA4Caead9C45EB088C642",
 	to: "0xed63E871F5de87cb1919671eE9e2d331183Eda8f", // the opener contract
 	slippage: Number(process.env.SLIPPAGE || 0.01),
 };
