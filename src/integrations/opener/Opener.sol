@@ -9,7 +9,6 @@ import {IBurveMultiSimplex} from "../../multi/interfaces/IBurveMultiSimplex.sol"
 import {IAdjustor} from "../adjustor/IAdjustor.sol";
 import {FullMath} from "../../FullMath.sol";
 import {MAX_TOKENS} from "../../multi/Constants.sol";
-import {console2} from "forge-std/console2.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
@@ -17,8 +16,8 @@ import {console2} from "forge-std/console2.sol";
 import {Auto165} from "Commons/ERC/Auto165.sol";
 
 
-address constant BEPOLIA_EXECUTOR = 0xADEC0cE4efdC385A44349bD0e55D4b404d5367B4;
-address constant BERACHAIN_EXECUTOR = 0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7;
+address constant BEPOLIA_ROUTER = 0xADEC0cE4efdC385A44349bD0e55D4b404d5367B4;
+address constant BERACHAIN_ROUTER = 0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7;
 
 contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
     address public immutable router;
@@ -75,7 +74,6 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
                 break;
             }
         }
-        console2.log("in token index", inTokenIdx);
         if (inTokenIdx >= MAX_TOKENS) {
             revert InvalidToken();
         }
@@ -107,7 +105,6 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
 
             // store the amountOut from the oogabooga swap
             myBalances[i] = IERC20(tokens[i]).balanceOf(address(this));
-            console2.log("balances", myBalances[i]);
         }
         myBalances[inTokenIdx] = IERC20(tokens[inTokenIdx]).balanceOf(address(this));
 
@@ -122,7 +119,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
         ) = IBurveMultiSimplex(pool).getClosureValue(closureId);
 
         address adjustor = IBurveMultiSimplex(pool).getAdjustor();
-        uint256 minPercentX256 = type(uint256).max;
+        uint256 minPercentX64 = type(uint64).max;
         for (uint256 i = 0; i < closureBalances.length; i++) {
             if (closureBalances[i] == 0) continue;
             // We know closure balances line up with tokens
@@ -131,17 +128,15 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
                 closureBalances[i], 
                 true
             );
-            console2.log(myBalances[i], realBalance);
-            uint256 percentX256 = FullMath.mulDivX256(myBalances[i], realBalance, false);
-            console2.log(percentX256, minPercentX256);
-            if (percentX256 < minPercentX256) {
-                minPercentX256 = percentX256;
+            uint256 percentX64 = FullMath.mulDiv(myBalances[i], 1 << 64, realBalance);
+            if (percentX64 < minPercentX64) {
+                minPercentX64 = percentX64;
             }
         }
     
         // round the value we add down to make sure we fit.
         addedValue = FullMath.mulX128(
-            FullMath.mulX256(targetX128, minPercentX256, false),
+            FullMath.mulDiv(targetX128, minPercentX64, 1 << 64),
             n,
             false);
         }
@@ -197,10 +192,6 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
         require(msg.sender == _pool, InvalidRequest());
 
         for (uint256 i = 0; i < tokens.length; i++) {
-                        console2.log("token", tokens[i]);
-                        console2.log("token", IERC20(tokens[i]).balanceOf(address(this)));
-                        
-
             TransferHelper.safeTransfer(
                 tokens[i],
                 msg.sender,
