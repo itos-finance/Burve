@@ -21,7 +21,7 @@ using VertexImpl for Vertex global;
 
 library VertexImpl {
     /// Minimum balance difference for a trim.
-    uint256 public constant MIN_TRIM = 10;
+    uint256 public constant MIN_TRIM = 100;
 
     /// Thrown when a vertex is locked so it cannot accept more deposits, or swaps out.
     error VertexLocked(VertexId vid);
