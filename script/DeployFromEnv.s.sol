@@ -35,8 +35,8 @@ contract DeployFromEnv is Script {
     address[] public tokens;
     address[] public vaults;
 
-    string public envFile = "script/bepolia-eth.json";
-    string public deployFile = "script/deploy-bepolia-eth.json";
+    string public envFile = "script/bepolia-bgt.json";
+    string public deployFile = "script/deploy-bepolia-bgt.json";
 
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
@@ -130,7 +130,7 @@ contract DeployFromEnv is Script {
             }
         }
         simplexFacet.addClosure(cid, INITIAL_VALUE);
-        simplexFacet.setSimplexFees(1 << 127, 1 << 127);
+        simplexFacet.setSimplexFees(1 << 123, 1 << 127);
     }
 }
 

@@ -3,7 +3,9 @@ pragma solidity ^0.8.27;
 
 import {VertexId, VertexLib} from "./Id.sol";
 import {ReserveLib} from "./Reserve.sol";
-import {VaultLib, VaultProxy, VaultType} from "./VaultProxy.sol";
+
+import {VaultType} from "./VaultPointer.sol";
+import {VaultLib, VaultProxy} from "./VaultProxy.sol";
 import {ClosureId} from "../closure/Id.sol";
 import {SimplexLib} from "../Simplex.sol";
 import {FullMath} from "../../FullMath.sol";
