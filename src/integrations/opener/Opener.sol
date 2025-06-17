@@ -153,6 +153,9 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
 
         // Single deposit any remaining amounts of each token
         for (uint256 i = 0; i < tokens.length; i++) {
+            // Skip irrelevant tokens.
+            if (txData[i].length == 0) continue;
+
             uint128 balance = SafeCast.toUint128(IERC20(tokens[i]).balanceOf(address(this)));
             uint256 spend = myBalances[i] - balance;
             // If for some reason we have a large residual of any token, that means the prices were moved
