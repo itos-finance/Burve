@@ -13,6 +13,7 @@ import {console2} from "forge-std/console2.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
+import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 address constant BEPOLIA_EXECUTOR = 0xADEC0cE4efdC385A44349bD0e55D4b404d5367B4;
 address constant BERACHAIN_EXECUTOR = 0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7;
@@ -83,10 +84,7 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             address(this),
             inAmount
         );
-        IERC20(tokens[inTokenIdx]).approve(
-                router,
-                inAmount
-            );
+        SafeERC20.forceApprove(IERC20(tokens[inTokenIdx]), router, inAmount);
 
         // Now get all our balances.
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -105,6 +103,9 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
             myBalances[i] = IERC20(tokens[i]).balanceOf(address(this));
         }
         myBalances[inTokenIdx] = IERC20(tokens[inTokenIdx]).balanceOf(address(this));
+        // We've completed our swaps,
+        // the rest of the transfers happen through RFT callbacks so no need for allowances now.
+        IERC20(tokens[inTokenIdx]).approve(router, 0);
 
         // Determine how much value we can add.
         {
