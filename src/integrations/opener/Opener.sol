@@ -191,11 +191,14 @@ contract Opener is IRFTPayer, ReentrancyGuardTransient {
         require(msg.sender == _pool, InvalidRequest());
 
         for (uint256 i = 0; i < tokens.length; i++) {
-            TransferHelper.safeTransfer(
-                tokens[i],
-                msg.sender,
-                SafeCast.toUint256(requests[i])
-            );
+            // We only pay if the request is positive.
+            if (requests[i] > 0) {
+                TransferHelper.safeTransfer(
+                    tokens[i],
+                    msg.sender,
+                    SafeCast.toUint256(requests[i])
+                );
+            }
         }
     }
 }
