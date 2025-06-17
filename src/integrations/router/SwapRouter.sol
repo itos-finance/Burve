@@ -54,7 +54,7 @@ contract SwapRouter is RFTPayer, Auto165 {
         int256 amountLimit,
         Route[] calldata routes
     ) external nonReentrant returns (uint256 inAmount, uint256 outAmount) {
-        // Update transient storage 
+        // Update transient storage
         tSwapper = swapper;
         tPayer = msg.sender;
 
@@ -83,7 +83,8 @@ contract SwapRouter is RFTPayer, Auto165 {
 
         // Check amount out
         if (amountLimit < 0) {
-            uint256 minOut = uint256(-amountLimit);
+            uint256 minOut = (amountLimit == type(int256).min ?
+                uint256(type(int256).max) + 1 : uint256(-amountLimit));
             require(
                 outAmount >= minOut,
                 InsufficientAmountOut(minOut, outAmount)
