@@ -76,6 +76,7 @@ library ClosureImpl {
         uint256 target
     ) internal returns (uint256[MAX_TOKENS] storage balancesNeeded) {
         self.cid = cid;
+        require(self.targetX128 == 0, "AlreadyInitializedClosure");
         self.targetX128 = target << 128;
         for (
             VertexId vIter = VertexLib.minId();
