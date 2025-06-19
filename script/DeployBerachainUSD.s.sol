@@ -65,7 +65,7 @@ contract DeployFromEnv is Script, Test {
         simplexFacet.setAdjustor(address(nAdj));
 
         // set default fee rates
-        // 4 bips fee rate 136112946768375385385349842972707284
+        // 4 bps fee rate 136112946768375385385349842972707284
         // 8% protocol take 27222589353675077077069968594541456916
         simplexFacet.setSimplexFees(
             136112946768375385385349842972707284,
