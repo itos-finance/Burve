@@ -17,12 +17,13 @@ import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
 import {NullAdjustor} from "../src/integrations/adjustor/NullAdjustor.sol";
 import {DecimalAdjustor} from "../src/integrations/adjustor/DecimalAdjustor.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {Test} from "forge-std/Test.sol";
 
-contract DeployFromEnv is Script {
+contract DeployFromEnv is Script, Test {
     /* Deployer */
     address deployerAddr;
 
-    uint128 constant INITIAL_VALUE = 1_000e18;
+    uint128 constant INITIAL_VALUE = 1e18;
 
     /* Diamond */
     address public diamond;
@@ -34,9 +35,10 @@ contract DeployFromEnv is Script {
     /* Environment Variables */
     address[] public tokens;
     address[] public vaults;
+    uint256[] public efactors;
 
-    string public envFile = "script/bepolia-bgt.json";
-    string public deployFile = "script/deploy-bepolia-bgt.json";
+    string public envFile = "script/berachain/usd.json";
+    string public deployFile = "script/berachain/deployments/usd.json";
 
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
@@ -46,6 +48,7 @@ contract DeployFromEnv is Script {
         string memory envJson = vm.readFile(envFile);
         tokens = vm.parseJsonAddressArray(envJson, ".tokens");
         vaults = vm.parseJsonAddressArray(envJson, ".vaults");
+        efactors = vm.parseJsonUintArray(envJson, ".efactors");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -61,10 +64,23 @@ contract DeployFromEnv is Script {
         IAdjustor nAdj = new DecimalAdjustor();
         simplexFacet.setAdjustor(address(nAdj));
 
-        // Add vertices for each token and vault pair
+        // set default fee rates
+        // 4 bips fee rate 136112946768375385385349842972707284
+        // 8% protocol take 27222589353675077077069968594541456916
+        simplexFacet.setSimplexFees(
+            136112946768375385385349842972707284,
+            27222589353675077077069968594541456916
+        );
+
         for (uint256 i = 0; i < tokens.length; ++i) {
+            // Add vertices for each token and vault pair
             simplexFacet.addVertex(tokens[i], vaults[i], VaultType.E4626);
+
+            // set efficiency factors
+            simplexFacet.setEX128(tokens[i], _toX128(efactors[i]));
         }
+
+        // update specific fee rates
 
         // Initialize closures from 3 to 2^n - 1 where n is number of tokens
         uint16 maxClosure = uint16((1 << tokens.length) - 1);
@@ -125,12 +141,19 @@ contract DeployFromEnv is Script {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
-                IMintableERC20(tokens[i]).mint(address(deployerAddr), 1e33);
-                IMintableERC20(tokens[i]).approve(address(diamond), 1e33);
+                deal(tokens[i], deployerAddr, 100e18);
+                // IMintableERC20(tokens[i]).mint(address(deployerAddr), 1e33);
+                IMintableERC20(tokens[i]).approve(
+                    address(diamond),
+                    type(uint256).max
+                );
             }
         }
         simplexFacet.addClosure(cid, INITIAL_VALUE);
-        simplexFacet.setSimplexFees(1 << 123, 1 << 127);
+    }
+
+    function _toX128(uint256 amount) internal returns (uint256) {
+        return amount << 128;
     }
 }
 
