@@ -454,13 +454,13 @@ contract SimplexFacetTest is MultiSetupTest {
             10 << 128,
             20 << 128
         );
-        simplexFacet.setEX128(tokens[3], 20 << 128);
+        simplexFacet.setEX128(tokens[3], 20 << 128, 0);
 
         uint256 esX128 = simplexFacet.getEX128(tokens[3]);
         assertEq(esX128, 20 << 128);
 
         // Doesn't require any token transfers because no closures are registered.
-        simplexFacet.setEX128(tokens[3], 10 << 128);
+        simplexFacet.setEX128(tokens[3], 10 << 128, 0);
 
         vm.stopPrank();
     }
@@ -501,7 +501,7 @@ contract SimplexFacetTest is MultiSetupTest {
             20 << 128
         );
         vm.prank(owner);
-        simplexFacet.setEX128(tokens[0], 20 << 128);
+        simplexFacet.setEX128(tokens[0], 20 << 128, 0);
 
         {
             uint256 postBalance = ERC20(tokens[0]).balanceOf(
@@ -576,9 +576,20 @@ contract SimplexFacetTest is MultiSetupTest {
         // We need tokens to send.
         vm.expectRevert();
         vm.prank(owner);
-        simplexFacet.setEX128(tokens[0], 5 << 128);
+        simplexFacet.setEX128(tokens[0], 5 << 128, type(uint256).max);
 
         _fundAccount(owner);
+
+        // We need to send more than alotted.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SimplexSetFacet.SetESlippageExceeded.selector,
+                2388393271069068,
+                1e15
+            )
+        );
+        vm.prank(owner);
+        simplexFacet.setEX128(tokens[0], 5 << 128, 1e15);
 
         vm.expectEmit(true, true, false, true);
         emit SimplexSetFacet.EfficiencyFactorChanged(
@@ -588,7 +599,7 @@ contract SimplexFacetTest is MultiSetupTest {
             5 << 128
         );
         vm.prank(owner);
-        simplexFacet.setEX128(tokens[0], 5 << 128);
+        simplexFacet.setEX128(tokens[0], 5 << 128, 100e18);
 
         {
             uint256 postBalance = ERC20(tokens[0]).balanceOf(
@@ -634,7 +645,7 @@ contract SimplexFacetTest is MultiSetupTest {
 
     function testRevertSetEX128NotOwner() public {
         vm.expectRevert(AdminLib.NotOwner.selector);
-        simplexFacet.setEX128(tokens[0], 1);
+        simplexFacet.setEX128(tokens[0], 1, type(uint256).max);
     }
 
     // -- adjustor tests ----

@@ -129,16 +129,11 @@ contract SimplexSetFacet {
     error BGTExchangerIsZeroAddress();
     /// Throw when setting search params if deMinimusX128 is not positive.
     error NonPositiveDeMinimusX128(int256 deMinimusX128);
+    /// Thrown when the slippage for setting E is exceeded.
+    error SetESlippageExceeded(uint256 needed, uint256 maxRequired);
 
     event NewName(string newName, string symbol);
 
-    event DefaultEdgeSet(
-        uint128 amplitude,
-        int24 lowTick,
-        int24 highTick,
-        uint24 fee,
-        uint8 feeProtocol
-    );
     /// Emitted when the adjustor is changed.
     event AdjustorChanged(
         address indexed admin,
@@ -177,8 +172,13 @@ contract SimplexSetFacet {
     /// @notice Sets the efficiency factor for a given token.
     /// @param token The address of the token.
     /// @param eX128 The efficiency factor to set.
+    /// @param maxRequired When decreasing E and requiring more tokens, this limits the slippage.
     /// @dev Only callable by the contract owner.
-    function setEX128(address token, uint256 eX128) external {
+    function setEX128(
+        address token,
+        uint256 eX128,
+        uint256 maxRequired
+    ) external {
         AdminLib.validateOwner();
         uint8 idx = TokenRegLib.getIdx(token);
         uint256 oldEX128 = SimplexLib.setEX128(idx, eX128);
@@ -222,6 +222,10 @@ contract SimplexSetFacet {
             }
         }
         if (needed > 0) {
+            require(
+                needed <= maxRequired,
+                SetESlippageExceeded(needed, maxRequired)
+            );
             TransferHelper.safeTransferFrom(
                 token,
                 msg.sender,

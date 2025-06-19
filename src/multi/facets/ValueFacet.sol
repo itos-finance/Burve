@@ -140,6 +140,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         ClosureId cid = ClosureId.wrap(_closureId);
         Closure storage c = Store.closure(cid);
         uint256[MAX_TOKENS] memory nominalReceives = c.removeValue(value);
+        // The remove value ensures we trim before we remove.
         Store.assets().remove(msg.sender, cid, value, bgtValue);
         c.finalize(
             VertexId.wrap(0),
@@ -201,6 +202,7 @@ contract ValueFacet is ReentrancyGuardTransient {
         uint16 closureId
     )
         external
+        nonReentrant
         returns (
             uint256[MAX_TOKENS] memory collectedBalances,
             uint256 collectedBgt
@@ -225,6 +227,9 @@ contract ValueFacet is ReentrancyGuardTransient {
         int256[] memory deltas = new int256[](n);
         uint8 idx = 0;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
+            if (!cid.contains(i)) continue;
+            // We always need real tokens there for balance checks.
+            tokens[idx] = tokenReg.tokens[i];
             if (collectedShares[i] > 0) {
                 VertexId vid = VertexLib.newId(i);
                 // Real amounts.
@@ -232,7 +237,6 @@ contract ValueFacet is ReentrancyGuardTransient {
                     vid,
                     collectedShares[i]
                 );
-                tokens[idx] = tokenReg.tokens[i];
                 deltas[idx] = -SafeCast.toInt256(collectedBalances[i]);
             }
             ++idx;
@@ -321,6 +325,7 @@ contract ValueSingleFacet is ReentrancyGuardTransient {
             value,
             vid
         );
+        // The remove value ensures we trim before we remove.
         Store.assets().remove(msg.sender, cid, value, bgtValue);
         uint256 realRemoved = AdjustorLib.toReal(token, removedNominal, false);
         Store.vertex(vid).withdraw(cid, realRemoved, false);
@@ -517,7 +522,7 @@ contract QueryValueFacet {
         );
         uint256 nonValue = value - bgtValue;
         for (uint8 i = 0; i < MAX_TOKENS; ++i) {
-            if (earnings[i] > 0) {
+            if (cid.contains(i)) {
                 VertexId vid = VertexLib.newId(i);
                 earnings[i] = ReserveLib.query(vid, earnings[i]);
                 earnings[i] += FullMath.mulX128(

@@ -5,7 +5,9 @@ import "./BaseScript.sol";
 import {ClosureId} from "../../src/multi/closure/Id.sol";
 
 contract ValueToken is BaseScript {
+    /// Not using value tokens right now.
     function run() external {
+        /*
         // Load configuration from environment
         uint16 closureId = uint16(vm.envOr("CLOSURE_ID", uint256(0)));
         uint256 value = vm.envUint("VALUE");
@@ -35,5 +37,6 @@ contract ValueToken is BaseScript {
         }
 
         vm.stopBroadcast();
+        */
     }
 }

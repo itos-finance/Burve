@@ -22,10 +22,11 @@ struct Vertex {
 using VertexImpl for Vertex global;
 
 library VertexImpl {
+    /// Minimum balance difference for a trim.
+    uint256 public constant MIN_TRIM = 100;
+
     /// Thrown when a vertex is locked so it cannot accept more deposits, or swaps out.
     error VertexLocked(VertexId vid);
-    /// Thrown when the vault has a withdraw limit lower than the requested amount.
-    error WithdrawLimited(VertexId vid, uint256 amount);
     /// Emitted when the pool is holding insufficient balance for a token.
     /// This should never happen unless something is really wrong, like a vault
     /// losing money. In such an event check what is wrong, the severity, and either
@@ -86,31 +87,48 @@ library VertexImpl {
             return (0, 0, 0);
         }
         uint256 residualReal = realBalance - targetReal;
+        // We don't compound when the residual is small as rounding will inflate reserve share balances.
+        if (residualReal < MIN_TRIM) {
+            return (0, 0, 0);
+        }
+
         uint256 bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
-        // Now we move the shares from the cid vault to the reserve.
-        bool validWithdraw = vProxy.withdraw(cid, residualReal);
+
+        // Now we try to move the shares from the cid vault to the reserve.
+        // This is the one place where if the withdraw is limited, it's okay because we don't want
+        // deposits to fail. We proceed as normal but make sure the return the funds (through reserves)
+        // before the commit.
+        bool withdrawPossible = vProxy.nilpotentWithdraw(cid, residualReal);
         reserveSharesEarned = ReserveLib.deposit(
             vProxy,
             self.vid,
             residualReal - bgtResidual
         );
         if (bgtResidual > 0) {
-            uint256 unspent;
-            if (validWithdraw) {
+            if (withdrawPossible) {
+                // We withdrew the full amount, we can bgt exchange.
+                uint256 unspent;
                 (bgtEarned, unspent) = SimplexLib.viewBgtExchange(
                     self.vid.idx(),
                     bgtResidual
                 );
+                unspentShares = ReserveLib.deposit(vProxy, self.vid, unspent);
             } else {
-                // By not spending when withdraws will fail, we avoid withdraw/depositing
-                // and instead are just moving shares from the vault to the reserve.
-                unspent = bgtResidual;
+                // We can't bgt exchange because we need to return the withdrawn balance back to the vault
+                // through reserves.
+                unspentShares = ReserveLib.deposit(
+                    vProxy,
+                    self.vid,
+                    bgtResidual
+                );
             }
-            unspentShares = ReserveLib.deposit(vProxy, self.vid, unspent);
         }
+
         vProxy.commit();
-        // Now that we've commited we have the tokens to exchange.
-        SimplexLib.bgtExchange(self.vid.idx(), bgtResidual);
+        if (bgtEarned > 0) {
+            // Now that we've commited we have the tokens to exchange.
+            SimplexLib.bgtExchange(self.vid.idx(), bgtResidual);
+        }
     }
 
     /// A few version of trim that just returns the real balances earned.
@@ -171,10 +189,7 @@ library VertexImpl {
         if (checkLock) {
             validateLock(self, vProxy);
         }
-        require(
-            vProxy.withdraw(cid, amount),
-            WithdrawLimited(self.vid, amount)
-        );
+        vProxy.withdraw(cid, amount);
         vProxy.commit();
     }
 

@@ -173,6 +173,7 @@ using VaultProxyImpl for VaultProxy global;
 
 library VaultProxyImpl {
     error VaultTypeUnrecognized(VaultType);
+    error WithdrawLimited(ClosureId cid, uint256 requested, uint256 available);
 
     /// We simply deposit into the active vault pointer.
     function deposit(
@@ -184,12 +185,11 @@ library VaultProxyImpl {
     }
 
     /// Withdraw from the active vault, and then the backup if we can't fulfill it entirely.
-    /// @return valid True if the withdraw will succeed.
     function withdraw(
         VaultProxy memory self,
         ClosureId cid,
         uint256 amount
-    ) internal returns (bool valid) {
+    ) internal {
         // We effectively don't allow withdraws beyond uint128 due to the capping in balance.
         uint128 available = self.active.balance(cid, false);
         uint256 maxWithdrawable = self.active.withdrawable();
@@ -199,15 +199,35 @@ library VaultProxyImpl {
             self.active.withdraw(cid, available);
             uint256 residual = amount - available;
             uint256 backWithdrawable = self.backup.withdrawable();
-            valid = backWithdrawable >= residual;
-            if (!valid) {
-                residual = backWithdrawable;
+            if (backWithdrawable < residual) {
+                revert WithdrawLimited(
+                    cid,
+                    amount,
+                    backWithdrawable + available
+                );
             }
             self.backup.withdraw(cid, residual);
         } else {
             self.active.withdraw(cid, amount);
-            valid = true;
         }
+    }
+
+    /// We withdraw from the active vault regardless of what's available.
+    /// If it is blocked it's okay because the expectation is that you're deposting back before
+    /// the next vault commit so no funds are actually withdrawn.
+    /// @return potent If the withdraw can actually be done or not.
+    function nilpotentWithdraw(
+        VaultProxy memory self,
+        ClosureId cid,
+        uint256 amount
+    ) internal returns (bool potent) {
+        uint128 available = self.active.balance(cid, false);
+        uint256 maxWithdrawable = self.active.withdrawable();
+        if (maxWithdrawable < available) available = uint128(maxWithdrawable);
+
+        potent = amount <= available;
+        // This will succeed for now, but fail on commit if the funds are not returned and withdraws are limited.
+        self.active.withdraw(cid, amount);
     }
 
     /// How much can we withdraw from the vaults right now?
