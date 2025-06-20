@@ -31,7 +31,7 @@ abstract contract BaseScript is Script {
     function setUp() public virtual {
         // Read deployment.json
         string memory json = vm.readFile(
-            "script/berachain/deployments/usd.json"
+            "script/berachain/deployments/usd-2.json"
         );
 
         // Parse diamond address with better error handling

@@ -242,6 +242,8 @@ contract ValueFacet is ReentrancyGuardTransient {
             ++idx;
         }
         RFTLib.settle(recipient, tokens, deltas, "");
+
+        emit IBurveMultiEvents.CollectFees(recipient, closureId, deltas);
     }
 }
 
