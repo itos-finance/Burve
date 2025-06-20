@@ -55,7 +55,7 @@ const swap = async (client, publicClient, swapParams) => {
 	console.log("routerParams", JSON.stringify(routerParams));
 	console.log("routerAddr", routerAddr);
 
-	const exec = getAddress(routerParams.executor);
+	const exec = getAddress("0x2Ef5ffA9884E9ef76883df8212b5d70927B8586");
 	console.log("exec", exec);
 
 	// console.log("Submitting swap...");
