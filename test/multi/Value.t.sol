@@ -44,6 +44,7 @@ contract ValueTest is Test {
     }
 
     /// Test revert when we provide an x that is too small.
+    /// forge-config: default.allow_internal_expect_revert = true
     function testNegativeV() public {
         uint256 tX128 = 9090e20 << 128;
         uint256 eX128 = 16 << 128;
