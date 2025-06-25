@@ -28,6 +28,8 @@ abstract contract BaseScript is Script {
     MockERC20[] public tokens;
     MockERC4626[] public vaults;
 
+    address diamondAddr;
+
     function setUp() public virtual {
         // Read deployment.json
         string memory json = vm.readFile(
@@ -40,7 +42,7 @@ abstract contract BaseScript is Script {
             bytes(diamondStr).length > 0,
             "Diamond address not found in JSON"
         );
-        address diamondAddr = vm.parseAddress(diamondStr);
+        diamondAddr = vm.parseAddress(diamondStr);
 
         // Initialize core contracts
         diamond = BurveDiamond(payable(diamondAddr));
