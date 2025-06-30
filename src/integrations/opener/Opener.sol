@@ -119,7 +119,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
         ) = IBurveMultiSimplex(pool).getClosureValue(closureId);
 
         address adjustor = IBurveMultiSimplex(pool).getAdjustor();
-        uint256 minPercentX128 = type(uint128).max;
+        uint256 minPercentX128 = type(uint256).max;
         for (uint256 i = 0; i < closureBalances.length; i++) {
             if (closureBalances[i] == 0) continue;
             // We know closure balances line up with tokens
@@ -136,7 +136,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
 
         // round the value we add down to make sure we fit.
         addedValue = FullMath.mulX128(
-            FullMath.mulDiv(targetX128, minPercentX128, 1 << 64),
+            FullMath.mulX128(targetX128, minPercentX128, false),
             n,
             false);
         }
