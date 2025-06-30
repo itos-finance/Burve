@@ -17,9 +17,8 @@ import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
 import {NullAdjustor} from "../src/integrations/adjustor/NullAdjustor.sol";
 import {DecimalAdjustor} from "../src/integrations/adjustor/DecimalAdjustor.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import {Test} from "forge-std/Test.sol";
 
-contract DeployFromEnv is Script, Test {
+contract Deploy is Script {
     /* Deployer */
     address deployerAddr;
 
@@ -38,7 +37,7 @@ contract DeployFromEnv is Script, Test {
     uint256[] public efactors;
 
     string public envFile = "script/berachain/usd.json";
-    string public deployFile = "script/berachain/deployments/usd.json";
+    string public deployFile = "script/berachain/deployments/usd-2.json";
 
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
@@ -169,8 +168,6 @@ contract DeployFromEnv is Script, Test {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
-                // deal(tokens[i], deployerAddr, 100e18);
-                // IMintableERC20(tokens[i]).mint(address(deployerAddr), 1e33);
                 IMintableERC20(tokens[i]).approve(
                     address(diamond),
                     type(uint256).max

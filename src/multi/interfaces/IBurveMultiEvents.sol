@@ -42,4 +42,14 @@ interface IBurveMultiEvents {
         uint16 indexed closureId,
         uint256 value
     );
+
+    /// @notice Emitted when fees are removed from a position
+    /// @param recipient The address that received the tokens
+    /// @param closureId The ID of the closure
+    /// @param deltas The amounts of each token removed as fees from the position
+    event CollectFees(
+        address indexed recipient,
+        uint16 indexed closureId,
+        int256[] deltas
+    );
 }

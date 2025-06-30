@@ -35,7 +35,7 @@ contract BurveForkableTest is ForkableTest {
     address public alice;
     address public bob;
 
-    string public envFile = "script/berachain/btc.json";
+    string public envFile = "script/berachain/usd.json";
 
     function preSetup() internal override {
         owner = makeAddr("owner");
@@ -70,29 +70,7 @@ contract BurveForkableTest is ForkableTest {
     }
 
     function forkSetup() internal override {
-        // Deploy diamond and facets
-        BurveFacets memory bFacets = InitLib.deployFacets();
-        diamond = address(new SimplexDiamond(bFacets, "ValueToken", "BVT"));
-        valueFacet = IBurveMultiValue(diamond);
-        valueTokenFacet = ValueTokenFacet(diamond);
-        vaultFacet = VaultFacet(diamond);
-        simplexFacet = IBurveMultiSimplex(diamond);
-        swapFacet = SwapFacet(diamond);
-        lockFacet = LockFacet(diamond);
-
-        string memory envJson = vm.readFile(envFile);
-        tokens = vm.parseJsonAddressArray(envJson, ".tokens");
-        vaults = vm.parseJsonAddressArray(envJson, ".vaults");
-
-        simplexFacet.addVertex(tokens[0], vaults[0], VaultType.E4626);
-        simplexFacet.addVertex(tokens[1], vaults[1], VaultType.E4626);
-        simplexFacet.addVertex(tokens[2], vaults[2], VaultType.E4626);
-
-        _initializeClosure(0x3, 1e18);
-        _initializeClosure(0x4, 1e18);
-        _initializeClosure(0x5, 1e18);
-        _initializeClosure(0x6, 1e18);
-        _initializeClosure(0x7, 1e18);
+        diamond = address(0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089);
     }
 
     /// Initalize a zero fee closure with the initial value amount.

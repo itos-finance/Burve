@@ -15,6 +15,6 @@ fs_permissions = [
 ]
 
 [etherscan]
-berachain = { chain = "80094", key = "${ETHERSCAN_API_KEY}", url = "https://api.berascan.com/api" }
+berachain = { chain = "80094", key = "${ETHERSCAN_API_KEY}" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
