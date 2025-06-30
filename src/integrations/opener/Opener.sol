@@ -136,7 +136,7 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
 
         // round the value we add down to make sure we fit.
         addedValue = FullMath.mulX128(
-            FullMath.mulDiv(targetX128, minPercentX128, 1 << 128),
+            FullMath.mulX128(targetX128, minPercentX128, false),
             n,
             false);
         }
