@@ -13,6 +13,11 @@ contract MixedAdjustor is IAdjustor {
     // The default adjustor and one is not set for the token.
     address public defAdj;
 
+    // Emitted when an adjustor is set for a token.
+    event AdjustorChanged(address indexed token, address indexed adjustor);
+    // Emitted when the default adjustor is set.
+    event DefaultAdjustorChanged(address indexed adjustor);
+
     constructor() {
         AdminLib.initOwner(msg.sender);
         defAdj = address(new NullAdjustor());
@@ -23,11 +28,13 @@ contract MixedAdjustor is IAdjustor {
     function setAdjustor(address token, address adjustor) external {
         AdminLib.validateOwner();
         adjAddr[token] = adjustor;
+        emit AdjustorChanged(token, adjustor);
     }
 
     function setDefaultAdjustor(address adjustor) external {
         AdminLib.validateOwner();
         defAdj = adjustor;
+        emit DefaultAdjustorChanged(adjustor);
     }
 
     /* IAdjustor */

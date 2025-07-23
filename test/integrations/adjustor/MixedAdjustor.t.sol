@@ -76,12 +76,16 @@ contract MixedAdjustorTest is Test {
         // check tokenA
         assertEq(adj.adjAddr(tokenA), address(0x0));
         address adjustorA = makeAddr("adjustorA");
+        vm.expectEmit(true, true, false, true);
+        emit MixedAdjustor.AdjustorChanged(tokenA, adjustorA);
         adj.setAdjustor(tokenA, adjustorA);
         assertEq(adj.adjAddr(tokenA), adjustorA);
 
         // check tokenB
         assertEq(adj.adjAddr(tokenB), address(0x0));
         address adjustorB = makeAddr("adjustorB");
+        vm.expectEmit(true, true, false, true);
+        emit MixedAdjustor.AdjustorChanged(tokenB, adjustorB);
         adj.setAdjustor(tokenB, adjustorB);
         assertEq(adj.adjAddr(tokenB), adjustorB);
 
@@ -99,6 +103,8 @@ contract MixedAdjustorTest is Test {
         vm.startPrank(owner);
 
         address defAdjustor = makeAddr("defaultAdjustor");
+        vm.expectEmit(true, false, false, true);
+        emit MixedAdjustor.DefaultAdjustorChanged(defAdjustor);
         adj.setDefaultAdjustor(defAdjustor);
         assertEq(adj.defAdj(), defAdjustor);
 
