@@ -1,0 +1,324 @@
+[
+  {
+    "type": "function",
+    "name": "addSingleForValue",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "bgtPercentX256",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minValue",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "valueReceived",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addValue",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "value",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "bgtValue",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "amountLimits",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "requiredBalances",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addValueSingle",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "value",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "bgtValue",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "maxRequired",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "requiredBalance",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "collectEarnings",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "collectedBalances",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      },
+      {
+        "name": "collectedBgt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "queryValue",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bgtValue",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "earnings",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      },
+      {
+        "name": "bgtEarnings",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "removeSingleForValue",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "bgtPercentX256",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxValue",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "valueGiven",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeValue",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "value",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "bgtValue",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "amountLimits",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "receivedBalances",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeValueSingle",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "value",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "bgtValue",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "minReceive",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "removedBalance",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  }
+]

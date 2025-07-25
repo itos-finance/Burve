@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.27;
+
+import {console2} from "forge-std/console2.sol";
+
+import {BurveForkableTest} from "../../test/integrations/Fork.u.sol";
+import {Add_MEAD_RUSD_PYUSD} from "./Add_MEAD_RUSD_PYUSD.sol";
+import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
+import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+
+contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest {
+    address[3] private addedTokens = [
+        0xEDB5180661F56077292C92Ab40B1AC57A279a396,
+        0x09D4214C03D01F49544C0448DBE3A27f768F2b34,
+        0x688e72142674041f8f6Af4c808a4045cA1D6aC82
+    ];
+    address constant MULTISIG = 0x9293f9FFC43F6fce06290285919541E963D87F51;
+
+    function testAdd_MEAD_RUSD_PYUSD() public {
+        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD(
+            address(diamond)
+        );
+
+        transferOwnership(address(executor));
+
+        fundExecutor(address(executor));
+
+        executor.acceptOwnership();
+
+        executor.deployMEAD();
+
+        executor.deployRUSD();
+
+        executor.deployPYUSD1();
+
+        executor.deployPYUSD2();
+
+        executor.transferOwnership();
+
+        getBalances(address(executor));
+    }
+
+    /// This setup is done with the multisig itself approving a transaction to move the ownership of the smart contract
+    /// to the contract.
+    function transferOwnership(address executor) internal {
+        vm.startPrank(MULTISIG);
+
+        BaseAdminFacet(address(diamond)).transferOwnership(executor);
+
+        vm.stopPrank();
+    }
+
+    function fundExecutor(address executor) internal {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            deal(address(tokens[i]), executor, 10e28);
+        }
+
+        for (uint256 j = 0; j < addedTokens.length; j++) {
+            deal(addedTokens[j], executor, 10e28);
+        }
+    }
+
+    function getBalances(address executor) internal view {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            uint256 balance = IERC20(address(tokens[i])).balanceOf(executor);
+            console2.log(address(tokens[i]));
+            console2.log(balance);
+        }
+
+        for (uint256 j = 0; j < addedTokens.length; j++) {
+            uint256 balance = IERC20(address(addedTokens[j])).balanceOf(
+                executor
+            );
+            console2.log(address(addedTokens[j]));
+            console2.log(balance);
+        }
+    }
+}

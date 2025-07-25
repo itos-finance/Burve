@@ -22,15 +22,17 @@ contract AddValue is BaseScript {
         console2.log("BGT Value:", bgtValue);
         console2.log("Recipient:", recipient);
 
-        _mintTokensForClosure(5, _getSender(), 1_000e18);
+        // _mintTokensForClosure(5, _getSender(), 1_000e18);
 
         // Add value to the closure
         uint256[MAX_TOKENS] memory limits;
+        limits[0] = 250000;
+        limits[1] = 283108;
         uint256[MAX_TOKENS] memory requiredBalances = valueFacet.addValue(
-            recipient,
-            closureId,
-            valueAmount,
-            bgtValue,
+            address(0xbe7dC5cC7977ac378ead410869D6c96f1E6C773e),
+            3,
+            513104573203253618,
+            0,
             limits
         );
 

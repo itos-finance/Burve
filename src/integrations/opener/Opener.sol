@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.27;
 
 import {TransferHelper} from "Commons/Util/TransferHelper.sol";
 import {RFTPayer} from "Commons/Util/RFT.sol";

@@ -26,16 +26,16 @@ contract AddSingleForValue is BaseScript {
         console2.log("Min Value:", minValue);
         console2.log("Recipient:", recipient);
 
-        _mintTokensForClosure(closureId, recipient, amount * 2);
+        // _mintTokensForClosure(closureId, recipient, amount * 2);
 
         // Add single token for value
         uint256 valueReceived = valueFacet.addSingleForValue(
-            recipient,
-            closureId,
-            token,
-            amount,
+            address(0xbe7dC5cC7977ac378ead410869D6c96f1E6C773e),
+            3,
+            address(0x549943e04f40284185054145c6E4e9568C1D3241),
+            250000,
             bgtPercentX256,
-            minValue
+            0
         );
 
         console2.log("\nValue received:", valueReceived);
