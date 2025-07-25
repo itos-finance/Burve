@@ -16,7 +16,7 @@ contract Call_MEAD_RUSD_PYUSD is BaseScript, Test {
     function run() external {
         vm.startBroadcast(_getPrivateKey());
 
-        Add_MEAD_RUSD_PYUSD deployer = Add_MEAD_RUSD_PYUSD(address(0));
+        Add_MEAD_RUSD_PYUSD deployer = Add_MEAD_RUSD_PYUSD(address(0)); // fill in with the deployment script result
 
         deployer.acceptOwnership();
 

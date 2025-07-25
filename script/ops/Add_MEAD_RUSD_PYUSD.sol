@@ -11,6 +11,8 @@ contract Add_MEAD_RUSD_PYUSD {
     // when using the min initial value, 1e12, too many 1 token deposits into dolomite causes issues in the same transaction, so we use 1e13
     uint128 constant INITIAL_VALUE = 1e13;
 
+    address constant DIAMOND =
+        address(0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089);
     address constant MULTISIG =
         address(0x9293f9FFC43F6fce06290285919541E963D87F51);
     address constant FUNDER =
@@ -19,9 +21,9 @@ contract Add_MEAD_RUSD_PYUSD {
     IBurveMultiSimplex simplexFacet;
     BaseAdminFacet adminFacet;
 
-    constructor(address _diamond) {
-        simplexFacet = IBurveMultiSimplex(_diamond);
-        adminFacet = BaseAdminFacet(_diamond);
+    constructor() {
+        simplexFacet = IBurveMultiSimplex(DIAMOND);
+        adminFacet = BaseAdminFacet(DIAMOND);
     }
 
     function acceptOwnership() external {

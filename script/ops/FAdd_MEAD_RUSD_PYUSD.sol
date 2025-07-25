@@ -17,9 +17,7 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest {
     address constant MULTISIG = 0x9293f9FFC43F6fce06290285919541E963D87F51;
 
     function testAdd_MEAD_RUSD_PYUSD() public {
-        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD(
-            address(diamond)
-        );
+        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
 
         transferOwnership(address(executor));
 

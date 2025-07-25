@@ -12,12 +12,10 @@ import {Add_MEAD_RUSD_PYUSD} from "./Add_MEAD_RUSD_PYUSD.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 contract Call_MEAD_RUSD_PYUSD is BaseScript, Test {
-    address constant OMNIPOOL = 0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089;
-
     function run() external {
         vm.startBroadcast(_getPrivateKey());
 
-        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD(OMNIPOOL);
+        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
 
         console2.log("executor", address(executor));
 
