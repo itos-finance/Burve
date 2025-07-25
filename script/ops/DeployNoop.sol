@@ -9,7 +9,7 @@ import {NoopVault} from "../../src/integrations/pseudo4626/noopVault.sol";
 
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
-contract DeployMeme is Script {
+contract DeployNoop is Script {
     /* Deployer */
     address deployerAddr;
 
