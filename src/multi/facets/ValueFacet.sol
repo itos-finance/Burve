@@ -241,7 +241,8 @@ contract ValueFacet is ReentrancyGuardTransient {
             }
             ++idx;
         }
-        RFTLib.settle(recipient, tokens, deltas, "");
+        bytes memory data = abi.encode(recipient, closureId);
+        RFTLib.settle(recipient, tokens, deltas, data);
     }
 }
 
