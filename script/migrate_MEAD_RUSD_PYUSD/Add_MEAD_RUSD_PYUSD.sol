@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {console2} from "forge-std/console2.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -101,7 +100,7 @@ contract Add_MEAD_RUSD_PYUSD {
         address[] memory tokens = simplexFacet.getTokens();
 
         uint16 minClosure = uint16(1 << (uint16(tokenCount - 1)));
-        uint16 maxClosure = 443;
+        uint16 maxClosure = 440;
 
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20(tokens[i]).approve(address(simplexFacet), type(uint256).max);
@@ -115,8 +114,8 @@ contract Add_MEAD_RUSD_PYUSD {
     function deployPYUSD2() external {
         uint256 tokenCount = simplexFacet.getNumVertices();
 
-        uint16 minClosure = 443;
-        uint16 maxClosure = uint16(1 << (uint16(tokenCount))) - 1;
+        uint16 minClosure = 440;
+        uint16 maxClosure = uint16(1 << (uint16(tokenCount)));
 
         for (uint16 cid = minClosure; cid < maxClosure; cid++) {
             simplexFacet.addClosure(cid, INITIAL_VALUE);

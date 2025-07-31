@@ -11,7 +11,7 @@ This is a simple process for adding tokens and their closures to the OmniPool.
 Before running the scripts, you need to fork the chain you are executing on. An example of this is the FAdd_MEAD_RUSD_PYUSD.sol script.
 
 ```
-forge test --match-test testAdd_MEAD_RUSD_PYUSD--fork-url $FORK_URL -vvvv
+forge test --match-test testAdd_MEAD_RUSD_PYUSD --fork-url $FORK_URL -vvvv
 ```
 
 ## Deployment
