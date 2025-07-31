@@ -7,8 +7,11 @@ import {BurveForkableTest} from "../../test/integrations/Fork.u.sol";
 import {Add_MEAD_RUSD_PYUSD} from "./Add_MEAD_RUSD_PYUSD.sol";
 import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {RFTLib, RFTPayer} from "Commons/Util/RFT.sol";
+import {TransferHelper} from "../../src/TransferHelper.sol";
+import {Auto165} from "Commons/ERC/Auto165.sol";
 
-contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest {
+contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest, RFTPayer, Auto165 {
     address[3] private addedTokens = [
         0xEDB5180661F56077292C92Ab40B1AC57A279a396,
         0x09D4214C03D01F49544C0448DBE3A27f768F2b34,
@@ -16,12 +19,19 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest {
     ];
     address constant MULTISIG = 0x9293f9FFC43F6fce06290285919541E963D87F51;
 
+    constructor() RFTPayer() {}
+
     function testAdd_MEAD_RUSD_PYUSD() public {
-        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
+        // Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
+        Add_MEAD_RUSD_PYUSD executor = Add_MEAD_RUSD_PYUSD(
+            0xeA5A3388D0254C9B684AB074674661493774BA0E
+        );
 
         transferOwnership(address(executor));
 
         fundExecutor(address(executor));
+
+        // fundFork();
 
         executor.acceptOwnership();
 
@@ -36,6 +46,19 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest {
         executor.transferOwnership();
 
         getBalances(address(executor));
+
+        addValue();
+    }
+
+    function addValue() internal {
+        uint256[16] memory limits;
+        valueFacet.addValue(
+            address(0xbe7dC5cC7977ac378ead410869D6c96f1E6C773e),
+            (1 << 9) - 1,
+            513104573203253618,
+            0,
+            limits
+        );
     }
 
     /// This setup is done with the multisig itself approving a transaction to move the ownership of the smart contract
@@ -71,6 +94,21 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest {
             );
             console2.log(address(addedTokens[j]));
             console2.log(balance);
+        }
+    }
+
+    function tokenRequestCB(
+        address[] calldata tokens,
+        int256[] calldata requests,
+        bytes calldata
+    ) external returns (bytes memory) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            deal(tokens[i], address(this), uint256(requests[i]));
+            TransferHelper.safeTransfer(
+                tokens[i],
+                msg.sender,
+                uint256(requests[i])
+            );
         }
     }
 }
