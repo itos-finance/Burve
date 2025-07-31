@@ -61,7 +61,7 @@ contract SwapFacet is IBurveMultiSwap, ReentrancyGuardTransient {
                 );
                 outAmount = AdjustorLib.toReal(outVid.idx(), nominalOut, false);
                 // Figure out the tax in real terms. This is cheaper than another adjust call.
-                // Round up to protect the vertex balance invariant.
+                // Round down the tax to round up the real tokens backing the closure balances.
                 realTax = FullMath.mulDiv(inAmount, nominalTax, nominalIn);
                 require(
                     outAmount >= amountLimit,
