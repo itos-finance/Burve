@@ -15,6 +15,7 @@ contract Rewarder is RFTPayer, Auto165 {
     IAdjustor public immutable adjustor;
 
     address[] public rewardTokens;
+    mapping(address token => bool) isRewardToken;
     mapping(address rewardT => mapping(address inputT => uint128 rateX64))
         public rewardRates;
 
@@ -32,7 +33,8 @@ contract Rewarder is RFTPayer, Auto165 {
     ) external {
         AdminLib.validateOwner();
 
-        if (rewardTokens.length == 0) {
+        if (!isRewardToken[rewardToken]) {
+            isRewardToken[rewardToken] = true;
             rewardTokens.push(rewardToken);
         }
 
@@ -132,7 +134,7 @@ contract Rewarder is RFTPayer, Auto165 {
                 false
             );
 
-            reward(tokens[i], nominal, closureId, bonuses);
+            reward(tokens[i], nominal, bonuses);
         }
 
         for (uint256 i = 0; i < bonuses.length; ++i) {
