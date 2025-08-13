@@ -4,22 +4,19 @@ pragma solidity ^0.8.27;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
-import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
-import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
-import {InitLib, BurveFacets} from "../src/multi/InitLib.sol";
-import {SimplexDiamond as BurveDiamond} from "../src/multi/Diamond.sol";
-import {IBurveMultiSimplex} from "../src/multi/interfaces/IBurveMultiSimplex.sol";
-import {LockFacet} from "../src/multi/facets/LockFacet.sol";
-import {SwapFacet} from "../src/multi/facets/SwapFacet.sol";
-import {ValueTokenFacet} from "../src/multi/facets/ValueTokenFacet.sol";
-import {VaultType} from "../src/multi/vertex/VaultProxy.sol";
-import {IAdjustor} from "../src/integrations/adjustor/IAdjustor.sol";
-import {NullAdjustor} from "../src/integrations/adjustor/NullAdjustor.sol";
-import {DecimalAdjustor} from "../src/integrations/adjustor/DecimalAdjustor.sol";
+import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
+import {SimplexDiamond as BurveDiamond} from "../../src/multi/Diamond.sol";
+import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
+import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
+import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
+import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
+import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
+import {IAdjustor} from "../../src/integrations/adjustor/IAdjustor.sol";
+import {DecimalAdjustor} from "../../src/integrations/adjustor/DecimalAdjustor.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
-contract DeployFromEnv is Script, Test {
+abstract contract BaseDeployFromEnv is Script, Test {
     /* Deployer */
     address deployerAddr;
 
@@ -37,15 +34,21 @@ contract DeployFromEnv is Script, Test {
     address[] public vaults;
     uint256[] public efactors;
 
-    string public envFile = "script/berachain/usd.json";
-    string public deployFile = "script/berachain/deployments/usd.json";
+    // Configuration hooks
+    function valueTokenName() internal pure virtual returns (string memory);
+    function valueTokenSymbol() internal pure virtual returns (string memory);
+    function envPath() internal pure virtual returns (string memory);
+    function deployPath() internal pure virtual returns (string memory);
+
+    // Optional hook for per-deployment customization (e.g., edge fees)
+    function configureAfterVertices() internal virtual {}
 
     function run() public {
         deployerAddr = vm.envAddress("DEPLOYER_PUBLIC_KEY");
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
         // Read environment configuration
-        string memory envJson = vm.readFile(envFile);
+        string memory envJson = vm.readFile(envPath());
         tokens = vm.parseJsonAddressArray(envJson, ".tokens");
         vaults = vm.parseJsonAddressArray(envJson, ".vaults");
         efactors = vm.parseJsonUintArray(envJson, ".efactors");
@@ -53,7 +56,9 @@ contract DeployFromEnv is Script, Test {
         vm.startBroadcast(deployerPrivateKey);
 
         BurveFacets memory facets = InitLib.deployFacets();
-        diamond = address(new BurveDiamond(facets, "ValueToken", "BVT"));
+        diamond = address(
+            new BurveDiamond(facets, valueTokenName(), valueTokenSymbol())
+        );
         console2.log("Burve deployed at:", diamond);
 
         valueTokenFacet = ValueTokenFacet(diamond);
@@ -64,13 +69,8 @@ contract DeployFromEnv is Script, Test {
         IAdjustor nAdj = new DecimalAdjustor();
         simplexFacet.setAdjustor(address(nAdj));
 
-        // set default fee rates
-        // 4 bps fee rate 136112946768375385385349842972707284
-        // 8% protocol take 27222589353675077077069968594541456916
-        simplexFacet.setSimplexFees(
-            136112946768375385385349842972707284,
-            27222589353675077077069968594541456916
-        );
+        // set simplex fees via configuration hook
+        configureSimplexFees();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             // Add vertices for each token and vault pair
@@ -80,8 +80,12 @@ contract DeployFromEnv is Script, Test {
             simplexFacet.setEX128(tokens[i], _toX128(efactors[i]), 0);
         }
 
+        // Allow child scripts to set specific edge fees or other config
+        configureAfterVertices();
+
         // Initialize closures from 3 to 2^n - 1 where n is number of tokens
         uint16 maxClosure = uint16((1 << tokens.length) - 1);
+
         // Log initial balances
         for (uint256 i = 0; i < tokens.length; ++i) {
             console2.log(
@@ -127,8 +131,11 @@ contract DeployFromEnv is Script, Test {
 
         // Write addresses to JSON file
         string memory json = _generateDeploymentJson();
-        vm.writeJson(json, deployFile);
+        vm.writeJson(json, deployPath());
     }
+
+    // Must be implemented by inheriting scripts
+    function configureSimplexFees() internal virtual;
 
     function _generateDeploymentJson() internal view returns (string memory) {
         string memory json = "{";
@@ -174,7 +181,7 @@ contract DeployFromEnv is Script, Test {
         simplexFacet.addClosure(cid, INITIAL_VALUE);
     }
 
-    function _toX128(uint256 amount) internal returns (uint256) {
+    function _toX128(uint256 amount) internal pure returns (uint256) {
         return amount << 128;
     }
 }
