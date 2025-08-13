@@ -16,19 +16,29 @@ contract Call_MEAD_RUSD_PYUSD is BaseScript, Test {
     function run() external {
         vm.startBroadcast(_getPrivateKey());
 
-        Add_MEAD_RUSD_PYUSD deployer = Add_MEAD_RUSD_PYUSD(address(0)); // fill in with the deployment script result
+        Add_MEAD_RUSD_PYUSD executor = Add_MEAD_RUSD_PYUSD(
+            address(0xeA5A3388D0254C9B684AB074674661493774BA0E)
+        ); // fill in with the deployment script result
 
-        deployer.acceptOwnership();
+        executor.acceptOwnership();
 
-        deployer.deployMEAD();
+        executor.deployMEAD();
 
-        deployer.deployRUSD();
+        executor.deployRUSD();
 
-        deployer.deployPYUSD1();
+        executor.deployPYUSD();
 
-        deployer.deployPYUSD2();
+        uint16 minClosure = 1 << 6;
+        uint16 maxClosure = 1 << 9;
+        uint16 offset = 4;
+        for (uint16 min = minClosure; min < maxClosure; min += offset) {
+            executor.initializeClosure(
+                min,
+                min + offset > maxClosure ? maxClosure : min + offset
+            );
+        }
 
-        deployer.transferOwnership();
+        executor.transferOwnership();
 
         vm.stopBroadcast();
     }
