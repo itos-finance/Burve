@@ -5,11 +5,13 @@ import {BaseDeployFromEnv} from "./base/DeployBase.s.sol";
 
 contract DeployBerachainUSD is BaseDeployFromEnv {
     function valueTokenName() internal pure override returns (string memory) {
-        return "ValueToken";
+        // originally deployed as ValueToken
+        return "BurveUSDValueToken";
     }
 
     function valueTokenSymbol() internal pure override returns (string memory) {
-        return "BVT";
+        // originally deployed as BVT
+        return "BUVT";
     }
 
     function envPath() internal pure override returns (string memory) {
