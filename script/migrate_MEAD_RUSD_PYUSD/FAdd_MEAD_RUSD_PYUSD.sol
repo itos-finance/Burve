@@ -22,10 +22,12 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest, RFTPayer, Auto165 {
     constructor() RFTPayer() {}
 
     function testAdd_MEAD_RUSD_PYUSD() public {
-        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
-        // Add_MEAD_RUSD_PYUSD executor = Add_MEAD_RUSD_PYUSD(
-        //     0xeA5A3388D0254C9B684AB074674661493774BA0E
-        // );
+        // Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
+        Add_MEAD_RUSD_PYUSD executor = Add_MEAD_RUSD_PYUSD(
+            0x49478ca58431F7C2ca37EdB3920F0D3f49cc016E
+        );
+
+        acceptOwnership();
 
         transferOwnership(address(executor));
 
@@ -83,8 +85,16 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest, RFTPayer, Auto165 {
 
     /// This setup is done with the multisig itself approving a transaction to move the ownership of the smart contract
     /// to the contract.
+    function acceptOwnership() internal {
+        vm.startPrank(MULTISIG);
+
+        BaseAdminFacet(address(diamond)).acceptOwnership();
+
+        vm.stopPrank();
+    }
+
     function transferOwnership(address executor) internal {
-        vm.startPrank(0xeA5A3388D0254C9B684AB074674661493774BA0E);
+        vm.startPrank(MULTISIG);
 
         BaseAdminFacet(address(diamond)).transferOwnership(executor);
 
