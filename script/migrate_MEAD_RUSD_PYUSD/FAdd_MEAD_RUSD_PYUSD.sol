@@ -22,10 +22,10 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest, RFTPayer, Auto165 {
     constructor() RFTPayer() {}
 
     function testAdd_MEAD_RUSD_PYUSD() public {
-        // Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
-        Add_MEAD_RUSD_PYUSD executor = Add_MEAD_RUSD_PYUSD(
-            0xeA5A3388D0254C9B684AB074674661493774BA0E
-        );
+        Add_MEAD_RUSD_PYUSD executor = new Add_MEAD_RUSD_PYUSD();
+        // Add_MEAD_RUSD_PYUSD executor = Add_MEAD_RUSD_PYUSD(
+        //     0xeA5A3388D0254C9B684AB074674661493774BA0E
+        // );
 
         transferOwnership(address(executor));
 
@@ -35,13 +35,33 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest, RFTPayer, Auto165 {
 
         executor.acceptOwnership();
 
+        vm.startSnapshotGas("deployMEAD");
+
         executor.deployMEAD();
+        uint256 gasUsed = vm.stopSnapshotGas();
+        console2.log("MEAD", gasUsed);
 
+        vm.startSnapshotGas("deployRUSD");
         executor.deployRUSD();
+        gasUsed = vm.stopSnapshotGas();
+        console2.log("rUSD", gasUsed);
 
-        executor.deployPYUSD1();
+        vm.startSnapshotGas("deployPYUSD1");
+        executor.deployPYUSD();
+        gasUsed = vm.stopSnapshotGas();
+        console2.log("PYUSD1", gasUsed);
 
-        executor.deployPYUSD2();
+        vm.startSnapshotGas("initializeClosure");
+        uint16 minClosure = 1 << 6;
+        uint16 maxClosure = 1 << 9;
+        uint16 offset = 4;
+        for (uint16 min = minClosure; min < maxClosure; min += offset) {
+            executor.initializeClosure(
+                min,
+                min + offset > maxClosure ? maxClosure : min + offset
+            );
+        }
+        gasUsed = vm.stopSnapshotGas();
 
         executor.transferOwnership();
 
@@ -64,7 +84,7 @@ contract FAdd_MEAD_RUSD_PYUSD is BurveForkableTest, RFTPayer, Auto165 {
     /// This setup is done with the multisig itself approving a transaction to move the ownership of the smart contract
     /// to the contract.
     function transferOwnership(address executor) internal {
-        vm.startPrank(MULTISIG);
+        vm.startPrank(0xeA5A3388D0254C9B684AB074674661493774BA0E);
 
         BaseAdminFacet(address(diamond)).transferOwnership(executor);
 
