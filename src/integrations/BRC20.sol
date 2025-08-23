@@ -21,17 +21,19 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     
     address public transient _recipient;
     address public transient _operator;
+    bool public transient isCompounding;
 
+    uint256 public totalShares;
     uint256 private _totalSupply;
     uint256 private _totalValue;
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
 
-    // shares
-    uint256 public totalShares;
+    // PoL (vault to recieve the fees and the vault fee take)
+    address public immutable polVault;
+    uint256 public immutable feeTakeX64;
 
     uint256 private constant MIN_DEAD_SHARES = 100;
-    
     /// Thrown when the first mint is insufficient.
     error InsecureFirstMintAmount(uint256 shares);
     /// Thrown when attempting to queryValue using this contract
@@ -53,11 +55,15 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         string memory _name,
         string memory _symbol,
         address _pool,
-        uint16 _closureId
+        uint16 _closureId,
+        address _polVault,
+        uint256 _feeTakeX64
     ) ERC20(_name, _symbol) {
         pool = IBurveMultiValue(_pool);
         simplex = IBurveMultiSimplex(_pool);
         closureId = _closureId;
+        polVault = _polVault;
+        feeTakeX64 = _feeTakeX64;
     }
 
     /// closureId and bgtValue are hard-coded in this implementation, but remain here to conform to the interface.
@@ -249,17 +255,29 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         address[] memory tokens = simplex.getTokens();
         for (uint256 i = 0; i < tokens.length; i++) {
             if (collectedBalances[i] <= 0) continue;
+
+            uint256 take;
+            if(polVault != address(0)) {
+                take  = FullMath.mulDiv(collectedBalances[i], feeTakeX64, 1 << 64);
+                TransferHelper.safeTransfer(
+                    tokens[i],
+                    polVault,
+                    take
+                );
+            }
             
             uint256 valueReceived = pool.addSingleForValue(
                 address(this),
                 closureId,
                 tokens[i],
-                SafeCast.toUint128(collectedBalances[i]),
+                SafeCast.toUint128(collectedBalances[i] - take),
                 0,
                 0
             );
             _totalValue += valueReceived;
         }
+
+        isCompounding = false;
     }
 
     function tokenRequestCB(
@@ -270,7 +288,19 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         require(msg.sender == address(pool), "Unauthorized");
 
         // collect fees returns data, we will deposit all of this back 
-        if (data.length > 0) return "";
+        if (data.length > 0) {
+            isCompounding = true;
+            return "";
+        }
+
+        if (isCompounding) {
+            TransferHelper.safeTransfer(
+                tokens[0], // we always singleAdd
+                address(pool),
+                SafeCast.toUint256(requests[0])
+            );
+            return "";
+        }
 
         // add & remove 
         // _operator / _recipient 

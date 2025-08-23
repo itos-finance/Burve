@@ -6,11 +6,15 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
 import {TransferHelper} from "Commons/Util/TransferHelper.sol";
 import {ForkableTest} from "Commons/Test/ForkableTest.sol";
+import {IDiamond} from "Commons/Diamond/interfaces/IDiamond.sol";
+import {DiamondCutFacet} from "Commons/Diamond/facets/DiamondCutFacet.sol";
 import {RFTPayer} from "Commons/Util/RFT.sol";
 import {Auto165} from "Commons/ERC/Auto165.sol";
+import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 
 import {BRC20} from "../../src/integrations/BRC20.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
+import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {IBurveMultiSwap} from "../../src/multi/interfaces/IBurveMultiSwap.sol";
@@ -66,7 +70,14 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         usdt = IERC20(USDT);
 
         // Deploy BRC20 contract
-        brc20 = new BRC20("Burve BRC20", "bBRC20", BURVE_POOL, CLOSURE_ID);
+        brc20 = new BRC20(
+            "Burve BRC20",
+            "bBRC20",
+            BURVE_POOL,
+            CLOSURE_ID,
+            address(0),
+            0
+        );
 
         console2.log("BRC20 deployed at:", address(brc20));
         console2.log("Pool address:", BURVE_POOL);
@@ -82,6 +93,36 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         for (uint256 i = 0; i < tokens.length; i++) {
             console2.log("Token", i, ":", tokens[i]);
         }
+
+        _cutValueFacet(BURVE_POOL);
+    }
+
+    /// TODO: note before this shares contract will be operational,
+    /// we need to facet cut to add data to the collect calls
+    function _cutValueFacet(address diamond) public {
+        IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
+
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = ValueFacet.collectEarnings.selector;
+        // selectors[1] = ValueFacet.setClosureFees.selector;
+        // selectors[2] = ValueFacet.setProtocolEarnings.selector;
+        // selectors[3] = ValueFacet.getVertex.selector;
+
+        cuts[0] = (
+            IDiamond.FacetCut({
+                facetAddress: address(new ValueFacet()),
+                action: IDiamond.FacetCutAction.Replace,
+                functionSelectors: selectors
+            })
+        );
+
+        DiamondCutFacet cutFacet = DiamondCutFacet(diamond);
+
+        // prank as the multisig
+        vm.startPrank(address(0x9293f9FFC43F6fce06290285919541E963D87F51));
+        BaseAdminFacet(BURVE_POOL).acceptOwnership();
+        cutFacet.diamondCut(cuts, address(0), "");
+        vm.stopPrank();
     }
 
     function testForkSetup() public view forkOnly {
@@ -277,6 +318,17 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
             0,
             amountLimits
         );
+
+        IBurveMultiSwap(BURVE_POOL).swap(
+            address(this),
+            USDC,
+            USDT,
+            100e6,
+            0,
+            3
+        );
+
+        brc20.collectEarnings(address(0), 0);
     }
 
     function tokenRequestCB(
