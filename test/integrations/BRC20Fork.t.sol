@@ -311,13 +311,7 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         uint128 mintValue = 1e18;
         uint256[MAX_TOKENS] memory amountLimits;
 
-        uint256[MAX_TOKENS] memory requiredBalances = brc20.addValue(
-            address(this),
-            0,
-            mintValue,
-            0,
-            amountLimits
-        );
+        brc20.addValue(address(this), 0, mintValue, 0, amountLimits);
 
         IBurveMultiSwap(BURVE_POOL).swap(
             address(this),
@@ -329,6 +323,37 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         );
 
         brc20.collectEarnings(address(0), 0);
+    }
+
+    function testPOLVault() public forkOnly {
+        BRC20 polBRC20 = new BRC20(
+            "Burve BRC20",
+            "bBRC20",
+            BURVE_POOL,
+            CLOSURE_ID,
+            address(1234),
+            9223372036854775808 // 50%
+        );
+        uint128 mintValue = 1e18;
+        uint256[MAX_TOKENS] memory amountLimits;
+
+        polBRC20.addValue(address(this), 0, mintValue, 0, amountLimits);
+
+        IBurveMultiSwap(BURVE_POOL).swap(
+            address(this),
+            USDC,
+            USDT,
+            100e6,
+            0,
+            3
+        );
+
+        (uint256[MAX_TOKENS] memory collectedBalances, ) = polBRC20
+            .collectEarnings(address(0), 0);
+
+        uint256 vaultTake = IERC20(USDC).balanceOf(address(1234));
+
+        assertApproxEqAbs(collectedBalances[0] / 2, vaultTake, 1);
     }
 
     function tokenRequestCB(
