@@ -659,4 +659,32 @@ contract SwapFacetTest is MultiSetupTest {
         assertEq(test0, inAmount);
         assertEq(test1, outAmount);
     }
+
+    function testImbalancedSwap() public {
+        vm.startPrank(alice);
+        uint256[MAX_TOKENS] memory limits;
+        valueFacet.addValue(alice, 0x3, 200e18, 0, limits); // Now 200 of each token.
+        valueFacet.addValueSingle(alice, 0x3, 550e18, 0, tokens[1], 0); // Now 750 of token2
+
+        // Swapping in the underrepresented token gets more out.
+        (uint256 inLow, uint256 outHigh) = swapFacet.swap(
+            alice,
+            tokens[0],
+            tokens[1],
+            1e18,
+            0,
+            0x3
+        );
+        assertGt(outHigh, 1e18);
+
+        (uint256 inHigh, uint256 outLow) = swapFacet.swap(
+            alice,
+            tokens[1],
+            tokens[0],
+            1e18,
+            0,
+            0x3
+        );
+        assertLt(outLow, 1e18);
+    }
 }
