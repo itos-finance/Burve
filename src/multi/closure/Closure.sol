@@ -237,12 +237,12 @@ library ClosureImpl {
                 false
             );
             self.balances[i] -= withdrawnBalances[i];
-            emit IBurveMultiEvents.NewClosureBalances(
-                self.cid.unwrap(),
-                self.targetX128,
-                self.balances
-            );
         }
+        emit IBurveMultiEvents.NewClosureBalances(
+            self.cid.unwrap(),
+            self.targetX128,
+            self.balances
+        );
     }
 
     /// Remove value from a closure through a single token.
