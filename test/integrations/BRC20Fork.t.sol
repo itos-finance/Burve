@@ -13,6 +13,7 @@ import {Auto165} from "Commons/ERC/Auto165.sol";
 import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 
 import {BRC20} from "../../src/integrations/BRC20.sol";
+import {Opener} from "../../src/integrations/opener/Opener.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
@@ -33,6 +34,10 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
     // BRC20 contract instance
     BRC20 public brc20;
+    BRC20 public polBRC20;
+
+    // Opener contract instance
+    Opener public opener;
 
     // Pool interfaces
     IBurveMultiValue public pool;
@@ -41,6 +46,10 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
     // Token instances
     IERC20 public usdc;
     IERC20 public usdt;
+
+    // Test addresses for PoL vault
+    address public constant TEST_POL_VAULT = address(1234);
+    uint256 public constant TEST_FEE_TAKE_X64 = 9223372036854775808; // 50%
 
     function preSetup() internal override {}
 
@@ -69,17 +78,32 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         usdc = IERC20(USDC);
         usdt = IERC20(USDT);
 
-        // Deploy BRC20 contract
+        // Deploy Opener contract
+        opener = new Opener(0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7); // Berachain router
+
+        // Deploy BRC20 contract (no PoL vault)
         brc20 = new BRC20(
             "Burve BRC20",
             "bBRC20",
             BURVE_POOL,
             CLOSURE_ID,
-            address(0),
-            0
+            address(0), // no PoL vault
+            0 // no fee take
+        );
+
+        // Deploy BRC20 contract with PoL vault
+        polBRC20 = new BRC20(
+            "Burve BRC20 PoL",
+            "bBRC20PoL",
+            BURVE_POOL,
+            CLOSURE_ID,
+            TEST_POL_VAULT,
+            TEST_FEE_TAKE_X64 // 50% fee take
         );
 
         console2.log("BRC20 deployed at:", address(brc20));
+        console2.log("PoL BRC20 deployed at:", address(polBRC20));
+        console2.log("Opener deployed at:", address(opener));
         console2.log("Pool address:", BURVE_POOL);
         console2.log("Closure ID:", CLOSURE_ID);
 
@@ -131,6 +155,15 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
         assertEq(address(brc20.pool()), BURVE_POOL);
         assertEq(brc20.closureId(), CLOSURE_ID);
+        assertEq(brc20.polVault(), address(0));
+        assertEq(brc20.feeTakeX64(), 0);
+
+        assertEq(address(polBRC20.pool()), BURVE_POOL);
+        assertEq(polBRC20.closureId(), CLOSURE_ID);
+        assertEq(polBRC20.polVault(), TEST_POL_VAULT);
+        assertEq(polBRC20.feeTakeX64(), TEST_FEE_TAKE_X64);
+
+        assertEq(opener.router(), 0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7);
 
         console2.log("Fork setup completed successfully");
     }
@@ -326,14 +359,6 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
     }
 
     function testPOLVault() public forkOnly {
-        BRC20 polBRC20 = new BRC20(
-            "Burve BRC20",
-            "bBRC20",
-            BURVE_POOL,
-            CLOSURE_ID,
-            address(1234),
-            9223372036854775808 // 50%
-        );
         uint128 mintValue = 1e18;
         uint256[MAX_TOKENS] memory amountLimits;
 
@@ -351,9 +376,185 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         (uint256[MAX_TOKENS] memory collectedBalances, ) = polBRC20
             .collectEarnings(address(0), 0);
 
-        uint256 vaultTake = IERC20(USDC).balanceOf(address(1234));
+        uint256 vaultTake = IERC20(USDC).balanceOf(TEST_POL_VAULT);
 
         assertApproxEqAbs(collectedBalances[0] / 2, vaultTake, 1);
+    }
+
+    // New tests for Opener integration
+    function testOpenerMintWithUSDC() public forkOnly {
+        uint256 mintAmount = 1000e6; // 1000 USDC
+        bytes[MAX_TOKENS] memory txData;
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
+
+        // Deal USDC to this contract
+        deal(USDC, address(this), mintAmount);
+
+        // Approve opener to spend USDC
+        IERC20(USDC).approve(address(opener), mintAmount);
+
+        // Call opener.mint to add value through USDC
+        uint256 addedValue = opener.mint(
+            address(polBRC20), // pool (BRC20 contract)
+            USDC, // inToken
+            mintAmount, // inAmount
+            txData, // txData (empty for now)
+            CLOSURE_ID, // closureId
+            0, // bgtPercentX256 (0% BGT)
+            minSpend, // minSpend
+            minValueReceived // minValueReceived
+        );
+
+        console2.log("Added value through opener:", addedValue);
+        assertGt(addedValue, 0, "Should have added some value");
+    }
+
+    function testOpenerMintWithUSDT() public forkOnly {
+        uint256 mintAmount = 1000e6; // 1000 USDT
+        bytes[MAX_TOKENS] memory txData;
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
+
+        // Deal USDT to this contract
+        deal(USDT, address(this), mintAmount);
+
+        // Approve opener to spend USDT
+        IERC20(USDT).approve(address(opener), mintAmount);
+
+        // Call opener.mint to add value through USDT
+        uint256 addedValue = opener.mint(
+            address(polBRC20), // pool (BRC20 contract)
+            USDT, // inToken
+            mintAmount, // inAmount
+            txData, // txData (empty for now)
+            CLOSURE_ID, // closureId
+            0, // bgtPercentX256 (0% BGT)
+            minSpend, // minSpend
+            minValueReceived // minValueReceived
+        );
+
+        console2.log("Added value through opener:", addedValue);
+        assertGt(addedValue, 0, "Should have added some value");
+    }
+
+    function testOpenerWithSwapData() public forkOnly {
+        uint256 mintAmount = 1000e6; // 1000 USDC
+        bytes[MAX_TOKENS] memory txData;
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
+
+        // Create swap data for USDC to USDT (this would normally come from oogabooga)
+        // For now, we'll use empty data to test the basic flow
+        bytes memory swapData = ""; // In real usage, this would contain swap calldata
+
+        // Set txData for USDT swap (index 1 if USDT is the second token)
+        // This is a simplified example - in practice you'd need to determine the correct index
+        txData[1] = swapData; // Assuming USDT is at index 1
+
+        // Deal USDC to this contract
+        deal(USDC, address(this), mintAmount);
+
+        // Approve opener to spend USDC
+        IERC20(USDC).approve(address(opener), mintAmount);
+
+        // Call opener.mint with swap data
+        uint256 addedValue = opener.mint(
+            address(polBRC20),
+            USDC,
+            mintAmount,
+            txData,
+            CLOSURE_ID,
+            0,
+            minSpend,
+            minValueReceived
+        );
+
+        console2.log("Added value through opener with swap:", addedValue);
+        assertGt(addedValue, 0, "Should have added some value");
+    }
+
+    function testOpenerAndBRC20Integration() public forkOnly {
+        uint256 mintAmount = 1000e6; // 1000 USDC
+        bytes[MAX_TOKENS] memory txData;
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
+
+        // Deal USDC to this contract
+        deal(USDC, address(this), mintAmount);
+
+        // Approve opener to spend USDC
+        IERC20(USDC).approve(address(opener), mintAmount);
+
+        // Get initial balances
+        uint256 initialUSDCBalance = IERC20(USDC).balanceOf(address(this));
+        uint256 initialBRC20Shares = polBRC20.balanceOf(address(this));
+
+        // Add value through opener
+        uint256 addedValue = opener.mint(
+            address(polBRC20),
+            USDC,
+            mintAmount,
+            txData,
+            CLOSURE_ID,
+            0,
+            minSpend,
+            minValueReceived
+        );
+
+        // Check that BRC20 shares were minted
+        uint256 finalBRC20Shares = polBRC20.balanceOf(address(this));
+        assertGt(
+            finalBRC20Shares,
+            initialBRC20Shares,
+            "Should have received BRC20 shares"
+        );
+
+        // Check that USDC was spent
+        uint256 finalUSDCBalance = IERC20(USDC).balanceOf(address(this));
+        assertLt(
+            finalUSDCBalance,
+            initialUSDCBalance,
+            "Should have spent USDC"
+        );
+
+        console2.log("Integration test completed:");
+        console2.log("Initial USDC balance:", initialUSDCBalance);
+        console2.log("Final USDC balance:", finalUSDCBalance);
+        console2.log("USDC spent:", initialUSDCBalance - finalUSDCBalance);
+        console2.log("Initial BRC20 shares:", initialBRC20Shares);
+        console2.log("Final BRC20 shares:", finalBRC20Shares);
+        console2.log(
+            "BRC20 shares gained:",
+            finalBRC20Shares - initialBRC20Shares
+        );
+        console2.log("Value added:", addedValue);
+    }
+
+    function testOpenerSlippageProtection() public forkOnly {
+        uint256 mintAmount = 1000e6; // 1000 USDC
+        bytes[MAX_TOKENS] memory txData;
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 1e20; // Very high minimum value (should fail)
+
+        // Deal USDC to this contract
+        deal(USDC, address(this), mintAmount);
+
+        // Approve opener to spend USDC
+        IERC20(USDC).approve(address(opener), mintAmount);
+
+        // This should revert due to slippage protection
+        vm.expectRevert(); // ValueSlippageExceeded error
+        opener.mint(
+            address(polBRC20),
+            USDC,
+            mintAmount,
+            txData,
+            CLOSURE_ID,
+            0,
+            minSpend,
+            minValueReceived
+        );
     }
 
     function tokenRequestCB(

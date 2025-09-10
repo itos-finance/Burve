@@ -12,6 +12,12 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IBurveMultiSimplex } from "../multi/interfaces/IBurveMultiSimplex.sol";
 import { IBurveMultiValue } from "../multi/interfaces/IBurveMultiValue.sol";
 import { FullMath } from "../FullMath.sol";
+import { AdminLib } from "Commons/Util/Admin.sol";
+
+interface IRewarder2 {
+    function onDeposit(address user, uint256 mintedShares) external;
+    function onWithdraw(address user, uint256 requestedSharesToBurn) external;
+}
 
 contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     IBurveMultiValue public immutable pool;
@@ -41,6 +47,9 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     /// Thrown when attempting to re-enter the operations
     error NonReentrant();
 
+    // Rewarder2 integration
+    address public rewarder;
+
     // set the recipient as transient storage
     modifier storeRecipient(address recipient) {
         if (_recipient != address(0)) revert NonReentrant();
@@ -59,11 +68,17 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         address _polVault,
         uint256 _feeTakeX64
     ) ERC20(_name, _symbol) {
+        AdminLib.initOwner(msg.sender);
         pool = IBurveMultiValue(_pool);
         simplex = IBurveMultiSimplex(_pool);
         closureId = _closureId;
         polVault = _polVault;
         feeTakeX64 = _feeTakeX64;
+    }
+
+    function setRewarder(address _rewarder) external {
+        AdminLib.validateOwner();
+        rewarder = _rewarder;
     }
 
     /// closureId and bgtValue are hard-coded in this implementation, but remain here to conform to the interface.
@@ -84,7 +99,10 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             amountLimits
         );
 
-        _mintShares(value);
+        uint256 shares = _mintShares(value);
+        if (rewarder != address(0)) {
+            IRewarder2(rewarder).onDeposit(_recipient, shares);
+        }
     }
 
     /// Remove value by withdrawing pro-rata balances of each vertex in the closure.
@@ -97,6 +115,9 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     ) external storeRecipient(recipient) returns (uint256[MAX_TOKENS] memory receivedBalances) {
         _compound();
 
+        if (rewarder != address(0)) {
+            IRewarder2(rewarder).onWithdraw(msg.sender, shares);
+        }
         uint256 value = _burnShares(shares);
 
         receivedBalances = pool.removeValue(
@@ -128,7 +149,10 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             maxRequired
         );
 
-        _mintShares(value);
+        uint256 shares = _mintShares(value);
+        if (rewarder != address(0)) {
+            IRewarder2(rewarder).onDeposit(_recipient, shares);
+        }
     }
 
     /// Remove an exact amount of value from a given closure by withdrawing a single token.
@@ -142,6 +166,9 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     ) external storeRecipient(recipient) returns (uint256 removedBalance) {
         _compound();
 
+        if (rewarder != address(0)) {
+            IRewarder2(rewarder).onWithdraw(msg.sender, shares);
+        }
         uint256 value = _burnShares(shares);
 
         removedBalance = pool.removeValueSingle(
@@ -174,7 +201,10 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             minValue
         );
 
-        _mintShares(valueReceived);
+        uint256 shares = _mintShares(valueReceived);
+        if (rewarder != address(0)) {
+            IRewarder2(rewarder).onDeposit(_recipient, shares);
+        }
     }
 
     /// Remove an exact amount of a single token to remove value from a given closure.
@@ -197,6 +227,9 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             maxValue
         );
 
+        if (rewarder != address(0)) {
+            IRewarder2(rewarder).onWithdraw(msg.sender, valueGiven);
+        }
         _burnShares(valueGiven);
     }
 

@@ -118,10 +118,7 @@ contract Rewarder is RFTPayer, Auto165 {
         require(msg.sender == address(pool), "Unauthorized");
 
         require(data.length > 0, "Invalid data");
-        (address recipient, uint16 closureId) = abi.decode(
-            data,
-            (address, uint16)
-        );
+        (address recipient, ) = abi.decode(data, (address, uint16));
 
         address[] memory _rewardTokens = getRewardTokens();
         int256[] memory bonuses = new int256[](_rewardTokens.length);
