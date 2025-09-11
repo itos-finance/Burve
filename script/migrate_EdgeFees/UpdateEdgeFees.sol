@@ -8,8 +8,8 @@ import {TransferHelper} from "../../src/TransferHelper.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 contract UpdateEdgeFees is RFTPayer {
-    // 0.005% in X128 format: 0.00005 * 2^128
-    uint128 constant NEW_EDGE_FEE_X128 = 17014118346046923988514818429550592; // 0.00005 * 2^128
+    // 0.05% in X128 format
+    uint128 constant NEW_EDGE_FEE_X128 = 170141183460469231731687303715884105; // 0.0005 * 2^128
     // 8% in X128 format: 0.08 * 2^128
     uint128 constant PROTOCOL_TAKE_X128 =
         27222589353675077077069968594541456916; // 0.08 * 2^128
@@ -19,7 +19,6 @@ contract UpdateEdgeFees is RFTPayer {
     address constant MULTISIG =
         address(0x9293f9FFC43F6fce06290285919541E963D87F51);
 
-    // Data from usd.json - will be set in constructor
     address[] public tokens;
     uint256[] public efactors;
 
@@ -58,15 +57,10 @@ contract UpdateEdgeFees is RFTPayer {
         // Update the default edge fee and protocol take
         simplexFacet.setSimplexFees(NEW_EDGE_FEE_X128, PROTOCOL_TAKE_X128); // Protocol take isnt changing
 
-        // Get the number of vertices
-        uint8 numVertices = simplexFacet.getNumVertices();
-
-        // Update all edge fees
-        for (uint8 i = 0; i < numVertices; i++) {
-            for (uint8 j = i + 1; j < numVertices; j++) {
-                simplexFacet.setEdgeFee(i, j, NEW_EDGE_FEE_X128);
-            }
-        }
+        // Update specific edge fees only
+        simplexFacet.setEdgeFee(0, 1, NEW_EDGE_FEE_X128);
+        simplexFacet.setEdgeFee(1, 2, NEW_EDGE_FEE_X128);
+        simplexFacet.setEdgeFee(0, 2, NEW_EDGE_FEE_X128);
 
         // Update EX128 values for all tokens
         updateAllEX128();
@@ -82,7 +76,9 @@ contract UpdateEdgeFees is RFTPayer {
         // Convert efactor to X128 format: efactor * 2^128
         uint256 eX128 = efactor * (2 ** 128);
         // Set maxSpend to 0 for now (can be adjusted if needed)
-        uint256 maxSpend = 0;
+        uint256 maxSpend = type(uint256).max;
+
+        TransferHelper.safeApprove(token, DIAMOND, type(uint256).max);
 
         simplexFacet.setEX128(token, eX128, maxSpend);
     }
@@ -110,7 +106,10 @@ contract UpdateEdgeFees is RFTPayer {
                 // If we don't have enough balance, we can't fulfill the request
                 require(balance >= requestAmount, "Insufficient token balance");
 
-                // Safe approve the maximum amount to the DIAMOND
+                // First, set allowance to 0 (required for some tokens like USDT)
+                TransferHelper.safeApprove(token, DIAMOND, 0);
+
+                // Then approve the maximum amount to the DIAMOND
                 TransferHelper.safeApprove(token, DIAMOND, type(uint256).max);
 
                 // Transfer the requested amount to the DIAMOND

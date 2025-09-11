@@ -7,13 +7,22 @@ import {BurveForkableTest} from "../../test/integrations/Fork.u.sol";
 import {UpdateEdgeFees} from "./UpdateEdgeFees.sol";
 import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
+import {IRFTPayer} from "Commons/Util/RFT.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 contract FUpdateEdgeFees is BurveForkableTest {
     address constant MULTISIG = 0x9293f9FFC43F6fce06290285919541E963D87F51;
 
-    // Expected edge fee: 0.005% in X128 format
+    // Test suite for UpdateEdgeFees contract
+    // Tests:
+    // 1. Edge fee updates (0.05% for specific edges: 0,1; 1,2; 0,2)
+    // 2. EX128 value updates (efactors for all 9 tokens)
+    // 3. RFT Payer functionality (tokenRequestCB security)
+    // 4. Contract initialization
+
+    // Expected edge fee: 0.05% in X128 format
     uint128 constant EXPECTED_EDGE_FEE_X128 =
-        17014118346046923988514818429550592;
+        170141183460469231731687303715884105;
     // Expected protocol take: 8% in X128 format
     uint128 constant EXPECTED_PROTOCOL_TAKE_X128 =
         27222589353675077077069968594541456916;
@@ -51,6 +60,9 @@ contract FUpdateEdgeFees is BurveForkableTest {
 
         console2.log("Updater deployed at:", address(updater));
 
+        // Deal tokens to the updater contract for RFT payer functionality
+        dealTokensToUpdater(updater);
+
         transferOwnership(address(updater));
 
         updater.acceptOwnership();
@@ -65,6 +77,30 @@ contract FUpdateEdgeFees is BurveForkableTest {
 
         updater.transferOwnership();
         console2.log("Ownership transferred back to multisig");
+    }
+
+    function dealTokensToUpdater(UpdateEdgeFees updater) internal {
+        console2.log(
+            "Dealing tokens to updater contract for RFT payer functionality"
+        );
+
+        address[] memory tokens = getExpectedTokens();
+        uint256 dealAmount = 1000000 * 10 ** 18; // 1M tokens with 18 decimals
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address token = tokens[i];
+
+            // Use deal() to give tokens directly to the updater contract
+            deal(token, address(updater), dealAmount);
+            console2.log(
+                "Dealt",
+                dealAmount,
+                "tokens to updater for token:",
+                token
+            );
+        }
+
+        console2.log("Token dealing completed");
     }
 
     function verifyEdgeFees(string memory context) internal view {
@@ -103,25 +139,23 @@ contract FUpdateEdgeFees is BurveForkableTest {
             "Edge 0,1 fee not updated correctly"
         );
 
-        // Check edge 7,8 (if they exist)
-        uint8 numVertices = simplex.getNumVertices();
-        console2.log("Number of vertices:", numVertices);
+        // Check edge 1,2
+        uint128 edgeFee12 = simplex.getEdgeFee(1, 2);
+        console2.log("Edge 1,2 fee X128:", edgeFee12);
+        console2.log("Expected Edge 1,2 fee X128:", EXPECTED_EDGE_FEE_X128);
+        require(
+            edgeFee12 == EXPECTED_EDGE_FEE_X128,
+            "Edge 1,2 fee not updated correctly"
+        );
 
-        if (numVertices > 8) {
-            uint128 edgeFee78 = simplex.getEdgeFee(7, 8);
-            console2.log("Edge 7,8 fee X128:", edgeFee78);
-            console2.log("Expected Edge 7,8 fee X128:", EXPECTED_EDGE_FEE_X128);
-            require(
-                edgeFee78 == EXPECTED_EDGE_FEE_X128,
-                "Edge 7,8 fee not updated correctly"
-            );
-        } else {
-            console2.log(
-                "Edge 7,8 does not exist (only",
-                numVertices,
-                "vertices)"
-            );
-        }
+        // Check edge 0,2
+        uint128 edgeFee02 = simplex.getEdgeFee(0, 2);
+        console2.log("Edge 0,2 fee X128:", edgeFee02);
+        console2.log("Expected Edge 0,2 fee X128:", EXPECTED_EDGE_FEE_X128);
+        require(
+            edgeFee02 == EXPECTED_EDGE_FEE_X128,
+            "Edge 0,2 fee not updated correctly"
+        );
 
         // Verify EX128 values (efactors)
         console2.log("=== EX128 Verification ===");
