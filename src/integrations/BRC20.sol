@@ -31,7 +31,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
 
     uint256 public totalShares;
     uint256 private _totalSupply;
-    uint256 private _totalValue;
+    uint256 public totalValue;
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
 
@@ -81,6 +81,25 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         rewarder = _rewarder;
     }
 
+    /// @notice Override _update to handle rewarder calls for all token operations
+    function _update(address from, address to, uint256 value) internal override {
+        super._update(from, to, value);
+        
+        // Skip rewarder calls for zero address operations (internal accounting)
+        if (rewarder != address(0)) {
+            if (from == address(0)) {
+                // Mint operation - call onDeposit for the recipient
+                IRewarder2(rewarder).onDeposit(to, value);
+            } else if (to == address(0)) {
+                // Burn operation - call onWithdraw for the sender
+                IRewarder2(rewarder).onWithdraw(from, value);
+            } else {
+                IRewarder2(rewarder).onDeposit(to, value);
+                IRewarder2(rewarder).onWithdraw(from, value);
+            }
+        }
+    }
+
     /// closureId and bgtValue are hard-coded in this implementation, but remain here to conform to the interface.
     function addValue(
         address recipient,
@@ -99,10 +118,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             amountLimits
         );
 
-        uint256 shares = _mintShares(value);
-        if (rewarder != address(0)) {
-            IRewarder2(rewarder).onDeposit(_recipient, shares);
-        }
+        _mintShares(value);
     }
 
     /// Remove value by withdrawing pro-rata balances of each vertex in the closure.
@@ -115,9 +131,6 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     ) external storeRecipient(recipient) returns (uint256[MAX_TOKENS] memory receivedBalances) {
         _compound();
 
-        if (rewarder != address(0)) {
-            IRewarder2(rewarder).onWithdraw(msg.sender, shares);
-        }
         uint256 value = _burnShares(shares);
 
         receivedBalances = pool.removeValue(
@@ -149,10 +162,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             maxRequired
         );
 
-        uint256 shares = _mintShares(value);
-        if (rewarder != address(0)) {
-            IRewarder2(rewarder).onDeposit(_recipient, shares);
-        }
+        _mintShares(value);
     }
 
     /// Remove an exact amount of value from a given closure by withdrawing a single token.
@@ -166,9 +176,6 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     ) external storeRecipient(recipient) returns (uint256 removedBalance) {
         _compound();
 
-        if (rewarder != address(0)) {
-            IRewarder2(rewarder).onWithdraw(msg.sender, shares);
-        }
         uint256 value = _burnShares(shares);
 
         removedBalance = pool.removeValueSingle(
@@ -201,10 +208,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             minValue
         );
 
-        uint256 shares = _mintShares(valueReceived);
-        if (rewarder != address(0)) {
-            IRewarder2(rewarder).onDeposit(_recipient, shares);
-        }
+        _mintShares(valueReceived);
     }
 
     /// Remove an exact amount of a single token to remove value from a given closure.
@@ -227,9 +231,6 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             maxValue
         );
 
-        if (rewarder != address(0)) {
-            IRewarder2(rewarder).onWithdraw(msg.sender, valueGiven);
-        }
         _burnShares(valueGiven);
     }
 
@@ -265,16 +266,16 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
                 revert InsecureFirstMintAmount(shares);
             }
         } else {
-            shares = FullMath.mulDiv(value, totalShares, _totalValue);
+            shares = FullMath.mulDiv(value, totalShares, totalValue);
         }
-        _totalValue += value;
+        totalValue += value;
         totalShares += shares;
         _mint(_recipient, shares);
     }
 
     function _burnShares(uint256 shares) internal returns (uint256 value) {
-        value = FullMath.mulDiv(shares, _totalValue, totalShares);
-        _totalValue -= value;
+        value = FullMath.mulDiv(shares, totalValue, totalShares);
+        totalValue -= value;
         totalShares -= shares;
         _burn(msg.sender, shares);
     }
@@ -307,7 +308,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
                 0,
                 0
             );
-            _totalValue += valueReceived;
+            totalValue += valueReceived;
         }
 
         isCompounding = false;

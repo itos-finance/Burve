@@ -35,7 +35,7 @@ contract BurveForkableTest is ForkableTest {
     address public alice;
     address public bob;
 
-    string public envFile = "script/berachain/btc.json";
+    string public envFile = "script/berachain/usd.json";
 
     function preSetup() internal override {
         owner = makeAddr("owner");

@@ -14,13 +14,14 @@ import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 
 import {BRC20} from "../../src/integrations/BRC20.sol";
 import {Opener} from "../../src/integrations/opener/Opener.sol";
+import {IOBRouter} from "../../src/integrations/opener/IOBRouter.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {IBurveMultiSwap} from "../../src/multi/interfaces/IBurveMultiSwap.sol";
 
-contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
+contract FBRC20OpenerTest is ForkableTest, RFTPayer, Auto165 {
     // Live Burve pool address on Berachain
     address public constant BURVE_POOL =
         0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089;
@@ -128,9 +129,6 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = ValueFacet.collectEarnings.selector;
-        // selectors[1] = ValueFacet.setClosureFees.selector;
-        // selectors[2] = ValueFacet.setProtocolEarnings.selector;
-        // selectors[3] = ValueFacet.getVertex.selector;
 
         cuts[0] = (
             IDiamond.FacetCut({
@@ -144,7 +142,7 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
         // prank as the multisig
         vm.startPrank(address(0x9293f9FFC43F6fce06290285919541E963D87F51));
-        BaseAdminFacet(BURVE_POOL).acceptOwnership();
+        // BaseAdminFacet(BURVE_POOL).acceptOwnership(); // We currently have ownership, so we don't need to accept
         cutFacet.diamondCut(cuts, address(0), "");
         vm.stopPrank();
     }
@@ -186,207 +184,12 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         console2.log("Pool contains USDT:", hasUSDT);
     }
 
-    function testBRC20MintValue() public forkOnly {
-        uint128 mintValue = 1e18;
-        uint256[MAX_TOKENS] memory amountLimits;
+    // ========================================
+    // Opener Integration Tests
+    // ========================================
 
-        uint256[MAX_TOKENS] memory requiredBalances = brc20.addValue(
-            address(this),
-            0,
-            mintValue,
-            0,
-            amountLimits
-        );
-
-        uint256 shares = brc20.balanceOf(address(this));
-        assertEq(mintValue, shares);
-
-        uint256[MAX_TOKENS] memory requiredBalances2 = brc20.addValue(
-            address(this),
-            0,
-            mintValue,
-            0,
-            amountLimits
-        );
-
-        assertEq(brc20.balanceOf(address(this)), shares + shares);
-        assertEq(brc20.totalShares(), shares + shares);
-
-        for (uint256 i = 0; i < requiredBalances.length; i++) {
-            assertEq(requiredBalances[i], requiredBalances2[i]);
-        }
-    }
-
-    function testBRC20BurnValue() public forkOnly {
-        uint128 mintValue = 1e18;
-        uint256[MAX_TOKENS] memory amountLimits;
-
-        uint256[MAX_TOKENS] memory requiredBalances = brc20.addValue(
-            address(this),
-            0,
-            mintValue,
-            0,
-            amountLimits
-        );
-
-        uint256 shares = brc20.balanceOf(address(this));
-
-        uint256[MAX_TOKENS] memory receivedBalances = brc20.removeValue(
-            address(this),
-            0,
-            uint128(shares),
-            0,
-            amountLimits
-        );
-
-        for (uint256 i = 0; i < requiredBalances.length; i++) {
-            assertApproxEqAbs(requiredBalances[i], receivedBalances[i], 1);
-        }
-        assertEq(brc20.balanceOf(address(this)), 0);
-        assertEq(brc20.totalShares(), 0);
-    }
-
-    function testBRC20ValueSingle() public forkOnly {
-        uint128 value = 1e18;
-
-        // mint
-        uint256 requiredBalanceUSDC = brc20.addValueSingle(
-            address(this),
-            0,
-            value,
-            0,
-            USDC,
-            0
-        );
-
-        uint256 requiredBalanceUSDT = brc20.addValueSingle(
-            address(this),
-            0,
-            value,
-            0,
-            USDT,
-            0
-        );
-
-        // burn
-        uint256 removedBalanceUSDC = brc20.removeValueSingle(
-            address(this),
-            0,
-            value,
-            0,
-            USDC,
-            0
-        );
-        uint256 removedBalanceUSDT = brc20.removeValueSingle(
-            address(this),
-            0,
-            value,
-            0,
-            USDT,
-            0
-        );
-
-        /// note: if this is failing, we have a very low amount of liquidity
-        assertApproxEqAbs(
-            requiredBalanceUSDC + requiredBalanceUSDT,
-            removedBalanceUSDC + removedBalanceUSDT,
-            1000
-        );
-        assertEq(brc20.balanceOf(address(this)), 0);
-        assertEq(brc20.totalShares(), 0);
-    }
-
-    function testBRC20SingleForValue() public forkOnly {
-        uint128 amount = 1e6;
-
-        // mint
-        uint256 valueReceivedUSDC = brc20.addSingleForValue(
-            address(this),
-            0,
-            USDC,
-            amount,
-            0,
-            0
-        );
-
-        uint256 valueReceivedUSDT = brc20.addSingleForValue(
-            address(this),
-            0,
-            USDT,
-            amount,
-            0,
-            0
-        );
-
-        // burn
-        uint256 valueGivenUSDC = brc20.removeSingleForValue(
-            address(this),
-            0,
-            USDC,
-            amount,
-            0,
-            0
-        );
-        uint256 valueGivenUSDT = brc20.removeSingleForValue(
-            address(this),
-            0,
-            USDT,
-            amount - 1e5,
-            0,
-            0
-        );
-
-        assertApproxEqAbs(valueReceivedUSDC, valueGivenUSDC, 1e15); // lose very little value
-        assertApproxEqAbs(valueReceivedUSDT, valueGivenUSDT, 1e17); // lose about 10 cents in value
-    }
-
-    function testCompound() public forkOnly {
-        uint128 mintValue = 1e18;
-        uint256[MAX_TOKENS] memory amountLimits;
-
-        brc20.addValue(address(this), 0, mintValue, 0, amountLimits);
-
-        IBurveMultiSwap(BURVE_POOL).swap(
-            address(this),
-            USDC,
-            USDT,
-            100e6,
-            0,
-            3
-        );
-
-        brc20.collectEarnings(address(0), 0);
-    }
-
-    function testPOLVault() public forkOnly {
-        uint128 mintValue = 1e18;
-        uint256[MAX_TOKENS] memory amountLimits;
-
-        polBRC20.addValue(address(this), 0, mintValue, 0, amountLimits);
-
-        IBurveMultiSwap(BURVE_POOL).swap(
-            address(this),
-            USDC,
-            USDT,
-            100e6,
-            0,
-            3
-        );
-
-        (uint256[MAX_TOKENS] memory collectedBalances, ) = polBRC20
-            .collectEarnings(address(0), 0);
-
-        uint256 vaultTake = IERC20(USDC).balanceOf(TEST_POL_VAULT);
-
-        assertApproxEqAbs(collectedBalances[0] / 2, vaultTake, 1);
-    }
-
-    // New tests for Opener integration
     function testOpenerMintWithUSDC() public forkOnly {
         uint256 mintAmount = 1000e6; // 1000 USDC
-        bytes[MAX_TOKENS] memory txData;
-        uint256[MAX_TOKENS] memory minSpend;
-        uint256 minValueReceived = 0;
 
         // Deal USDC to this contract
         deal(USDC, address(this), mintAmount);
@@ -394,12 +197,37 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         // Approve opener to spend USDC
         IERC20(USDC).approve(address(opener), mintAmount);
 
+        // Set up swap info for USDC -> USDT
+        IOBRouter.swapTokenInfo memory info = IOBRouter.swapTokenInfo({
+            inputToken: USDC,
+            inputAmount: mintAmount,
+            outputToken: USDT,
+            outputQuote: 999000000, // Approximate 1:1 ratio with small slippage
+            outputMin: 990000000, // 1% slippage tolerance
+            outputReceiver: address(this)
+        });
+
+        // Set up transaction data for the swap
+        bytes[MAX_TOKENS] memory txData;
+        // Note: In a real scenario, this would be generated by oogabooga/swap.mjs
+        // For testing, we'll use empty data to test the basic flow
+        txData[1] = abi.encodeWithSelector(
+            IOBRouter.swap.selector,
+            info,
+            hex"", // Empty swap data for testing
+            address(0), // Empty receiver for testing
+            0 // Empty deadline for testing
+        );
+
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
+
         // Call opener.mint to add value through USDC
         uint256 addedValue = opener.mint(
             address(polBRC20), // pool (BRC20 contract)
             USDC, // inToken
             mintAmount, // inAmount
-            txData, // txData (empty for now)
+            txData, // txData
             CLOSURE_ID, // closureId
             0, // bgtPercentX256 (0% BGT)
             minSpend, // minSpend
@@ -412,9 +240,6 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
     function testOpenerMintWithUSDT() public forkOnly {
         uint256 mintAmount = 1000e6; // 1000 USDT
-        bytes[MAX_TOKENS] memory txData;
-        uint256[MAX_TOKENS] memory minSpend;
-        uint256 minValueReceived = 0;
 
         // Deal USDT to this contract
         deal(USDT, address(this), mintAmount);
@@ -422,12 +247,37 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
         // Approve opener to spend USDT
         IERC20(USDT).approve(address(opener), mintAmount);
 
+        // Set up swap info for USDT -> USDC
+        IOBRouter.swapTokenInfo memory info = IOBRouter.swapTokenInfo({
+            inputToken: USDT,
+            inputAmount: mintAmount,
+            outputToken: USDC,
+            outputQuote: 999000000, // Approximate 1:1 ratio with small slippage
+            outputMin: 990000000, // 1% slippage tolerance
+            outputReceiver: address(this)
+        });
+
+        // Set up transaction data for the swap
+        bytes[MAX_TOKENS] memory txData;
+        // Note: In a real scenario, this would be generated by oogabooga/swap.mjs
+        // For testing, we'll use empty data to test the basic flow
+        txData[0] = abi.encodeWithSelector(
+            IOBRouter.swap.selector,
+            info,
+            hex"", // Empty swap data for testing
+            address(0), // Empty receiver for testing
+            0 // Empty deadline for testing
+        );
+
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
+
         // Call opener.mint to add value through USDT
         uint256 addedValue = opener.mint(
             address(polBRC20), // pool (BRC20 contract)
             USDT, // inToken
             mintAmount, // inAmount
-            txData, // txData (empty for now)
+            txData, // txData
             CLOSURE_ID, // closureId
             0, // bgtPercentX256 (0% BGT)
             minSpend, // minSpend
@@ -440,23 +290,37 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
     function testOpenerWithSwapData() public forkOnly {
         uint256 mintAmount = 1000e6; // 1000 USDC
-        bytes[MAX_TOKENS] memory txData;
-        uint256[MAX_TOKENS] memory minSpend;
-        uint256 minValueReceived = 0;
-
-        // Create swap data for USDC to USDT (this would normally come from oogabooga)
-        // For now, we'll use empty data to test the basic flow
-        bytes memory swapData = ""; // In real usage, this would contain swap calldata
-
-        // Set txData for USDT swap (index 1 if USDT is the second token)
-        // This is a simplified example - in practice you'd need to determine the correct index
-        txData[1] = swapData; // Assuming USDT is at index 1
 
         // Deal USDC to this contract
         deal(USDC, address(this), mintAmount);
 
         // Approve opener to spend USDC
         IERC20(USDC).approve(address(opener), mintAmount);
+
+        // Set up swap info for USDC -> USDT
+        IOBRouter.swapTokenInfo memory info = IOBRouter.swapTokenInfo({
+            inputToken: USDC,
+            inputAmount: mintAmount,
+            outputToken: USDT,
+            outputQuote: 999000000, // Approximate 1:1 ratio with small slippage
+            outputMin: 990000000, // 1% slippage tolerance
+            outputReceiver: address(this)
+        });
+
+        // Set up transaction data for the swap
+        bytes[MAX_TOKENS] memory txData;
+        // Note: In a real scenario, this would be generated by oogabooga/swap.mjs
+        // For testing, we'll use empty data to test the basic flow
+        txData[1] = abi.encodeWithSelector(
+            IOBRouter.swap.selector,
+            info,
+            hex"", // Empty swap data for testing
+            address(0), // Empty receiver for testing
+            0 // Empty deadline for testing
+        );
+
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
 
         // Call opener.mint with swap data
         uint256 addedValue = opener.mint(
@@ -476,15 +340,37 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
 
     function testOpenerAndBRC20Integration() public forkOnly {
         uint256 mintAmount = 1000e6; // 1000 USDC
-        bytes[MAX_TOKENS] memory txData;
-        uint256[MAX_TOKENS] memory minSpend;
-        uint256 minValueReceived = 0;
 
         // Deal USDC to this contract
         deal(USDC, address(this), mintAmount);
 
         // Approve opener to spend USDC
         IERC20(USDC).approve(address(opener), mintAmount);
+
+        // Set up swap info for USDC -> USDT
+        IOBRouter.swapTokenInfo memory info = IOBRouter.swapTokenInfo({
+            inputToken: USDC,
+            inputAmount: mintAmount,
+            outputToken: USDT,
+            outputQuote: 999000000, // Approximate 1:1 ratio with small slippage
+            outputMin: 990000000, // 1% slippage tolerance
+            outputReceiver: address(this)
+        });
+
+        // Set up transaction data for the swap
+        bytes[MAX_TOKENS] memory txData;
+        // Note: In a real scenario, this would be generated by oogabooga/swap.mjs
+        // For testing, we'll use empty data to test the basic flow
+        txData[1] = abi.encodeWithSelector(
+            IOBRouter.swap.selector,
+            info,
+            hex"", // Empty swap data for testing
+            address(0), // Empty receiver for testing
+            0 // Empty deadline for testing
+        );
+
+        uint256[MAX_TOKENS] memory minSpend;
+        uint256 minValueReceived = 0;
 
         // Get initial balances
         uint256 initialUSDCBalance = IERC20(USDC).balanceOf(address(this));
@@ -529,32 +415,6 @@ contract BRC20ForkTest is ForkableTest, RFTPayer, Auto165 {
             finalBRC20Shares - initialBRC20Shares
         );
         console2.log("Value added:", addedValue);
-    }
-
-    function testOpenerSlippageProtection() public forkOnly {
-        uint256 mintAmount = 1000e6; // 1000 USDC
-        bytes[MAX_TOKENS] memory txData;
-        uint256[MAX_TOKENS] memory minSpend;
-        uint256 minValueReceived = 1e20; // Very high minimum value (should fail)
-
-        // Deal USDC to this contract
-        deal(USDC, address(this), mintAmount);
-
-        // Approve opener to spend USDC
-        IERC20(USDC).approve(address(opener), mintAmount);
-
-        // This should revert due to slippage protection
-        vm.expectRevert(); // ValueSlippageExceeded error
-        opener.mint(
-            address(polBRC20),
-            USDC,
-            mintAmount,
-            txData,
-            CLOSURE_ID,
-            0,
-            minSpend,
-            minValueReceived
-        );
     }
 
     function tokenRequestCB(

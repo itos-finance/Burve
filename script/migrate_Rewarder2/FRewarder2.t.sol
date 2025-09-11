@@ -15,7 +15,7 @@ import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
 
 import {BRC20} from "../../src/integrations/BRC20.sol";
 import {Rewarder2} from "../../src/integrations/Rewarder2.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC20} from "../../test/mocks/MockERC20.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {ValueFacet} from "../../src/multi/facets/ValueFacet.sol";
 import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
@@ -548,5 +548,3 @@ contract Rewarder2IntegrationTest is ForkableTest, RFTPayer, Auto165 {
         return "";
     }
 }
-
-
