@@ -3,8 +3,11 @@ pragma solidity ^0.8.27;
 
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {AdminLib, BaseAdminFacet} from "Commons/Util/Admin.sol";
+import {IRFTPayer, RFTPayer} from "Commons/Util/RFT.sol";
+import {TransferHelper} from "../../src/TransferHelper.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
-contract UpdateEdgeFees {
+contract UpdateEdgeFees is RFTPayer {
     // 0.005% in X128 format: 0.00005 * 2^128
     uint128 constant NEW_EDGE_FEE_X128 = 17014118346046923988514818429550592; // 0.00005 * 2^128
     // 8% in X128 format: 0.08 * 2^128
@@ -16,12 +19,31 @@ contract UpdateEdgeFees {
     address constant MULTISIG =
         address(0x9293f9FFC43F6fce06290285919541E963D87F51);
 
+    // Data from usd.json - will be set in constructor
+    address[] public tokens;
+    uint256[] public efactors;
+
     IBurveMultiSimplex simplexFacet;
     BaseAdminFacet adminFacet;
 
     constructor() {
         simplexFacet = IBurveMultiSimplex(DIAMOND);
         adminFacet = BaseAdminFacet(DIAMOND);
+
+        tokens = [
+            0x549943e04f40284185054145c6E4e9568C1D3241,
+            0x779Ded0c9e1022225f8E0630b35a9b54bE713736,
+            0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce,
+            0x1cE0a25D13CE4d52071aE7e02Cf1F6606F4C79d3,
+            0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34,
+            0xff12470a969Dd362EB6595FFB44C82c959Fe9ACc,
+            0xEDB5180661F56077292C92Ab40B1AC57A279a396,
+            0x09D4214C03D01F49544C0448DBE3A27f768F2b34,
+            0x688e72142674041f8f6Af4c808a4045cA1D6aC82
+        ];
+
+        // Initialize efactors from usd.json
+        efactors = [2000, 1500, 500, 333, 660, 100, 50, 200, 1500];
     }
 
     function acceptOwnership() external {
@@ -45,5 +67,58 @@ contract UpdateEdgeFees {
                 simplexFacet.setEdgeFee(i, j, NEW_EDGE_FEE_X128);
             }
         }
+
+        // Update EX128 values for all tokens
+        updateAllEX128();
+    }
+
+    function updateAllEX128() public {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            _setEX128(tokens[i], efactors[i]);
+        }
+    }
+
+    function _setEX128(address token, uint256 efactor) internal {
+        // Convert efactor to X128 format: efactor * 2^128
+        uint256 eX128 = efactor * (2 ** 128);
+        // Set maxSpend to 0 for now (can be adjusted if needed)
+        uint256 maxSpend = 0;
+
+        simplexFacet.setEX128(token, eX128, maxSpend);
+    }
+
+    /// @inheritdoc IRFTPayer
+    function tokenRequestCB(
+        address[] calldata requestTokens,
+        int256[] calldata requests,
+        bytes calldata
+    ) external returns (bytes memory) {
+        // Only accept callbacks from the DIAMOND
+        require(msg.sender == DIAMOND, "Only DIAMOND can call tokenRequestCB");
+
+        for (uint256 i = 0; i < requestTokens.length; i++) {
+            int256 amount = requests[i];
+
+            // Only handle positive requests (tokens being requested from us)
+            if (amount > 0) {
+                address token = requestTokens[i];
+                uint256 requestAmount = uint256(amount);
+
+                // Get current balance
+                uint256 balance = IERC20(token).balanceOf(address(this));
+
+                // If we don't have enough balance, we can't fulfill the request
+                require(balance >= requestAmount, "Insufficient token balance");
+
+                // Safe approve the maximum amount to the DIAMOND
+                TransferHelper.safeApprove(token, DIAMOND, type(uint256).max);
+
+                // Transfer the requested amount to the DIAMOND
+                TransferHelper.safeTransfer(token, DIAMOND, requestAmount);
+            }
+        }
+
+        // Return empty bytes as we don't need to pass any data back
+        return "";
     }
 }
