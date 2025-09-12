@@ -7,7 +7,7 @@ import {IRFTPayer, RFTPayer} from "Commons/Util/RFT.sol";
 import {TransferHelper} from "../../src/TransferHelper.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
-contract UpdateEdgeFees is RFTPayer {
+contract UpdateEdgeFees {
     // 0.05% in X128 format
     uint128 constant NEW_EDGE_FEE_X128 = 170141183460469231731687303715884105; // 0.0005 * 2^128
     // 8% in X128 format: 0.08 * 2^128
@@ -81,43 +81,5 @@ contract UpdateEdgeFees is RFTPayer {
         TransferHelper.safeApprove(token, DIAMOND, type(uint256).max);
 
         simplexFacet.setEX128(token, eX128, maxSpend);
-    }
-
-    /// @inheritdoc IRFTPayer
-    function tokenRequestCB(
-        address[] calldata requestTokens,
-        int256[] calldata requests,
-        bytes calldata
-    ) external returns (bytes memory) {
-        // Only accept callbacks from the DIAMOND
-        require(msg.sender == DIAMOND, "Only DIAMOND can call tokenRequestCB");
-
-        for (uint256 i = 0; i < requestTokens.length; i++) {
-            int256 amount = requests[i];
-
-            // Only handle positive requests (tokens being requested from us)
-            if (amount > 0) {
-                address token = requestTokens[i];
-                uint256 requestAmount = uint256(amount);
-
-                // Get current balance
-                uint256 balance = IERC20(token).balanceOf(address(this));
-
-                // If we don't have enough balance, we can't fulfill the request
-                require(balance >= requestAmount, "Insufficient token balance");
-
-                // First, set allowance to 0 (required for some tokens like USDT)
-                TransferHelper.safeApprove(token, DIAMOND, 0);
-
-                // Then approve the maximum amount to the DIAMOND
-                TransferHelper.safeApprove(token, DIAMOND, type(uint256).max);
-
-                // Transfer the requested amount to the DIAMOND
-                TransferHelper.safeTransfer(token, DIAMOND, requestAmount);
-            }
-        }
-
-        // Return empty bytes as we don't need to pass any data back
-        return "";
     }
 }

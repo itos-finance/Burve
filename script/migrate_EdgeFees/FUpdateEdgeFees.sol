@@ -80,27 +80,12 @@ contract FUpdateEdgeFees is BurveForkableTest {
     }
 
     function dealTokensToUpdater(UpdateEdgeFees updater) internal {
-        console2.log(
-            "Dealing tokens to updater contract for RFT payer functionality"
+        // Use deal() to give tokens directly to the updater contract
+        deal(
+            address(0xff12470a969Dd362EB6595FFB44C82c959Fe9ACc),
+            address(updater),
+            3566092269896669409
         );
-
-        address[] memory tokens = getExpectedTokens();
-        uint256 dealAmount = 1000000 * 10 ** 18; // 1M tokens with 18 decimals
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = tokens[i];
-
-            // Use deal() to give tokens directly to the updater contract
-            deal(token, address(updater), dealAmount);
-            console2.log(
-                "Dealt",
-                dealAmount,
-                "tokens to updater for token:",
-                token
-            );
-        }
-
-        console2.log("Token dealing completed");
     }
 
     function verifyEdgeFees(string memory context) internal view {
