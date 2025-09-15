@@ -39,7 +39,7 @@ jobs:
                   forge build --sizes
               id: build
 
-            - name: Run Forge tests
-              run: |
-                  forge test -vvv --skip-test "test/integrations/opener/Opener.t.sol"
-              id: test
+      - name: Run Forge tests
+        run: |
+          forge test -vvv --skip "test/integrations/opener/Opener.t.sol" --skip "script/"
+        id: test
