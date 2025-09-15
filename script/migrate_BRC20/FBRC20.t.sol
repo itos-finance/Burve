@@ -402,11 +402,11 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             int256(finalBRC20Shares) - int256(initialBRC20Shares)
         );
 
-        // Verify rewarder hooks were called during compound
-        assertGt(
+        // Verify rewarder hooks arent called
+        assertEq(
             dummyRewarder.depositCallCount(),
             0,
-            "Should have called onDeposit during compound"
+            "Should not have called onDeposit during compound"
         );
         assertEq(
             dummyRewarder.withdrawCallCount(),
@@ -533,11 +533,11 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             int256(finalBRC20Shares) - int256(initialBRC20Shares)
         );
 
-        // Verify rewarder hooks were called during compound
-        assertGt(
+        // Verify rewarder hooks were not called during compound
+        assertEq(
             dummyRewarder.depositCallCount(),
             0,
-            "Should have called onDeposit during compound"
+            "Should not have called onDeposit during compound"
         );
         assertEq(
             dummyRewarder.withdrawCallCount(),

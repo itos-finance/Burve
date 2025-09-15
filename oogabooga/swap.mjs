@@ -15,7 +15,7 @@ const swapParams = {
 	tokenIn: "0x549943e04f40284185054145c6E4e9568C1D3241",
 	amount: BigInt(1e8),
 	tokenOut: "0x779Ded0c9e1022225f8E0630b35a9b54bE713736",
-	to: "0xed63E871F5de87cb1919671eE9e2d331183Eda8f", // the opener contract
+	to: "0xaBa9D5ce40a81Da22526092FE4bA0517DeF2FBD3", // the opener contract
 	slippage: Number(process.env.SLIPPAGE || 0.01),
 };
 
