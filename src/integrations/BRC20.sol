@@ -37,7 +37,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
 
     // PoL (vault to recieve the fees and the vault fee take)
     address public immutable polVault;
-    uint256 public immutable feeTakeX64;
+    uint256 public feeTakeX64;
 
     uint256 private constant MIN_DEAD_SHARES = 100;
     /// Thrown when the first mint is insufficient.
@@ -79,6 +79,11 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     function setRewarder(address _rewarder) external {
         AdminLib.validateOwner();
         rewarder = _rewarder;
+    }
+
+    function setFeeTake(uint256 _feeTakeX64) external {
+        AdminLib.validateOwner();
+        feeTakeX64 = _feeTakeX64;
     }
 
     /// @notice Override _update to handle rewarder calls for all token operations

@@ -39,10 +39,6 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
     // Dummy rewarder for testing
     DummyRewarder public dummyRewarder;
 
-    // Pool interfaces (inherited from base class)
-    IBurveMultiValue public pool;
-    IBurveMultiSimplex public simplex;
-
     // Token instances
     IERC20 public usdc;
     IERC20 public usdt;
@@ -98,7 +94,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         console2.log("USDT address:", USDT);
 
         // Log pool state
-        address[] memory poolTokens = simplex.getTokens();
+        address[] memory poolTokens = simplexFacet.getTokens();
         console2.log("Pool has", poolTokens.length, "tokens");
         for (uint256 i = 0; i < poolTokens.length; i++) {
             console2.log("Token", i, ":", poolTokens[i]);
@@ -133,8 +129,8 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
     }
 
     function testForkSetup() public view forkOnly {
-        assertEq(address(pool), BURVE_POOL);
-        assertEq(address(simplex), BURVE_POOL);
+        assertEq(diamond, BURVE_POOL);
+        assertEq(address(simplexFacet), BURVE_POOL);
 
         assertEq(address(brc20.pool()), BURVE_POOL);
         assertEq(brc20.closureId(), CLOSURE_ID);
@@ -151,7 +147,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
 
     function testPoolTokenAccess() public view forkOnly {
         // Test that we can access pool tokens
-        address[] memory tokens = simplex.getTokens();
+        address[] memory tokens = simplexFacet.getTokens();
         assertGt(tokens.length, 0);
 
         // Check if our target tokens are in the pool
@@ -392,18 +388,18 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             finalTotalValue - initialTotalValue
         );
 
-        // Verify that BRC20 shares increased due to compound
+        // Verify that BRC20 shares remain the same after compound
         uint256 finalBRC20Shares = brc20.balanceOf(address(this));
-        assertGt(
+        assertEq(
             finalBRC20Shares,
             initialBRC20Shares,
-            "BRC20 shares should have increased due to compound"
+            "BRC20 shares should remain the same after compound"
         );
 
         console2.log("Final BRC20 shares:", finalBRC20Shares);
         console2.log(
-            "Shares gained from compound:",
-            finalBRC20Shares - initialBRC20Shares
+            "Shares change from compound:",
+            int256(finalBRC20Shares) - int256(initialBRC20Shares)
         );
 
         // Verify rewarder hooks were called during compound
@@ -419,8 +415,8 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         );
         assertEq(
             dummyRewarder.totalDepositAmount(),
-            finalBRC20Shares - initialBRC20Shares,
-            "Total deposit amount should match shares gained"
+            0,
+            "Total deposit amount should be 0 since shares don't change"
         );
     }
 
@@ -481,6 +477,34 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         console2.log("Collected USDC fees:", collectedBalances[0]);
         console2.log("Collected USDT fees:", collectedBalances[1]);
 
+        // Verify that the correct fee take amount was sent to the PoL vault
+        uint256 expectedUSDCFeeTake = (collectedBalances[0] *
+            TEST_FEE_TAKE_X64) / (1 << 64);
+        uint256 expectedUSDTFeeTake = (collectedBalances[1] *
+            TEST_FEE_TAKE_X64) / (1 << 64);
+
+        uint256 actualUSDCBalance = usdc.balanceOf(TEST_POL_VAULT);
+        uint256 actualUSDTBalance = usdt.balanceOf(TEST_POL_VAULT);
+
+        console2.log("Expected USDC fee take:", expectedUSDCFeeTake);
+        console2.log("Actual USDC balance in PoL vault:", actualUSDCBalance);
+        console2.log("Expected USDT fee take:", expectedUSDTFeeTake);
+        console2.log("Actual USDT balance in PoL vault:", actualUSDTBalance);
+
+        // Allow for small rounding differences
+        assertApproxEqRel(
+            actualUSDCBalance,
+            expectedUSDCFeeTake,
+            1e12,
+            "USDC fee take should be approximately correct"
+        );
+        assertApproxEqRel(
+            actualUSDTBalance,
+            expectedUSDTFeeTake,
+            1e12,
+            "USDT fee take should be approximately correct"
+        );
+
         // Verify that totalValue increased due to compound
         uint256 finalTotalValue = polBRC20.totalValue();
         assertGt(
@@ -495,18 +519,18 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             finalTotalValue - initialTotalValue
         );
 
-        // Verify that BRC20 shares increased due to compound
+        // Verify that BRC20 shares remain the same after compound
         uint256 finalBRC20Shares = polBRC20.balanceOf(address(this));
-        assertGt(
+        assertEq(
             finalBRC20Shares,
             initialBRC20Shares,
-            "BRC20 shares should have increased due to compound"
+            "BRC20 shares should remain the same after compound"
         );
 
         console2.log("Final BRC20 shares:", finalBRC20Shares);
         console2.log(
-            "Shares gained from compound:",
-            finalBRC20Shares - initialBRC20Shares
+            "Shares change from compound:",
+            int256(finalBRC20Shares) - int256(initialBRC20Shares)
         );
 
         // Verify rewarder hooks were called during compound
@@ -522,9 +546,36 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         );
         assertEq(
             dummyRewarder.totalDepositAmount(),
-            finalBRC20Shares - initialBRC20Shares,
-            "Total deposit amount should match shares gained"
+            0,
+            "Total deposit amount should be 0 since shares don't change"
         );
+    }
+
+    function testFeeTakeChange() public forkOnly {
+        console2.log("Testing fee take change functionality");
+
+        // Test that only owner can change fee take
+        uint256 newFeeTakeX64 = 4611686018427387904; // 25% fee take
+
+        // This should fail because we're not the owner
+        vm.expectRevert();
+        polBRC20.setFeeTake(newFeeTakeX64);
+
+        // Impersonate the owner (multisig) to change the fee take
+        vm.startPrank(address(0x9293f9FFC43F6fce06290285919541E963D87F51));
+        polBRC20.setFeeTake(newFeeTakeX64);
+        vm.stopPrank();
+
+        // Verify the fee take was changed
+        assertEq(
+            polBRC20.feeTakeX64(),
+            newFeeTakeX64,
+            "Fee take should be updated"
+        );
+
+        console2.log("Original fee take:", TEST_FEE_TAKE_X64);
+        console2.log("New fee take:", polBRC20.feeTakeX64());
+        console2.log("Fee take change test passed");
     }
 
     function tokenRequestCB(
