@@ -56,7 +56,10 @@ contract FUpdateEdgeFees is BurveForkableTest {
     }
 
     function testUpdateEdgeFees() public {
-        UpdateEdgeFees updater = new UpdateEdgeFees();
+        // UpdateEdgeFees updater = new UpdateEdgeFees();
+        UpdateEdgeFees updater = UpdateEdgeFees(
+            address(0x7ABBF47392EcC1C37Be03A7f57ac95EF2c408136)
+        );
 
         console2.log("Updater deployed at:", address(updater));
 
@@ -80,12 +83,11 @@ contract FUpdateEdgeFees is BurveForkableTest {
     }
 
     function dealTokensToUpdater(UpdateEdgeFees updater) internal {
-        // Use deal() to give tokens directly to the updater contract
         deal(
             address(0xff12470a969Dd362EB6595FFB44C82c959Fe9ACc),
             address(updater),
             3566092269896669409
-        );
+        ); // we need to add $3.57 to shrink the range
     }
 
     function verifyEdgeFees(string memory context) internal view {

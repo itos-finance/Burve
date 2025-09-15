@@ -74,7 +74,7 @@ contract UpdateEdgeFees {
 
     function _setEX128(address token, uint256 efactor) internal {
         // Convert efactor to X128 format: efactor * 2^128
-        uint256 eX128 = efactor * (2 ** 128);
+        uint256 eX128 = efactor << 128;
         // Set maxSpend to 0 for now (can be adjusted if needed)
         uint256 maxSpend = type(uint256).max;
 
