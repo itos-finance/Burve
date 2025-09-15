@@ -557,14 +557,13 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         // Test that only owner can change fee take
         uint256 newFeeTakeX64 = 4611686018427387904; // 25% fee take
 
-        // This should fail because we're not the owner
-        vm.expectRevert();
-        polBRC20.setFeeTake(newFeeTakeX64);
-
-        // Impersonate the owner (multisig) to change the fee take
-        vm.startPrank(address(0x9293f9FFC43F6fce06290285919541E963D87F51));
+        // Impersonate the not the owner to change the fee take, revert
+        vm.startPrank(address(0x1234));
+        vm.expectRevert(AdminLib.NotOwner.selector);
         polBRC20.setFeeTake(newFeeTakeX64);
         vm.stopPrank();
+
+        polBRC20.setFeeTake(newFeeTakeX64);
 
         // Verify the fee take was changed
         assertEq(
