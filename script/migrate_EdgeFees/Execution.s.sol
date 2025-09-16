@@ -11,7 +11,7 @@ import {UpdateEdgeFees} from "./UpdateEdgeFees.sol";
 
 /// Diamond: 0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089
 /// multisig: 0x9293f9FFC43F6fce06290285919541E963D87F51
-/// executor: 27222589353675077077069968594541456916
+/// executor: 0xEAD30c685F6B4817722018E3205c5f2edD5403DB
 contract Call_UpdateEdgeFees is BaseScript, Test {
     function run() external {
         vm.startBroadcast(_getPrivateKey());
@@ -20,18 +20,18 @@ contract Call_UpdateEdgeFees is BaseScript, Test {
             address(0xEAD30c685F6B4817722018E3205c5f2edD5403DB)
         ); // fill in with the deployment script result
 
-        updater.acceptOwnership();
+        // updater.acceptOwnership();
 
-        // Set simplex fees first
-        updater.setSimplexFees();
+        // // Set simplex fees first
+        // updater.setSimplexFees();
 
-        // Update specific edge fees
-        updater.updateNonDefaultEdgeFees();
+        // // Update specific edge fees
+        // updater.updateNonDefaultEdgeFees();
 
         // Set EX128 for all 9 tokens
-        for (uint256 i = 0; i < 9; i++) {
-            updater.setEX128();
-        }
+        // for (uint256 i = 0; i < 9; i++) {
+        // updater.setEX128();
+        // }
 
         updater.transferOwnership();
 
