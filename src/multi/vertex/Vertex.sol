@@ -131,6 +131,45 @@ library VertexImpl {
         }
     }
 
+    /// The same functionality as the above trimBalances but without any vault commits
+    /// which also means we can't do any bgt exchanges. However this is useful for mass vertex operations
+    /// when needed such as when E is updated.
+    function liteTrimBalance(
+        Vertex storage self,
+        ClosureId cid,
+        VaultProxy memory vProxy,
+        uint256 targetReal,
+        uint256 value,
+        uint256 bgtValue
+    ) internal returns (uint256 reserveSharesEarned, uint256 unspentShares) {
+        uint256 realBalance = vProxy.balance(cid, false);
+        // We don't error and instead emit in this scenario because clearly the vault is not working properly but if
+        // we error users can't withdraw funds. Instead the right response is to lock and move vaults immediately.
+        if (targetReal > realBalance) {
+            emit InsufficientBalance(self.vid, cid, targetReal, realBalance);
+            return (0, 0);
+        }
+        uint256 residualReal = realBalance - targetReal;
+        // We don't compound when the residual is small as rounding will inflate reserve share balances.
+        if (residualReal < MIN_TRIM) {
+            return (0, 0);
+        }
+
+        // Although we won't be exchanging for bgt, we still need to calculate their portion of earnings
+        // and add it to the unspent balances.
+        uint256 bgtResidual = FullMath.mulDiv(residualReal, bgtValue, value);
+
+        // Now we do a nilpotent withdraw since we aren't actually removing any balances from the vault.
+        vProxy.nilpotentWithdraw(cid, residualReal);
+        // And just split the shares accordingly.
+        reserveSharesEarned = ReserveLib.deposit(
+            vProxy,
+            self.vid,
+            residualReal - bgtResidual
+        );
+        unspentShares = ReserveLib.deposit(vProxy, self.vid, bgtResidual);
+    }
+
     /// A few version of trim that just returns the real balances earned.
     function viewTrim(
         Vertex storage self,
