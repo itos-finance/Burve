@@ -324,6 +324,25 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         return simplex.getTokens();
     }
 
+    function getClosureValue(
+        uint16 _closureId
+    )
+        external
+        view
+        returns (
+            uint8 n,
+            uint256 targetX128,
+            uint256[MAX_TOKENS] memory balances,
+            uint256 valueStaked,
+            uint256 bgtValueStaked
+        ) {
+        return simplex.getClosureValue(_closureId);
+    }
+
+    function getAdjustor() external view returns (address) {
+        return simplex.getAdjustor();
+    }
+
     function tokenRequestCB(
         address[] calldata tokens,
         int256[] calldata requests,
