@@ -58,7 +58,7 @@ contract FUpdateEdgeFees is BurveForkableTest {
     function testUpdateEdgeFees() public {
         // UpdateEdgeFees updater = new UpdateEdgeFees();
         UpdateEdgeFees updater = UpdateEdgeFees(
-            address(0x7ABBF47392EcC1C37Be03A7f57ac95EF2c408136)
+            address(0xEAD30c685F6B4817722018E3205c5f2edD5403DB)
         );
 
         console2.log("Updater deployed at:", address(updater));
@@ -71,8 +71,20 @@ contract FUpdateEdgeFees is BurveForkableTest {
         updater.acceptOwnership();
         console2.log("Ownership accepted");
 
-        updater.updateAllEdgeFees();
-        console2.log("All edge fees updated");
+        // Set simplex fees first
+        updater.setSimplexFees();
+        console2.log("Simplex fees set");
+
+        // Update specific edge fees
+        updater.updateNonDefaultEdgeFees();
+        console2.log("Non-default edge fees updated");
+
+        // Set EX128 for all 9 tokens
+        for (uint256 i = 0; i < 9; i++) {
+            updater.setEX128();
+            console2.log("setEX128 called for token index:", i);
+        }
+        console2.log("All EX128 values set for 9 tokens");
 
         // Verify the updates
         console2.log("=== After Update ===");
@@ -86,8 +98,8 @@ contract FUpdateEdgeFees is BurveForkableTest {
         deal(
             address(0xff12470a969Dd362EB6595FFB44C82c959Fe9ACc),
             address(updater),
-            3566092269896669409
-        ); // we need to add $3.57 to shrink the range
+            8943519325191011230
+        ); // we need to add $8.95 to shrink the range
     }
 
     function verifyEdgeFees(string memory context) internal view {
@@ -201,6 +213,8 @@ contract FUpdateEdgeFees is BurveForkableTest {
     /// to the contract.
     function transferOwnership(address executor) internal {
         vm.startPrank(MULTISIG);
+
+        BaseAdminFacet(address(diamond)).acceptOwnership();
 
         BaseAdminFacet(address(diamond)).transferOwnership(executor);
 

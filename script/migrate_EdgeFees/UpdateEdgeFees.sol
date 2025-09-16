@@ -21,6 +21,7 @@ contract UpdateEdgeFees {
 
     address[] public tokens;
     uint256[] public efactors;
+    uint256 public index;
 
     IBurveMultiSimplex simplexFacet;
     BaseAdminFacet adminFacet;
@@ -53,23 +54,20 @@ contract UpdateEdgeFees {
         adminFacet.transferOwnership(MULTISIG);
     }
 
-    function updateAllEdgeFees() external {
-        // Update the default edge fee and protocol take
+    function setSimplexFees() external {
         simplexFacet.setSimplexFees(NEW_EDGE_FEE_X128, PROTOCOL_TAKE_X128); // Protocol take isnt changing
+    }
 
+    function updateNonDefaultEdgeFees() external {
         // Update specific edge fees only
         simplexFacet.setEdgeFee(0, 1, NEW_EDGE_FEE_X128);
         simplexFacet.setEdgeFee(1, 2, NEW_EDGE_FEE_X128);
         simplexFacet.setEdgeFee(0, 2, NEW_EDGE_FEE_X128);
-
-        // Update EX128 values for all tokens
-        updateAllEX128();
     }
 
-    function updateAllEX128() public {
-        for (uint256 i = 0; i < tokens.length; i++) {
-            _setEX128(tokens[i], efactors[i]);
-        }
+    function setEX128() external {
+        _setEX128(tokens[index], efactors[index]);
+        index++;
     }
 
     function _setEX128(address token, uint256 efactor) internal {
