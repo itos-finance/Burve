@@ -80,12 +80,6 @@ contract DeployFromEnv is Script, Test {
             simplexFacet.setEX128(tokens[i], _toX128(efactors[i]), 0);
         }
 
-        // update specific fee rates
-        // 7 bps for USDC, USDT, HONEY routes
-        simplexFacet.setEdgeFee(0, 1, 238197656844656924424362225202237748);
-        simplexFacet.setEdgeFee(1, 2, 238197656844656924424362225202237748);
-        simplexFacet.setEdgeFee(0, 2, 238197656844656924424362225202237748);
-
         // Initialize closures from 3 to 2^n - 1 where n is number of tokens
         uint16 maxClosure = uint16((1 << tokens.length) - 1);
         // Log initial balances
