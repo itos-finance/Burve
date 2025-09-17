@@ -140,11 +140,6 @@ contract Rewarder2 {
             return (0, trackedShares, lastTimestamp);
         }
 
-        // If accumulation is paused, return 0 for new pending rewards
-        if (accumulationPaused) {
-            return (0, trackedShares, lastTimestamp);
-        }
-
         pending = _calculateUserPendingRewards(a);
     }
 
@@ -280,10 +275,16 @@ contract Rewarder2 {
         uint256 elapsed = block.timestamp - uint256(a.lastTimestamp);
         if (elapsed == 0) return 0;
 
-        // Calculate proportional share of total unclaimed rewards
-        if (totalShares == 0) return 0;
+        // If accumulation is paused, return 0 for new pending rewards
+        if (accumulationPaused) return 0;
 
-        return (a.trackedShares * totalUnclaimedRewards) / totalShares;
+        // Calculate rewards from user's lastTimestamp to current block timestamp
+        // This simulates the collection of rewards up to the current time
+        uint256 perSecondX64 = tokensPerHourPerShareX64 / 3600;
+        uint256 owedPerSecond = (a.trackedShares * perSecondX64) >> 64;
+        uint256 userPendingRewards = owedPerSecond * elapsed;
+
+        return userPendingRewards;
     }
 
     /// @notice Check if accumulation should be paused

@@ -16,17 +16,15 @@ contract Call_UpdateEdgeFees is BaseScript, Test {
     function run() external {
         vm.startBroadcast(_getPrivateKey());
 
-        UpdateEdgeFees updater = UpdateEdgeFees(
-            address(0xEAD30c685F6B4817722018E3205c5f2edD5403DB)
-        ); // fill in with the deployment script result
+        UpdateEdgeFees updater = UpdateEdgeFees(address(0)); // fill in with the deployment script result
 
         updater.acceptOwnership();
 
-        // // Set simplex fees first
-        // updater.setSimplexFees();
+        // Set simplex fees first
+        updater.setSimplexFees();
 
-        // // Update specific edge fees
-        // updater.updateNonDefaultEdgeFees();
+        // Update specific edge fees
+        updater.updateNonDefaultEdgeFees();
 
         // Set EX128 for all 9 tokens
         for (uint256 i = 0; i < 9; i++) {
