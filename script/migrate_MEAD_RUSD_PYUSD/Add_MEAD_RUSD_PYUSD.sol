@@ -42,21 +42,6 @@ contract Add_MEAD_RUSD_PYUSD {
 
         // set efficiency factors
         simplexFacet.setEX128(token, efactor << 128, 0);
-
-        uint256 tokenCount = simplexFacet.getNumVertices();
-        address[] memory tokens = simplexFacet.getTokens();
-
-        // this is protected by the max token count
-        uint16 minClosure = uint16(1 << (uint16(tokenCount - 1)));
-        uint16 maxClosure = uint16(1 << (uint16(tokenCount))) - 1;
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            IERC20(tokens[i]).approve(address(simplexFacet), type(uint256).max);
-        }
-
-        for (uint16 cid = minClosure; cid < maxClosure; cid++) {
-            simplexFacet.addClosure(cid, INITIAL_VALUE);
-        }
     }
 
     function deployRUSD() external {
@@ -68,24 +53,9 @@ contract Add_MEAD_RUSD_PYUSD {
 
         // set efficiency factors
         simplexFacet.setEX128(token, efactor << 128, 0);
-
-        uint256 tokenCount = simplexFacet.getNumVertices();
-        address[] memory tokens = simplexFacet.getTokens();
-
-        // this is protected by the max token count
-        uint16 minClosure = uint16(1 << (uint16(tokenCount - 1)));
-        uint16 maxClosure = uint16(1 << (uint16(tokenCount))) - 1;
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            IERC20(tokens[i]).approve(address(simplexFacet), type(uint256).max);
-        }
-
-        for (uint16 cid = minClosure; cid < maxClosure; cid++) {
-            simplexFacet.addClosure(cid, INITIAL_VALUE);
-        }
     }
 
-    function deployPYUSD1() external {
+    function deployPYUSD() external {
         address token = 0x688e72142674041f8f6Af4c808a4045cA1D6aC82;
         address vault = 0x2948609CdD0ac4110b63165be9D4AADe66bF40F6;
         uint256 efactor = 150;
@@ -94,13 +64,10 @@ contract Add_MEAD_RUSD_PYUSD {
 
         // set efficiency factors
         simplexFacet.setEX128(token, efactor << 128, 0);
+    }
 
-        uint256 tokenCount = simplexFacet.getNumVertices();
-        require(tokenCount == 9, "PYUSD should be the 9th token");
+    function initializeClosure(uint16 minClosure, uint16 maxClosure) external {
         address[] memory tokens = simplexFacet.getTokens();
-
-        uint16 minClosure = uint16(1 << (uint16(tokenCount - 1)));
-        uint16 maxClosure = 440;
 
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20(tokens[i]).approve(address(simplexFacet), type(uint256).max);
@@ -111,20 +78,7 @@ contract Add_MEAD_RUSD_PYUSD {
         }
     }
 
-    function deployPYUSD2() external {
-        uint256 tokenCount = simplexFacet.getNumVertices();
-
-        uint16 minClosure = 440;
-        uint16 maxClosure = uint16(1 << (uint16(tokenCount)));
-
-        for (uint16 cid = minClosure; cid < maxClosure; cid++) {
-            simplexFacet.addClosure(cid, INITIAL_VALUE);
-        }
-
-        returnBalances();
-    }
-
-    function returnBalances() internal {
+    function returnBalances() external {
         address[] memory tokens = simplexFacet.getTokens();
         for (uint256 i = 0; i < tokens.length; i++) {
             uint256 balance = IERC20(tokens[i]).balanceOf(address(this));
