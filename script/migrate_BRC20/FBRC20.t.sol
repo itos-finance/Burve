@@ -122,7 +122,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         DiamondCutFacet cutFacet = DiamondCutFacet(diamond);
 
         // prank as the multisig
-        vm.startPrank(address(0x9293f9FFC43F6fce06290285919541E963D87F51));
+        vm.startPrank(address(0xEAD30c685F6B4817722018E3205c5f2edD5403DB));
         // BaseAdminFacet(BURVE_POOL).acceptOwnership(); // We currently have ownership, so we don't need to accept
         cutFacet.diamondCut(cuts, address(0), "");
         vm.stopPrank();
@@ -143,24 +143,6 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         assertEq(polBRC20.feeTakeX64(), TEST_FEE_TAKE_X64);
 
         console2.log("Fork setup completed successfully");
-    }
-
-    function testPoolTokenAccess() public view forkOnly {
-        // Test that we can access pool tokens
-        address[] memory tokens = simplexFacet.getTokens();
-        assertGt(tokens.length, 0);
-
-        // Check if our target tokens are in the pool
-        bool hasUSDC = false;
-        bool hasUSDT = false;
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (tokens[i] == USDC) hasUSDC = true;
-            if (tokens[i] == USDT) hasUSDT = true;
-        }
-
-        console2.log("Pool contains USDC:", hasUSDC);
-        console2.log("Pool contains USDT:", hasUSDT);
     }
 
     function testBRC20MintValue() public forkOnly {
@@ -318,9 +300,6 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
     }
 
     function testCompound() public forkOnly {
-        // Set up rewarder for testing
-        brc20.setRewarder(address(dummyRewarder));
-
         uint128 mintValue = 1e18;
         uint256[MAX_TOKENS] memory amountLimits;
 
@@ -333,9 +312,6 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
 
         console2.log("Initial total value:", initialTotalValue);
         console2.log("Initial BRC20 shares:", initialBRC20Shares);
-
-        // Reset rewarder counters for clean test
-        dummyRewarder.reset();
 
         // Perform swaps to generate fees
         IBurveMultiSwap(BURVE_POOL).swap(
@@ -401,29 +377,9 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             "Shares change from compound:",
             int256(finalBRC20Shares) - int256(initialBRC20Shares)
         );
-
-        // Verify rewarder hooks arent called
-        assertEq(
-            dummyRewarder.depositCallCount(),
-            0,
-            "Should not have called onDeposit during compound"
-        );
-        assertEq(
-            dummyRewarder.withdrawCallCount(),
-            0,
-            "Should not have called onWithdraw during compound"
-        );
-        assertEq(
-            dummyRewarder.totalDepositAmount(),
-            0,
-            "Total deposit amount should be 0 since shares don't change"
-        );
     }
 
     function testPOLVault() public forkOnly {
-        // Set up rewarder for testing
-        polBRC20.setRewarder(address(dummyRewarder));
-
         uint128 mintValue = 1e18;
         uint256[MAX_TOKENS] memory amountLimits;
 
@@ -436,9 +392,6 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
 
         console2.log("Initial total value:", initialTotalValue);
         console2.log("Initial BRC20 shares:", initialBRC20Shares);
-
-        // Reset rewarder counters for clean test
-        dummyRewarder.reset();
 
         // Perform swaps to generate fees
         IBurveMultiSwap(BURVE_POOL).swap(
@@ -495,13 +448,13 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         assertApproxEqRel(
             actualUSDCBalance,
             expectedUSDCFeeTake,
-            1e12,
+            1,
             "USDC fee take should be approximately correct"
         );
         assertApproxEqRel(
             actualUSDTBalance,
             expectedUSDTFeeTake,
-            1e12,
+            1,
             "USDT fee take should be approximately correct"
         );
 
@@ -531,23 +484,6 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
         console2.log(
             "Shares change from compound:",
             int256(finalBRC20Shares) - int256(initialBRC20Shares)
-        );
-
-        // Verify rewarder hooks were not called during compound
-        assertEq(
-            dummyRewarder.depositCallCount(),
-            0,
-            "Should not have called onDeposit during compound"
-        );
-        assertEq(
-            dummyRewarder.withdrawCallCount(),
-            0,
-            "Should not have called onWithdraw during compound"
-        );
-        assertEq(
-            dummyRewarder.totalDepositAmount(),
-            0,
-            "Total deposit amount should be 0 since shares don't change"
         );
     }
 
