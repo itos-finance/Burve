@@ -125,6 +125,9 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
         // Set rewarder in BRC20
         brc20.setRewarder(address(rewarder));
 
+        // Deal tokens to test users and set up approvals
+        _setupUserTokens();
+
         console2.log("BRC20 deployed at:", address(brc20));
         console2.log("Rewarder2 deployed at:", address(rewarder));
         console2.log("Reward token deployed at:", address(rewardToken));
@@ -153,6 +156,26 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
         BaseAdminFacet(BURVE_POOL).acceptOwnership();
         cutFacet.diamondCut(cuts, address(0), "");
         vm.stopPrank();
+    }
+
+    function _setupUserTokens() internal {
+        // Deal tokens to all test users and set up approvals
+        address[] memory tokens = brc20.getTokens();
+        address[] memory users = new address[](3);
+        users[0] = user1;
+        users[1] = user2;
+        users[2] = user3;
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            for (uint256 j = 0; j < users.length; j++) {
+                // Deal 1000 tokens to each user
+                deal(tokens[i], users[j], 1000e18);
+
+                // Approve BRC20 contract to spend user's tokens
+                vm.prank(users[j]);
+                IERC20(tokens[i]).approve(address(brc20), type(uint256).max);
+            }
+        }
     }
 
     function testRewarder2Initialization() public view {
