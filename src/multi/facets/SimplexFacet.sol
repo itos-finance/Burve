@@ -188,9 +188,11 @@ contract SimplexSetFacet {
         bool concentrate = eX128 > oldEX128;
         VertexId vid = VertexLib.newId(idx);
 
+        // We'll need this for depositing more tokens or for mass trimming.
+        VaultProxy memory vProxy = VaultLib.getProxy(vid);
+
         // For deposits when not concentrating.
         uint256 needed = 0;
-        VaultProxy memory vProxy = VaultLib.getProxy(vid);
         Vertex storage v = Store.vertex(vid);
 
         // We need to make sure the value is the same before and after the change in E
@@ -213,7 +215,7 @@ contract SimplexSetFacet {
             c.balances[idx] = ValueLib.x(c.targetX128, eX128, valueX128, true);
             if (concentrate) {
                 // If we're concentrating, the balance needed is smaller so we trim.
-                c.trimBalance(vid);
+                c.massTrimBalance(vid, vProxy);
             } else {
                 // If we're expanding the range, we'll need more tokens to get the same value.
                 uint256 singleDeposit = c.balances[idx] - oldX;
@@ -232,9 +234,10 @@ contract SimplexSetFacet {
                 address(this),
                 needed
             );
-            // Commit the deposits now that we have the tokens.
-            vProxy.commit();
         }
+        // If not concentrating, commit the deposits now that we have the tokens.
+        // If concentrating, commit the trim moves to reserves.
+        vProxy.commit();
     }
 
     /// @notice Sets the adjustor.

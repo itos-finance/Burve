@@ -9,6 +9,7 @@ import {AdjustorLib} from "../Adjustor.sol";
 import {ClosureId} from "./Id.sol";
 import {FullMath} from "../../FullMath.sol";
 import {ValueLib, SearchParams} from "../Value.sol";
+import {VaultProxy} from "../vertex/VaultProxy.sol";
 import {ReserveLib} from "../vertex/Reserve.sol";
 import {Store} from "../Store.sol";
 import {UnsafeMath} from "Commons/Math/UnsafeMath.sol";
@@ -742,6 +743,37 @@ library ClosureImpl {
                     (unspentShares << 128) /
                     self.bgtValueStaked;
             }
+        }
+    }
+
+    /// A special version of the trimBalance behavior that is optimized for updating balances of a vertex
+    /// across multiple closures. This means we have to dramatically reduce gas usage.
+    /// It uses one vault proxy to avoid excessive calls into the vault.
+    function massTrimBalance(
+        Closure storage self,
+        VertexId vid,
+        VaultProxy memory vProxy
+    ) internal {
+        uint8 idx = vid.idx();
+        // Roundup the balance we need.
+        uint256 realBalance = AdjustorLib.toReal(idx, self.balances[idx], true);
+        (uint256 earnings, uint256 unspentShares) = Store
+            .vertex(vid)
+            .liteTrimBalance(
+                self.cid,
+                vProxy,
+                realBalance,
+                self.valueStaked,
+                self.bgtValueStaked
+            );
+        // All pools start with non-zero nonbgtvalue
+        self.earningsPerValueX128[idx] +=
+            (earnings << 128) /
+            (self.valueStaked - self.bgtValueStaked);
+        if (self.bgtValueStaked > 0) {
+            self.unexchangedPerBgtValueX128[idx] +=
+                (unspentShares << 128) /
+                self.bgtValueStaked;
         }
     }
 
