@@ -13,10 +13,10 @@ import {SimplexSetFacet} from "../../src/multi/facets/SimplexFacet.sol";
 contract FacetCut {
     address constant DIAMOND =
         address(0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089);
-    address constant MULTISIG =
-        address(0x9293f9FFC43F6fce06290285919541E963D87F51);
+    address constant UPDATER =
+        address(0xEAD30c685F6B4817722018E3205c5f2edD5403DB);
     address constant SIMPLEX_SET_FACET =
-        address(0x284D713180f810590637A8f38A0346C25568bBd5); // TODO:
+        address(0x6c93fc895c90C9c7A6897858A340f6e36dF0022B);
 
     BaseAdminFacet adminFacet;
 
@@ -53,6 +53,7 @@ contract FacetCut {
     }
 
     function transferOwnership() external {
-        adminFacet.transferOwnership(MULTISIG);
+        // note: we transfer ownership to the UPDATER contract to complete the update for now
+        adminFacet.transferOwnership(UPDATER);
     }
 }

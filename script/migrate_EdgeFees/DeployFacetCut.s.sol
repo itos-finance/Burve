@@ -16,7 +16,7 @@ contract DeploySimplexSetFacet is BaseScript, Test {
 
         FacetCut simplexSetFacet = new FacetCut();
 
-        console2.log("SimplexSetFacet deployed at:", address(simplexSetFacet));
+        console2.log("FacetCut deployed at:", address(simplexSetFacet));
 
         vm.stopBroadcast();
     }
