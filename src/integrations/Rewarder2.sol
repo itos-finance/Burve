@@ -119,6 +119,10 @@ contract Rewarder2 {
         _removeShares(user, requestedSharesToBurn);
     }
 
+    function updateRewards() external {
+        _updateRewards();
+    }
+
     /// @notice Users can claim without changing position.
     function claim() external {
         _updateRewards();
@@ -136,11 +140,16 @@ contract Rewarder2 {
         trackedShares = a.trackedShares;
         lastTimestamp = a.lastTimestamp;
 
+        console2.log("trackedShares", a.trackedShares);
+        console2.log("lastTimestamp", a.lastTimestamp);
+
         if (a.trackedShares == 0 || a.lastTimestamp == 0) {
             return (0, trackedShares, lastTimestamp);
         }
 
         pending = _calculateUserPendingRewards(a);
+
+        console2.log("pending", pending);
     }
 
     /// @notice Calculate total unclaimed rewards across all users
@@ -149,13 +158,21 @@ contract Rewarder2 {
         view
         returns (uint256 total)
     {
+        uint256 elapsed = block.timestamp - uint256(lastUpdateTimestamp);
+        if (elapsed > 0) {
+            // Calculate new rewards: totalShares * ratePerHourX64 >> 64 * elapsed / 3600
+            uint256 perSecondX64 = tokensPerHourPerShareX64 / 3600;
+            uint256 owedPerSecond = (totalShares * perSecondX64) >> 64;
+            uint256 newRewards = owedPerSecond * elapsed;
+            return totalUnclaimedRewards + newRewards;
+        }
         return totalUnclaimedRewards;
     }
 
     /// @notice Check if accumulation should be paused based on available balance
     function shouldPauseAccumulation() public view returns (bool) {
         uint256 availableBalance = rewardToken.balanceOf(address(this));
-        return totalUnclaimedRewards > availableBalance;
+        return calculateTotalUnclaimedRewards() > availableBalance;
     }
 
     /// @notice Resume accumulation (admin only)
@@ -202,9 +219,13 @@ contract Rewarder2 {
     /// @notice Claim rewards for a specific user
     function _claimRewards(address user) internal {
         Account memory a = accounts[user];
+        console2.log(user);
+        console2.log("trackedShares", a.trackedShares);
+        console2.log("lastTimestamp", a.lastTimestamp);
         if (a.trackedShares == 0 || a.lastTimestamp == 0) return;
 
         uint256 pending = _calculateUserPendingRewards(a);
+        console2.log("pending", pending);
         if (pending == 0) return;
 
         // Update user's last timestamp to current time
@@ -273,10 +294,11 @@ contract Rewarder2 {
         if (a.trackedShares == 0 || a.lastTimestamp == 0) return 0;
 
         uint256 elapsed = block.timestamp - uint256(a.lastTimestamp);
+        console2.log("elapsed", elapsed);
         if (elapsed == 0) return 0;
 
         // If accumulation is paused, return 0 for new pending rewards
-        if (accumulationPaused) return 0;
+        // if (accumulationPaused) return 0;
 
         // Calculate rewards from user's lastTimestamp to current block timestamp
         // This simulates the collection of rewards up to the current time
