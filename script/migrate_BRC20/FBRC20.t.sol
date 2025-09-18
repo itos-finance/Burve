@@ -820,4 +820,89 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             "Shares should be burned correctly"
         );
     }
+
+    function testClosePositionAndGetTokensBack() public forkOnly {
+        console2.log("Testing position closure and token return");
+
+        uint128 mintValue = 1e18;
+        uint256[MAX_TOKENS] memory amountLimits;
+
+        // Open position by adding value
+        uint256[MAX_TOKENS] memory requiredBalances = brc20.addValue(
+            address(this),
+            0,
+            mintValue,
+            0,
+            amountLimits
+        );
+
+        uint256 shares = brc20.balanceOf(address(this));
+        assertEq(shares, mintValue, "Should have correct number of shares");
+        assertGt(shares, 0, "Should have some shares");
+
+        console2.log("Shares after opening position:", shares);
+        console2.log("Required USDC for position:", requiredBalances[0]);
+        console2.log("Required USDT for position:", requiredBalances[1]);
+
+        // Close position by removing all value
+        uint256[MAX_TOKENS] memory receivedBalances = brc20.removeValue(
+            address(this),
+            0,
+            uint128(shares),
+            0,
+            amountLimits
+        );
+
+        // Verify we got our shares back
+        assertEq(
+            brc20.balanceOf(address(this)),
+            0,
+            "Should have no shares after closing"
+        );
+        assertEq(brc20.totalShares(), 0, "Total shares should be zero");
+
+        console2.log("Received USDC when closing:", receivedBalances[0]);
+        console2.log("Received USDT when closing:", receivedBalances[1]);
+
+        // Verify we got our tokens back (allowing for small rounding differences)
+        for (uint256 i = 0; i < requiredBalances.length; i++) {
+            if (requiredBalances[i] > 0) {
+                assertApproxEqAbs(
+                    requiredBalances[i],
+                    receivedBalances[i],
+                    1,
+                    string(
+                        abi.encodePacked(
+                            "Token ",
+                            i,
+                            " should be returned with minimal loss"
+                        )
+                    )
+                );
+            }
+        }
+
+        // Verify final token balances are approximately restored
+        uint256 finalUSDCBalance = usdc.balanceOf(address(this));
+        uint256 finalUSDTBalance = usdt.balanceOf(address(this));
+
+        console2.log("Final USDC balance:", finalUSDCBalance);
+        console2.log("Final USDT balance:", finalUSDTBalance);
+
+        // Check that we got most of our tokens back (allowing for small slippage)
+        assertApproxEqAbs(
+            finalUSDCBalance,
+            receivedBalances[0],
+            1, // Allow for small differences due to slippage
+            "USDC balance should be approximately restored"
+        );
+        assertApproxEqAbs(
+            finalUSDTBalance,
+            receivedBalances[1],
+            1, // Allow for small differences due to slippage
+            "USDT balance should be approximately restored"
+        );
+
+        console2.log("Position closure test passed - tokens properly returned");
+    }
 }

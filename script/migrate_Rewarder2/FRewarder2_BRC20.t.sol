@@ -284,6 +284,8 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
             uint256 lastTimestamp
         ) = rewarder.viewPending(user1);
         assertEq(trackedShares, user1Shares);
+        // Suppress unused variable warning
+        lastTimestamp;
 
         // Calculate expected rewards: shares * rate * time
         // rate = 1e18 tokens per hour per share
@@ -310,8 +312,6 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
         // User1 deposits
         vm.prank(user1);
         brc20.addValue(user1, 0, depositValue, 0, amountLimits);
-
-        uint256 user1Shares = brc20.balanceOf(user1);
 
         // Fast forward 1 hour
         vm.warp(block.timestamp + 3600);
@@ -437,8 +437,6 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
         // User1 deposits
         vm.prank(user1);
         brc20.addValue(user1, 0, depositValue, 0, amountLimits);
-
-        uint256 user1Shares = brc20.balanceOf(user1);
 
         // Fast forward 2 hours (more than the funded amount)
         vm.warp(block.timestamp + 7200);
@@ -661,7 +659,7 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
         assertApproxEqAbs(actualCollected2, pendingPartial, 1e6);
 
         // Test that BRC20 withdrawal also respects pending calculation
-        vm.warp(block.timestamp + 3600); // 1 more hour
+        vm.warp(block.timestamp + 7200); // 1 more hour
 
         // Check pending before withdrawal
         (uint256 pendingBeforeWithdraw, , ) = testRewarder.viewPending(
@@ -681,5 +679,176 @@ contract Rewarder2BRC20Test is ForkableTest, RFTPayer, Auto165 {
         ) = testRewarder.viewPending(testUser1);
         assertEq(trackedSharesAfter, testUser1Shares - uint256(withdrawShares));
         assertEq(pendingAfterWithdraw, 0); // Should be 0 after withdrawal settlement
+    }
+
+    function testBRC20RewardAccumulationAndTransferFlow() public forkOnly {
+        // Deploy BRC20 and Rewarder2
+        BRC20 testBRC20 = new BRC20(
+            "Burve BRC20",
+            "bBRC20",
+            BURVE_POOL,
+            3,
+            address(0),
+            0
+        );
+        MockERC20 testRewardToken = new MockERC20(
+            "Test Reward Token",
+            "TRT",
+            18
+        );
+        Rewarder2 testRewarder = new Rewarder2(
+            address(testBRC20),
+            address(testRewardToken),
+            1 << 64
+        ); // 1 token/hour/share
+
+        // Wire rewarder into BRC20
+        testBRC20.setRewarder(address(testRewarder));
+
+        // Fund rewarder with plenty of tokens
+        testRewardToken.mint(address(this), 10000e18);
+        testRewardToken.approve(address(testRewarder), 10000e18);
+        testRewarder.fund(10000e18);
+
+        // Create test users
+        address userA = address(0x1001);
+        address userB = address(0x1002);
+
+        // Deal tokens to users and set up approvals
+        address[] memory tokens = testBRC20.getTokens();
+        for (uint256 i = 0; i < tokens.length; i++) {
+            deal(tokens[i], userA, 1000e18);
+            deal(tokens[i], userB, 1000e18);
+
+            vm.prank(userA);
+            IERC20(tokens[i]).approve(address(testBRC20), type(uint256).max);
+            vm.prank(userB);
+            IERC20(tokens[i]).approve(address(testBRC20), type(uint256).max);
+        }
+
+        uint128 depositValue = 1e18;
+        uint256[MAX_TOKENS] memory amountLimits;
+
+        console2.log("=== Step 1: UserA mints BRC20 tokens ===");
+
+        // UserA deposits and mints BRC20 tokens
+        vm.prank(userA);
+        testBRC20.addValue(userA, 0, depositValue, 0, amountLimits);
+
+        uint256 userAShares = testBRC20.balanceOf(userA);
+        assertGt(userAShares, 0);
+        console2.log("UserA shares minted:", userAShares);
+
+        console2.log("=== Step 2: Accumulate rewards for UserA ===");
+
+        // Let time pass to accumulate rewards
+        vm.warp(block.timestamp + 1800); // 30 minutes
+
+        // Check UserA's pending rewards
+        (uint256 userAPendingBefore, , ) = testRewarder.viewPending(userA);
+        console2.log("UserA pending rewards (30 min):", userAPendingBefore);
+        assertGt(userAPendingBefore, 0);
+
+        console2.log(
+            "=== Step 3: Transfer BRC20 tokens from UserA to UserB ==="
+        );
+
+        // UserA transfers half their BRC20 tokens to UserB
+        // This should collect UserA's rewards before the transfer
+        uint256 transferAmount = userAShares / 2;
+        uint256 userARewardBalanceBefore = testRewardToken.balanceOf(userA);
+
+        vm.prank(userA);
+        testBRC20.transfer(userB, transferAmount);
+
+        // Check that UserA received their rewards from the transfer
+        uint256 userARewardBalanceAfter = testRewardToken.balanceOf(userA);
+        uint256 userARewardsCollected = userARewardBalanceAfter -
+            userARewardBalanceBefore;
+        console2.log(
+            "UserA rewards collected during transfer:",
+            userARewardsCollected
+        );
+        assertGt(userARewardsCollected, 0);
+
+        // Check that UserB now has the BRC20 tokens
+        uint256 userBShares = testBRC20.balanceOf(userB);
+        assertEq(userBShares, transferAmount);
+        console2.log("UserB shares received:", userBShares);
+
+        // Check that UserA's remaining shares are correct
+        uint256 userARemainingShares = testBRC20.balanceOf(userA);
+        assertEq(userARemainingShares, userAShares - transferAmount);
+        console2.log("UserA remaining shares:", userARemainingShares);
+
+        console2.log("=== Step 4: Accumulate more rewards for both users ===");
+
+        // Let more time pass to accumulate additional rewards
+        vm.warp(block.timestamp + 3600); // Another 30 minutes
+
+        // Check pending rewards for both users
+        (uint256 userAPendingAfter, , ) = testRewarder.viewPending(userA);
+        (uint256 userBPending, , ) = testRewarder.viewPending(userB);
+
+        console2.log(
+            "UserA pending rewards (after transfer):",
+            userAPendingAfter
+        );
+        console2.log("UserB pending rewards (30 min):", userBPending);
+
+        // Both users should have pending rewards
+        assertGt(userAPendingAfter, 0);
+        assertGt(userBPending, 0);
+
+        // UserB should have the same number of rewards as userA
+        assertApproxEqRel(userBPending, userAPendingAfter, 0.1e18); // 10% tolerance
+
+        console2.log("=== Step 5: UserB collects their rewards ===");
+
+        // UserB claims their rewards
+        uint256 userBRewardBalanceBefore = testRewardToken.balanceOf(userB);
+        vm.prank(userB);
+        testRewarder.claim();
+        uint256 userBRewardBalanceAfter = testRewardToken.balanceOf(userB);
+        uint256 userBRewardsCollected = userBRewardBalanceAfter -
+            userBRewardBalanceBefore;
+
+        console2.log("UserB rewards collected:", userBRewardsCollected);
+        assertGt(userBRewardsCollected, 0);
+        assertApproxEqRel(userBRewardsCollected, userBPending, 0.01e18); // 1% tolerance
+
+        // Check that UserB's pending is now 0
+        (uint256 userBPendingAfter, , ) = testRewarder.viewPending(userB);
+        assertEq(userBPendingAfter, 0);
+
+        console2.log("=== Step 6: UserA collects their remaining rewards ===");
+
+        // UserA claims their remaining rewards
+        uint256 userARewardBalanceBefore2 = testRewardToken.balanceOf(userA);
+        vm.prank(userA);
+        testRewarder.claim();
+        uint256 userARewardBalanceAfter2 = testRewardToken.balanceOf(userA);
+        uint256 userARewardsCollected2 = userARewardBalanceAfter2 -
+            userARewardBalanceBefore2;
+
+        console2.log(
+            "UserA additional rewards collected:",
+            userARewardsCollected2
+        );
+        assertGt(userARewardsCollected2, 0);
+        assertApproxEqRel(userARewardsCollected2, userAPendingAfter, 0.01e18); // 1% tolerance
+
+        // Check that UserA's pending is now 0
+        (uint256 userAPendingAfter2, , ) = testRewarder.viewPending(userA);
+        assertEq(userAPendingAfter2, 0);
+
+        console2.log("=== Summary ===");
+        console2.log(
+            "UserA total rewards:",
+            userARewardsCollected + userARewardsCollected2
+        );
+        console2.log("UserB total rewards:", userBRewardsCollected);
+        console2.log("UserA final shares:", testBRC20.balanceOf(userA));
+        console2.log("UserB final shares:", testBRC20.balanceOf(userB));
     }
 }
