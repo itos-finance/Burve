@@ -24,7 +24,8 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     IBurveMultiSimplex public immutable simplex;
     uint16 public immutable closureId;
     uint256 public constant MAX_TOKENS = 16;
-    
+    uint256 public constant MINIMUM_COMPOUND = 1e2;
+
     address public transient _recipient;
     address public transient _operator;
     bool public transient isCompounding;
@@ -89,7 +90,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     /// @notice Override _update to handle rewarder calls for all token operations
     function _update(address from, address to, uint256 value) internal override {
         super._update(from, to, value);
-        
+
         // Skip rewarder calls for zero address operations (internal accounting)
         if (rewarder != address(0)) {
             if (from == address(0)) {
@@ -236,7 +237,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             maxValue
         );
 
-        _burnShares(valueGiven);
+        _burnValue(valueGiven);
     }
 
     /// Not implemented. Only appears to satisfy the IBurveMultiValue interface.
@@ -285,6 +286,13 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
         _burn(msg.sender, shares);
     }
 
+    function _burnValue(uint256 value) internal returns (uint256 shares) {
+        shares = FullMath.mulDiv(value, totalShares, totalValue);
+        totalValue -= value;
+        totalShares -= shares;
+        _burn(msg.sender, shares);
+    }
+
     function _compound() internal returns (
         uint256[MAX_TOKENS] memory collectedBalances,
         uint256 collectedBgt
@@ -293,7 +301,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
 
         address[] memory tokens = simplex.getTokens();
         for (uint256 i = 0; i < tokens.length; i++) {
-            if (collectedBalances[i] <= 0) continue;
+            if (collectedBalances[i] <= MINIMUM_COMPOUND) continue;
 
             uint256 take;
             if(polVault != address(0)) {
@@ -304,7 +312,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
                     take
                 );
             }
-            
+
             uint256 valueReceived = pool.addSingleForValue(
                 address(this),
                 closureId,
@@ -350,7 +358,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     ) external returns (bytes memory) {
         require(msg.sender == address(pool), "Unauthorized");
 
-        // collect fees returns data, we will deposit all of this back 
+        // collect fees returns data, we will deposit all of this back
         if (data.length > 0) {
             isCompounding = true;
             return "";
@@ -365,12 +373,12 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             return "";
         }
 
-        // add & remove 
-        // _operator / _recipient 
-        // we can either simplify to just use the msg.sender, or we need to add 
+        // add & remove
+        // _operator / _recipient
+        // we can either simplify to just use the msg.sender, or we need to add
         // data tracking to tell the difference between deposit and withdraw.
         RFTLib.settle(_operator, tokens, requests, data);
-        
+
         for (uint256 i = 0; i < tokens.length; i++) {
             // depositing, forward to the pool
             if (requests[i] > 0) {
