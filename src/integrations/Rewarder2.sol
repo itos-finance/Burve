@@ -233,8 +233,6 @@ contract Rewarder2 {
         // Check if we should pause accumulation
         if (_shouldPauseAccumulation()) {
             _pause();
-            uint256 availableBalance = rewardToken.balanceOf(address(this));
-            emit AccumulationPaused(totalUnclaimedRewards, availableBalance);
         }
 
         emit RewardsUpdated(
@@ -338,7 +336,8 @@ contract Rewarder2 {
             _updateRewards();
         }
         accumulationPaused = true;
-        emit AccumulationPaused();
+        uint256 availableBalance = rewardToken.balanceOf(address(this));
+        emit AccumulationPaused(totalUnclaimedRewards, availableBalance);
     }
 
     function _unpause() internal {
