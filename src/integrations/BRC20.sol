@@ -287,7 +287,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     }
 
     function _burnValue(uint256 value) internal returns (uint256 shares) {
-        shares = FullMath.mulDiv(value, totalShares, totalValue);
+        shares = FullMath.mulDivRoundingUp(value, totalShares, totalValue);
         totalValue -= value;
         totalShares -= shares;
         _burn(msg.sender, shares);
