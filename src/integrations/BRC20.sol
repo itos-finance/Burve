@@ -305,7 +305,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
 
             uint256 take;
             if(polVault != address(0)) {
-                take  = FullMath.mulDiv(collectedBalances[i], feeTakeX64, 1 << 64);
+                take = FullMath.mulDiv(collectedBalances[i], feeTakeX64, 1 << 64);
                 TransferHelper.safeTransfer(
                     tokens[i],
                     polVault,
@@ -390,5 +390,6 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
                 );
             }
         }
+        return "";
     }
 }

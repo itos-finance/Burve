@@ -146,7 +146,7 @@ contract Rewarder2 {
         view
         returns (uint256 pending, uint256 trackedShares, uint256 lastTimestamp)
     {
-        Account memory a = accounts[user];
+        Account storage a = accounts[user];
         trackedShares = a.trackedShares;
         lastTimestamp = a.lastTimestamp;
 

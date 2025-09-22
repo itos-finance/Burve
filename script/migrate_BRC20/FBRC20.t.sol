@@ -300,7 +300,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
     }
 
     function testCompound() public forkOnly {
-        uint128 mintValue = 1e18;
+        uint128 mintValue = 1e25;
         uint256[MAX_TOKENS] memory amountLimits;
 
         // Mint shares to this contract
@@ -318,7 +318,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             address(this),
             USDC,
             USDT,
-            100e6,
+            10000e6,
             0,
             3
         );
@@ -327,7 +327,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             address(this),
             USDT,
             USDC,
-            100e6,
+            10000e6,
             0,
             3
         );
@@ -380,7 +380,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
     }
 
     function testPOLVault() public forkOnly {
-        uint128 mintValue = 1e18;
+        uint128 mintValue = 1e25;
         uint256[MAX_TOKENS] memory amountLimits;
 
         // Mint shares to this contract
@@ -398,7 +398,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             address(this),
             USDC,
             USDT,
-            100e6,
+            10000e6,
             0,
             3
         );
@@ -407,7 +407,7 @@ contract FBRC20Test is BurveForkableTest, RFTPayer, Auto165 {
             address(this),
             USDT,
             USDC,
-            100e6,
+            10000e6,
             0,
             3
         );
