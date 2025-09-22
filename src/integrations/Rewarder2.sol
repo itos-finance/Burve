@@ -243,6 +243,7 @@ contract Rewarder2 {
     }
 
     /// @notice Claim rewards for a specific user
+    /// @dev MUST be called after _updateRewards to ensure up-to-date state.
     function _claimRewards(address user) internal {
         Account storage a = accounts[user];
         uint256 pending = 0;
