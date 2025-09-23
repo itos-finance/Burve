@@ -43,6 +43,8 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
     uint256 private constant MIN_DEAD_SHARES = 100;
     /// Thrown when the first mint is insufficient.
     error InsecureFirstMintAmount(uint256 shares);
+    /// The first time we mint, the recipient must be the pool to own the dead shares.
+    error InitialRecipientMustBePool();
     /// Thrown when attempting to queryValue using this contract
     error Noop();
     /// Thrown when attempting to re-enter the operations
@@ -93,15 +95,11 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
 
         // Skip rewarder calls for zero address operations (internal accounting)
         if (rewarder != address(0)) {
-            if (from == address(0)) {
-                // Mint operation - call onDeposit for the recipient
-                IRewarder2(rewarder).onDeposit(to, value);
-            } else if (to == address(0)) {
-                // Burn operation - call onWithdraw for the sender
+            if (from != address(0) && from != address(this)) {
                 IRewarder2(rewarder).onWithdraw(from, value);
-            } else {
+            }
+            if (to != address(0) && to != address(this)) {
                 IRewarder2(rewarder).onDeposit(to, value);
-                IRewarder2(rewarder).onWithdraw(from, value);
             }
         }
     }
@@ -271,6 +269,7 @@ contract BRC20 is ERC20, RFTPayer, Auto165, IBurveMultiValue {
             if (shares < MIN_DEAD_SHARES) {
                 revert InsecureFirstMintAmount(shares);
             }
+            require(_recipient == address(this), InitialRecipientMustBePool());
         } else {
             shares = FullMath.mulDiv(value, totalShares, totalValue);
         }
