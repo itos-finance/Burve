@@ -13,9 +13,7 @@ contract Execute_FacetCut is BaseScript, Test {
     function run() external {
         vm.startBroadcast(_getPrivateKey());
 
-        FacetCut cut = FacetCut(
-            address(0x3B3711b1B2a85894A96A1Fb079d4509333fE9201)
-        ); // fill in with the deployment script result
+        FacetCut cut = FacetCut(address(0)); // fill in with the deployment script result
 
         cut.acceptOwnership();
 

@@ -12,10 +12,10 @@ const CHAIN_ID = Number(process.env.CHAIN_ID || 31337);
 const OOGABOOGA_API_URL = "https://mainnet.api.oogabooga.io";
 
 const swapParams = {
-	tokenIn: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
+	tokenIn: "0x779Ded0c9e1022225f8E0630b35a9b54bE713736",
 	amount: BigInt(1e8),
-	tokenOut: "0x657e8C867D8B37dCC18fA4Caead9C45EB088C642",
-	to: "0xed63E871F5de87cb1919671eE9e2d331183Eda8f", // the opener contract
+	tokenOut: "0x549943e04f40284185054145c6E4e9568C1D3241",
+	to: "0xaBa9D5ce40a81Da22526092FE4bA0517DeF2FBD3", // the opener contract
 	slippage: Number(process.env.SLIPPAGE || 0.01),
 };
 
