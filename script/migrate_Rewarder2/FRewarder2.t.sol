@@ -45,6 +45,8 @@ contract FRewarder2Base is BurveForkableTest {
         // Withdraw half of the position (should pay on full trackedShares prior to change)
         vm.prank(address(brc20));
         rewarder.onWithdraw(user, 5e17);
+
+        rewarder.withdrawRewards();
         uint256 afterBal = IERC20(WBERA).balanceOf(user);
 
         // Expect ~1e18 tokens (1 token/hour/share * 1e18 shares * 1 hour)

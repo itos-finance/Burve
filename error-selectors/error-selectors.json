@@ -1,0 +1,392 @@
+[
+  {
+    "selector": "0x039283ad",
+    "signature": "NonPositiveDeMinimusX128(int256 deMinimusX128)",
+    "file": "src/multi/facets/SimplexFacet.sol"
+  },
+  {
+    "selector": "0x090624b4",
+    "signature": "NoBackup(VertexId)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x0d54e9e1",
+    "signature": "BelowMinSwap(uint256 nominalSwapAttempted, uint256 minSwap)",
+    "file": "src/multi/interfaces/IBurveMultiSwap.sol"
+  },
+  {
+    "selector": "0x10f25a16",
+    "signature": "IrrelevantVertex(ClosureId cid, VertexId vid)",
+    "file": "src/multi/closure/Closure.sol"
+  },
+  {
+    "selector": "0x136f4ee1",
+    "signature": "AlreadyNormalized()",
+    "file": "src/multi/deprecated/Dist.sol"
+  },
+  {
+    "selector": "0x147515f0",
+    "signature": "InsecureFirstMintAmount(uint256 shares)",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0x147515f0",
+    "signature": "InsecureFirstMintAmount(uint256 shares)",
+    "file": "src/integrations/BRC20.sol"
+  },
+  {
+    "selector": "0x18502a8d",
+    "signature": "VaultInUse(address, VertexId)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x1d7ceb4b",
+    "signature": "DeMinimisDeposit()",
+    "file": "src/multi/facets/ValueFacet.sol"
+  },
+  {
+    "selector": "0x1e70f0fb",
+    "signature": "AtTokenCapacity()",
+    "file": "src/multi/Token.sol"
+  },
+  {
+    "selector": "0x1f9c567a",
+    "signature": "UntrustedTokenRequest(address sender)",
+    "file": "src/integrations/router/SwapRouter.sol"
+  },
+  {
+    "selector": "0x2054ea9c",
+    "signature": "WithdrawLimited(ClosureId cid, uint256 requested, uint256 available)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x2083cd40",
+    "signature": "InvalidPool()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0x2740736f",
+    "signature": "InsufficientNonBgtValue(uint256 value, uint256 bgtValue)",
+    "file": "src/multi/Asset.sol"
+  },
+  {
+    "selector": "0x2c8f2ffe",
+    "signature": "XTooSmall(uint256 requestedX, uint256 minimumX)",
+    "file": "src/multi/Value.sol"
+  },
+  {
+    "selector": "0x2e405f80",
+    "signature": "InvalidFeeForCode(uint64 fee)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0x2f9de5ee",
+    "signature": "SelfEdge(address)",
+    "file": "src/multi/deprecated/Base.sol"
+  },
+  {
+    "selector": "0x3f095ca4",
+    "signature": "VaultTypeNotRecognized(VaultType)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x400f0865",
+    "signature": "RemainingVaultBalance(uint256)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x41abc801",
+    "signature": "InvalidRequest()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0x455e896e",
+    "signature": "EmptyClosure(ClosureId)",
+    "file": "src/multi/Store.sol"
+  },
+  {
+    "selector": "0x469449f2",
+    "signature": "MismatchedIslandPool(address island, address pool)",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0x474f3011",
+    "signature": "SetESlippageExceeded(uint256 needed, uint256 maxRequired)",
+    "file": "src/multi/facets/SimplexFacet.sol"
+  },
+  {
+    "selector": "0x48f5c3ed",
+    "signature": "InvalidCaller()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0x49b0f1cc",
+    "signature": "InsufficientAmountOut(uint256 acceptable, uint256 actual)",
+    "file": "src/integrations/router/SwapRouter.sol"
+  },
+  {
+    "selector": "0x4e83a9b9",
+    "signature": "AssetMismatch(address incorrectAsset, address correctAsset)",
+    "file": "src/integrations/adjustor/E4626ViewAdjustor.sol"
+  },
+  {
+    "selector": "0x4f4b634e",
+    "signature": "TokenAlreadyRegistered(address token)",
+    "file": "src/multi/Token.sol"
+  },
+  {
+    "selector": "0x5416eb98",
+    "signature": "FunctionNotFound(bytes4 _functionSelector)",
+    "file": "src/multi/Diamond.sol"
+  },
+  {
+    "selector": "0x553ceae9",
+    "signature": "TooMuchBurnedAtOnce(uint128 liq, uint256 tokens, bool isX)",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0x5684b7dc",
+    "signature": "VacuousSwap()",
+    "file": "src/multi/interfaces/IBurveMultiSwap.sol"
+  },
+  {
+    "selector": "0x5807b675",
+    "signature": "ExistingPrecommitFound(uint256 useId)",
+    "file": "src/Timed.sol"
+  },
+  {
+    "selector": "0x608ad4ee",
+    "signature": "VertexLocked(VertexId vid)",
+    "file": "src/multi/vertex/Vertex.sol"
+  },
+  {
+    "selector": "0x648fef13",
+    "signature": "ReentrancyAttempt()",
+    "file": "src/integrations/router/SwapRouter.sol"
+  },
+  {
+    "selector": "0x67b796a8",
+    "signature": "FeeTooHigh(uint64 fee)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0x6a05e465",
+    "signature": "NoRanges()",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0x6b898cac",
+    "signature": "InvalidNativeValueDepositOnERC20Swap()",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0x6d1423d7",
+    "signature": "IndexNotFound(uint8 idx)",
+    "file": "src/multi/Token.sol"
+  },
+  {
+    "selector": "0x6da58071",
+    "signature": "MinimumOutputGreaterThanQuote(uint256 outputMin, uint256 outputQuote)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0x7040b58c",
+    "signature": "InsufficientValue(uint256 actual, uint256 required)",
+    "file": "src/multi/Asset.sol"
+  },
+  {
+    "selector": "0x70743b38",
+    "signature": "VaultExists(address)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x71c4efed",
+    "signature": "SlippageExceeded(uint256 amountOut, uint256 outputMin)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0x79efcc43",
+    "signature": "MigrateToSameStationProxy()",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0x7c05d0c0",
+    "signature": "CannotRemoveWithLockedVertex(ClosureId cid)",
+    "file": "src/multi/closure/Closure.sol"
+  },
+  {
+    "selector": "0x7c9546bd",
+    "signature": "AmountSlippageExceeded()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0x7ed0f18d",
+    "signature": "InsufficientBgtValue(uint256 actual, uint256 required)",
+    "file": "src/multi/Asset.sol"
+  },
+  {
+    "selector": "0x8a5b10ce",
+    "signature": "InvalidRange(int24 lower, int24 upper)",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0x8d1619bc",
+    "signature": "NoPrecommitFound(uint256 useId)",
+    "file": "src/Timed.sol"
+  },
+  {
+    "selector": "0x9396d156",
+    "signature": "NonReentrant()",
+    "file": "src/integrations/BRC20.sol"
+  },
+  {
+    "selector": "0x9b44d39c",
+    "signature": "VertexVaultsOccupied(VertexId)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0x9b8d5018",
+    "signature": "InitialRecipientMustBePool()",
+    "file": "src/integrations/BRC20.sol"
+  },
+  {
+    "selector": "0xb259c97d",
+    "signature": "InsecureFirstMintRecipient(address recipient)",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0xbfdf300c",
+    "signature": "UninitializedClosure(ClosureId)",
+    "file": "src/multi/Store.sol"
+  },
+  {
+    "selector": "0xc02219d9",
+    "signature": "VaultNotFound(address)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0xc127a231",
+    "signature": "BGTExchangerIsZeroAddress()",
+    "file": "src/multi/facets/SimplexFacet.sol"
+  },
+  {
+    "selector": "0xc1ab6dc1",
+    "signature": "InvalidToken()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0xc35fc6d3",
+    "signature": "NoExchangePermissions()",
+    "file": "src/integrations/BGTExchange/BGTExchanger.sol"
+  },
+  {
+    "selector": "0xcac31143",
+    "signature": "InvalidIslandRange()",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0xce35e9eb",
+    "signature": "UniswapV3MintCallbackSenderNotPool(address sender)",
+    "file": "src/single/Burve.sol"
+  },
+  {
+    "selector": "0xcf1fd011",
+    "signature": "ReferralCodeInUse(uint32 referralCode)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0xcf260806",
+    "signature": "NullBeneficiary()",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0xd08bf58b",
+    "signature": "Noop()",
+    "file": "src/integrations/BRC20.sol"
+  },
+  {
+    "selector": "0xd1084fca",
+    "signature": "UninitializedVertex(VertexId)",
+    "file": "src/multi/Store.sol"
+  },
+  {
+    "selector": "0xd1756c63",
+    "signature": "ValueSlippageExceeded()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0xd415a004",
+    "signature": "InvalidRouterFundsTransfer()",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0xd5ebabdb",
+    "signature": "PastSlippageBounds()",
+    "file": "src/multi/facets/ValueFacet.sol"
+  },
+  {
+    "selector": "0xd6a45e22",
+    "signature": "NotNormalized()",
+    "file": "src/multi/deprecated/Dist.sol"
+  },
+  {
+    "selector": "0xd96e9712",
+    "signature": "ExcessiveAmountIn(uint256 acceptable, uint256 actual)",
+    "file": "src/integrations/router/SwapRouter.sol"
+  },
+  {
+    "selector": "0xda63a49f",
+    "signature": "InsufficientValueForBgt(uint256 value, uint256 bgtValue)",
+    "file": "src/multi/facets/ValueFacet.sol"
+  },
+  {
+    "selector": "0xda8d4541",
+    "signature": "OversizedEfficiencyAssignment(uint256)",
+    "file": "src/multi/Simplex.sol"
+  },
+  {
+    "selector": "0xdb4d141c",
+    "signature": "NativeDepositValueMismatch(uint256 expected, uint256 received)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0xde6137d1",
+    "signature": "TokenNotFound(address token)",
+    "file": "src/multi/Token.sol"
+  },
+  {
+    "selector": "0xe955a99d",
+    "signature": "VaultTypeUnrecognized(VaultType)",
+    "file": "src/multi/vertex/VaultPointer.sol"
+  },
+  {
+    "selector": "0xe955a99d",
+    "signature": "VaultTypeUnrecognized(VaultType)",
+    "file": "src/multi/vertex/VaultProxy.sol"
+  },
+  {
+    "selector": "0xed4ae5a2",
+    "signature": "RouterFailure()",
+    "file": "src/integrations/opener/Opener.sol"
+  },
+  {
+    "selector": "0xef372c88",
+    "signature": "TooManyDecimals(uint8)",
+    "file": "src/integrations/adjustor/DecimalAdjustor.sol"
+  },
+  {
+    "selector": "0xf067d762",
+    "signature": "MinimumOutputIsZero()",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0xfa463c69",
+    "signature": "SameTokenInAndOut(address token)",
+    "file": "src/integrations/opener/IOBRouter.sol"
+  },
+  {
+    "selector": "0xfafa8283",
+    "signature": "InsufficientOwed()",
+    "file": "src/integrations/BGTExchange/BGTExchanger.sol"
+  }
+]

@@ -1,0 +1,147 @@
+{
+  "contract": "IBurveMultiSimplex",
+  "source": "src/multi/interfaces/IBurveMultiSimplex.sol",
+  "functions": [
+    {
+      "name": "addClosure",
+      "signature": "addClosure(uint16,uint128)",
+      "selector": "0x5c63fbe0"
+    },
+    {
+      "name": "addVertex",
+      "signature": "addVertex(address,address,VaultType)",
+      "selector": "0x26f9bd04"
+    },
+    {
+      "name": "getAdjustor",
+      "signature": "getAdjustor()",
+      "selector": "0x6ed7a2c3"
+    },
+    {
+      "name": "getBGTExchanger",
+      "signature": "getBGTExchanger()",
+      "selector": "0x20fd72b5"
+    },
+    {
+      "name": "getClosureFees",
+      "signature": "getClosureFees(uint16)",
+      "selector": "0x85cf067b"
+    },
+    {
+      "name": "getClosureValue",
+      "signature": "getClosureValue(uint16)",
+      "selector": "0xf80e073a"
+    },
+    {
+      "name": "getEX128",
+      "signature": "getEX128(address)",
+      "selector": "0x0427fc5a"
+    },
+    {
+      "name": "getEdgeFee",
+      "signature": "getEdgeFee(uint8,uint8)",
+      "selector": "0xe21b4734"
+    },
+    {
+      "name": "getEsX128",
+      "signature": "getEsX128()",
+      "selector": "0xabea37b9"
+    },
+    {
+      "name": "getIdx",
+      "signature": "getIdx(address)",
+      "selector": "0xbce5b6e9"
+    },
+    {
+      "name": "getInitTarget",
+      "signature": "getInitTarget()",
+      "selector": "0xa597404e"
+    },
+    {
+      "name": "getName",
+      "signature": "getName()",
+      "selector": "0x17d7de7c"
+    },
+    {
+      "name": "getNumVertices",
+      "signature": "getNumVertices()",
+      "selector": "0x9d5d7807"
+    },
+    {
+      "name": "getSearchParams",
+      "signature": "getSearchParams()",
+      "selector": "0x3bb9ebd8"
+    },
+    {
+      "name": "getSimplexFees",
+      "signature": "getSimplexFees()",
+      "selector": "0x09ece0f2"
+    },
+    {
+      "name": "getTokens",
+      "signature": "getTokens()",
+      "selector": "0xaa6ca808"
+    },
+    {
+      "name": "getVertexId",
+      "signature": "getVertexId(address)",
+      "selector": "0xcfbabc79"
+    },
+    {
+      "name": "protocolEarnings",
+      "signature": "protocolEarnings()",
+      "selector": "0x59055b9b"
+    },
+    {
+      "name": "setAdjustor",
+      "signature": "setAdjustor(address)",
+      "selector": "0x03966fec"
+    },
+    {
+      "name": "setBGTExchanger",
+      "signature": "setBGTExchanger(address)",
+      "selector": "0xe23b21be"
+    },
+    {
+      "name": "setEX128",
+      "signature": "setEX128(address,uint256,uint256)",
+      "selector": "0x0fba0f9f"
+    },
+    {
+      "name": "setEdgeFee",
+      "signature": "setEdgeFee(uint8,uint8,uint128)",
+      "selector": "0x93fc76d7"
+    },
+    {
+      "name": "setInitTarget",
+      "signature": "setInitTarget(uint256)",
+      "selector": "0xab4d0c33"
+    },
+    {
+      "name": "setName",
+      "signature": "setName(string,string)",
+      "selector": "0x5c707f07"
+    },
+    {
+      "name": "setSearchParams",
+      "signature": "setSearchParams(SearchParams)",
+      "selector": "0x0a5dd1ff"
+    },
+    {
+      "name": "setSimplexFees",
+      "signature": "setSimplexFees(uint128,uint128)",
+      "selector": "0xf928d9aa"
+    },
+    {
+      "name": "withdraw",
+      "signature": "withdraw(address)",
+      "selector": "0x51cff8d9"
+    }
+  ],
+  "events": [],
+  "errors": []
+}
+
+
+
+

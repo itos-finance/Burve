@@ -15,7 +15,9 @@ contract Swap is BaseScript {
         uint256 minAmountOut = vm.envOr("MIN_AMOUNT_OUT", uint256(0));
 
         // Start broadcasting
-        vm.startBroadcast(_getPrivateKey());
+        // vm.startBroadcast(_getPrivateKey());
+
+        vm.startPrank(address(0xE57Ec670263F20bf40d9d53831a42D0D9eEbBcAe));
 
         console2.log("\nPreparing to swap:");
         console2.log("Closure ID:", closureId);
@@ -25,8 +27,15 @@ contract Swap is BaseScript {
         console2.log("Min Amount Out:", minAmountOut);
         console2.log("Recipient:", recipient);
 
+        recipient = 0xE57Ec670263F20bf40d9d53831a42D0D9eEbBcAe;
+        tokenIn = address(0x688e72142674041f8f6Af4c808a4045cA1D6aC82);
+        tokenOut = address(0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34);
+        amountIn = 131354142;
+        minAmountOut = 0;
+        closureId = 415;
+
         // Mint and approve the input token
-        _mintAndApprove(tokenIn, _getSender(), amountIn);
+        // _mintAndApprove(tokenIn, _getSender(), amountIn);
 
         // Perform the swap
         (uint256 actualIn, uint256 actualOut) = swapFacet.swap(
@@ -43,6 +52,8 @@ contract Swap is BaseScript {
         console2.log("Actual Amount In:", actualIn);
         console2.log("Actual Amount Out:", actualOut);
 
-        vm.stopBroadcast();
+        vm.stopPrank();
+
+        // vm.stopBroadcast();
     }
 }

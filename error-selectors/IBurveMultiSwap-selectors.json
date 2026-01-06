@@ -1,0 +1,49 @@
+{
+  "contract": "IBurveMultiSwap",
+  "source": "src/multi/interfaces/IBurveMultiSwap.sol",
+  "functions": [
+    {
+      "name": "swap",
+      "signature": "swap(address,address,address,int256,uint256,uint16)",
+      "selector": "0xd55f94f5"
+    },
+    {
+      "name": "simSwap",
+      "signature": "simSwap(address,address,int256,uint16)",
+      "selector": "0x5adfa137"
+    }
+  ],
+  "events": [
+    {
+      "name": "Swap",
+      "signature": "Swap(address,address,address,address,uint256,uint256,uint256)",
+      "topicHash": "0xdba43ee9916cb156cc32a5d3406e87341e568126a46815294073ba25c9400246"
+    },
+    {
+      "name": "SwapFeesEarned",
+      "signature": "SwapFeesEarned(uint8,uint8,uint256,uint256)",
+      "topicHash": "0xfa7fbf2bd9f74dc10625bff59f952e87437f639d0682147e4472c5fbdd641035"
+    }
+  ],
+  "errors": [
+    {
+      "name": "SlippageSurpassed",
+      "signature": "SlippageSurpassed(uint256,uint256,bool)",
+      "selector": "0x96f54473"
+    },
+    {
+      "name": "VacuousSwap",
+      "signature": "VacuousSwap()",
+      "selector": "0x5684b7dc"
+    },
+    {
+      "name": "BelowMinSwap",
+      "signature": "BelowMinSwap(uint256,uint256)",
+      "selector": "0x0d54e9e1"
+    }
+  ]
+}
+
+
+
+
