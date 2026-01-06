@@ -1,0 +1,519 @@
+[
+  {
+    "type": "function",
+    "name": "addClosure",
+    "inputs": [
+      {
+        "name": "_cid",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "startingTarget",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addVertex",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "vType",
+        "type": "uint8",
+        "internalType": "enum VaultType"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getAdjustor",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBGTExchanger",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getClosureFees",
+    "inputs": [
+      {
+        "name": "closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "earningsPerValueX128",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      },
+      {
+        "name": "bgtPerBgtValueX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "unexchangedPerBgtValueX128",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getClosureValue",
+    "inputs": [
+      {
+        "name": "closureId",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "n",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "targetX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "balances",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      },
+      {
+        "name": "valueStaked",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bgtValueStaked",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEX128",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEdgeFee",
+    "inputs": [
+      {
+        "name": "idx0",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "idx1",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "edgeFeeX128",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEsX128",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getIdx",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getInitTarget",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getName",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "symbol",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getNumVertices",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSearchParams",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct SearchParams",
+        "components": [
+          {
+            "name": "maxIter",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "deMinimusX128",
+            "type": "int256",
+            "internalType": "int256"
+          },
+          {
+            "name": "targetSlippageX128",
+            "type": "int256",
+            "internalType": "int256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSimplexFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "defaultEdgeFeeX128",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "protocolTakeX128",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTokens",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getVertexId",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint24",
+        "internalType": "uint24"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "protocolEarnings",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[16]",
+        "internalType": "uint256[16]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setAdjustor",
+    "inputs": [
+      {
+        "name": "adjustor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setBGTExchanger",
+    "inputs": [
+      {
+        "name": "bgtExchanger",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setEX128",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "eX128",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxSpend",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setEdgeFee",
+    "inputs": [
+      {
+        "name": "idx0",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "idx1",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "edgeFeeX128",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setInitTarget",
+    "inputs": [
+      {
+        "name": "initTarget",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setName",
+    "inputs": [
+      {
+        "name": "newName",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "newSymbol",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSearchParams",
+    "inputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct SearchParams",
+        "components": [
+          {
+            "name": "maxIter",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "deMinimusX128",
+            "type": "int256",
+            "internalType": "int256"
+          },
+          {
+            "name": "targetSlippageX128",
+            "type": "int256",
+            "internalType": "int256"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSimplexFees",
+    "inputs": [
+      {
+        "name": "defaultEdgeFeeX128",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "protocolTakeX128",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  }
+]

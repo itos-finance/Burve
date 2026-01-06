@@ -13,8 +13,9 @@ import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol"
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {VaultFacet} from "../../src/multi/facets/VaultFacet.sol";
 import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
+import {FacetCutScript} from "./FacetCutScript.sol";
 
-abstract contract BaseScript is Script {
+abstract contract BaseScript is FacetCutScript {
     // Core contracts
     BurveDiamond public diamond;
     IBurveMultiValue public valueFacet;
@@ -50,6 +51,9 @@ abstract contract BaseScript is Script {
         lockFacet = LockFacet(diamondAddr);
         vaultFacet = VaultFacet(diamondAddr);
         valueTokenFacet = ValueTokenFacet(diamondAddr);
+
+        // Initialize facet cutting functionality
+        _setDiamondCutFacet(diamondAddr);
 
         // Parse tokens array with better error handling
         string[] memory tokenAddrs = vm.parseJsonStringArray(json, ".tokens");

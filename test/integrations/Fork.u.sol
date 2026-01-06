@@ -69,7 +69,7 @@ contract BurveForkableTest is ForkableTest {
         _initializeClosure(0x7, 1e18);
     }
 
-    function forkSetup() internal override {
+    function forkSetup() internal virtual override {
         // Deploy diamond and facets
         diamond = address(0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089);
         valueFacet = IBurveMultiValue(diamond);

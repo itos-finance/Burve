@@ -1,0 +1,99 @@
+IBurveMultiSimplex Selectors
+============================
+
+Generated using Foundry cast commands
+
+FUNCTIONS:
+----------
+addClosure(uint16,uint128)
+  Selector: 0x5c63fbe0
+
+addVertex(address,address,VaultType)
+  Selector: 0x26f9bd04
+
+getAdjustor()
+  Selector: 0x6ed7a2c3
+
+getBGTExchanger()
+  Selector: 0x20fd72b5
+
+getClosureFees(uint16)
+  Selector: 0x85cf067b
+
+getClosureValue(uint16)
+  Selector: 0xf80e073a
+
+getEX128(address)
+  Selector: 0x0427fc5a
+
+getEdgeFee(uint8,uint8)
+  Selector: 0xe21b4734
+
+getEsX128()
+  Selector: 0xabea37b9
+
+getIdx(address)
+  Selector: 0xbce5b6e9
+
+getInitTarget()
+  Selector: 0xa597404e
+
+getName()
+  Selector: 0x17d7de7c
+
+getNumVertices()
+  Selector: 0x9d5d7807
+
+getSearchParams()
+  Selector: 0x3bb9ebd8
+
+getSimplexFees()
+  Selector: 0x09ece0f2
+
+getTokens()
+  Selector: 0xaa6ca808
+
+getVertexId(address)
+  Selector: 0xcfbabc79
+
+protocolEarnings()
+  Selector: 0x59055b9b
+
+setAdjustor(address)
+  Selector: 0x03966fec
+
+setBGTExchanger(address)
+  Selector: 0xe23b21be
+
+setEX128(address,uint256,uint256)
+  Selector: 0x0fba0f9f
+
+setEdgeFee(uint8,uint8,uint128)
+  Selector: 0x93fc76d7
+
+setInitTarget(uint256)
+  Selector: 0xab4d0c33
+
+setName(string,string)
+  Selector: 0x5c707f07
+
+setSearchParams(SearchParams)
+  Selector: 0x0a5dd1ff
+
+setSimplexFees(uint128,uint128)
+  Selector: 0xf928d9aa
+
+withdraw(address)
+  Selector: 0x51cff8d9
+
+EVENTS:
+-------
+(None defined in interface)
+
+ERRORS:
+-------
+(None defined in interface)
+
+
+
+
