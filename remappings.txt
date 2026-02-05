@@ -1,4 +1,8 @@
-openzeppelin-contracts/=lib/openzeppelin-contracts/contracts
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@aave-v3-core/=lib/aave-v3-core/contracts/
+@aave-v3-periphery/=lib/aave-v3-periphery/contracts/
+openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
 Commons/=lib/Commons/src/
 CommonsTestLib/=lib/Commons/test/lib/
 forge-std/=lib/forge-std/src/
