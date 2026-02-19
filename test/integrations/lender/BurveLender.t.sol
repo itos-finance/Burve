@@ -397,4 +397,166 @@ contract TestBurveLender is MultiSetupTest {
         vm.expectRevert(PositionProxy.OnlyLender.selector);
         PositionProxy(proxy).execute(diamond, "");
     }
+
+    // ============================================================
+    //                     COLLATERAL FACTOR TESTS
+    // ============================================================
+
+    function testSetCollateralFactor() public {
+        address token = tokens[0];
+
+        // Owner can set factor
+        lender.setCollateralFactor(token, 75e16); // 75%
+        assertEq(lender.collateralFactors(token), 75e16, "factor should be 75%");
+
+        // Reset to default (0 = 100%)
+        lender.setCollateralFactor(token, 0);
+        assertEq(lender.collateralFactors(token), 0, "factor should be reset to 0 (default)");
+    }
+
+    function testCollateralFactorReverts() public {
+        // Factor > 100% should revert
+        vm.expectRevert(BurveLender.InvalidCollateralFactor.selector);
+        lender.setCollateralFactor(tokens[0], 1e18 + 1);
+
+        // Non-owner should revert
+        vm.prank(alice);
+        vm.expectRevert();
+        lender.setCollateralFactor(tokens[0], 50e16);
+    }
+
+    function testCollateralFactorReducesBorrowingPower() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Get baseline values
+        uint256 rawCol = lender.collateralValueUSD(positionId);
+        uint256 adjCol = lender.adjustedCollateralValueUSD(positionId);
+        assertEq(rawCol, adjCol, "no factor set: raw == adjusted");
+
+        // Set tokens[1] to 50% factor
+        lender.setCollateralFactor(tokens[1], 50e16);
+
+        uint256 adjColAfter = lender.adjustedCollateralValueUSD(positionId);
+        assertLt(adjColAfter, rawCol, "adjusted should be less after factor reduction");
+
+        // Max borrowable should also decrease
+        uint256 maxBorrow = lender.maxBorrowable(positionId, borrowToken);
+        uint256 maxBorrowRaw = (rawCol * 80) / 100; // 80% LTV on raw
+        assertLt(maxBorrow, maxBorrowRaw, "max borrowable should be reduced");
+    }
+
+    function testCollateralFactorAffectsLTVCheck() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Borrow 50% of raw collateral value (should work without factors)
+        uint256 rawCol = lender.collateralValueUSD(positionId);
+        uint256 borrowAmount = rawCol / 2;
+        lender.borrow(positionId, borrowToken, borrowAmount);
+
+        // Now set both tokens to 50% factor — this makes adjusted collateral = raw / 2
+        // Debt is at 50% of raw, but now 100% of adjusted, which exceeds 80% LTV
+        lender.setCollateralFactor(tokens[0], 50e16);
+        lender.setCollateralFactor(tokens[1], 50e16);
+
+        // Health factor should drop below 1
+        uint256 hf = lender.healthFactor(positionId);
+        assertLt(hf, 1e18, "position should be unhealthy after factor reduction");
+    }
+
+    function testGetTokenMargin() public {
+        // Default: factor=100%, effective LTV = 80%
+        (uint256 eLTV, uint256 factor) = lender.getTokenMargin(tokens[0]);
+        assertEq(factor, 1e18, "default factor should be 1e18");
+        assertEq(eLTV, 80e16, "default effective LTV should be 80%");
+
+        // Set factor to 75%: effective LTV = 75% * 80% = 60%
+        lender.setCollateralFactor(tokens[0], 75e16);
+        (eLTV, factor) = lender.getTokenMargin(tokens[0]);
+        assertEq(factor, 75e16, "factor should be 75%");
+        assertEq(eLTV, 60e16, "effective LTV should be 60%");
+    }
+
+    function testGetPositionBreakdown() public {
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Set token[0] to 90%, token[1] to 50%
+        lender.setCollateralFactor(tokens[0], 90e16);
+        lender.setCollateralFactor(tokens[1], 50e16);
+
+        (
+            address[] memory toks,
+            uint256[16] memory rawValues,
+            uint256[16] memory adjValues,
+            uint256 totalRaw,
+            uint256 totalAdj
+        ) = lender.getPositionBreakdown(positionId);
+
+        assertEq(toks.length, 3, "should have 3 tokens");
+        assertGt(totalRaw, 0, "total raw should be > 0");
+        assertLt(totalAdj, totalRaw, "adjusted should be < raw with reduced factors");
+
+        // Verify individual adjustments
+        uint256 expectedAdj0 = (rawValues[0] * 90) / 100;
+        uint256 expectedAdj1 = (rawValues[1] * 50) / 100;
+        assertApproxEqAbs(adjValues[0], expectedAdj0, 1, "token0 adjusted should match 90% factor");
+        assertApproxEqAbs(adjValues[1], expectedAdj1, 1, "token1 adjusted should match 50% factor");
+    }
+
+    function testMaxBorrowableCapsByPoolLiquidity() public {
+        address borrowToken = tokens[0];
+
+        // Seed pool with only 10 tokens
+        MockERC20(borrowToken).mint(alice, 10e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 10e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 10e18);
+
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        uint256 maxBorrow = lender.maxBorrowable(positionId, borrowToken);
+        // Pool only has 10 tokens, so max borrowable should be capped
+        assertLe(maxBorrow, 10e18, "max borrowable should be capped by pool liquidity");
+    }
+
+    function testZeroCollateralFactorMeansDefault() public {
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Factor = 0 (default) should behave as 100%
+        uint256 rawCol = lender.collateralValueUSD(positionId);
+        uint256 adjCol = lender.adjustedCollateralValueUSD(positionId);
+        assertEq(rawCol, adjCol, "zero factor should equal raw collateral value");
+
+        // Set factor then reset to 0
+        lender.setCollateralFactor(tokens[0], 50e16);
+        uint256 adjReduced = lender.adjustedCollateralValueUSD(positionId);
+        assertLt(adjReduced, rawCol, "50% factor should reduce");
+
+        lender.setCollateralFactor(tokens[0], 0);
+        uint256 adjReset = lender.adjustedCollateralValueUSD(positionId);
+        assertEq(adjReset, rawCol, "reset to 0 should restore full value");
+    }
 }

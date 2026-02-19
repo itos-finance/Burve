@@ -2,87 +2,252 @@
 
 Borrow tokens against your Burve LP positions. Deposit your value position as collateral, borrow stablecoins, and keep earning Burve trading fees while leveraged.
 
-## Architecture
+## Full System Model — Token Flow Across All Layers
 
 ```
-                           BURVE DIAMOND
-                     ┌─────────────────────┐
-                     │  Closures (AMM)      │
-                     │  ┌─────┐  ┌─────┐   │
-User's LP  ────────> │  │USDC │  │USDT │   │  Value position represents
-Position             │  └─────┘  └─────┘   │  pro-rata share of all tokens
-                     │  valueStaked: 12k    │  in the closure
-                     └─────────────────────┘
-                               │
-                    ValueTokenFacet.transferFrom()
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │   BURVE LENDER      │
-                     │                     │
-                     │  ┌───────────────┐  │
-                     │  │ Position #0   │  │     ┌──────────────┐
-                     │  │ proxy: 0xABC  │──┼────>│PositionProxy │ Holds value in
-                     │  │ value: 200    │  │     │ (CREATE2)    │ Burve's AssetBook
-                     │  │ debt: $150    │  │     └──────────────┘
-                     │  └───────────────┘  │
-                     │                     │
-                     │  Lending Pools       │     ┌──────────────┐
-                     │  ┌──────┐ ┌──────┐  │     │  LPs deposit │
-                     │  │ USDC │ │ USDT │◄─┼─────│  tokens to   │
-                     │  │ pool │ │ pool │  │     │  earn yield   │
-                     │  └──────┘ └──────┘  │     └──────────────┘
-                     └─────────────────────┘
-                               │
-                     Oracle Valuation (collateral)
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │   PRICE ORACLES     │
-                     │ AggregatorV3Interface│
-                     │                     │
-                     │ USDC → $1.00 (1e8)  │
-                     │ USDT → $1.00 (1e8)  │
-                     │ HONEY → $1.00 (1e8) │
-                     └─────────────────────┘
+ LAYER 1: USERS                LAYER 2: BURVE LENDER            LAYER 3: BURVE DIAMOND           LAYER 4: DOLOMITE VAULT
+ ════════════════               ══════════════════════            ══════════════════════            ═══════════════════════
+
+ ┌─────────────┐               ┌──────────────────────┐         ┌──────────────────────┐         ┌────────────────────┐
+ │  Borrower   │               │   BurveLender.sol    │         │   Burve Diamond      │         │  Dolomite ERC4626  │
+ │             │               │                      │         │                      │         │                    │
+ │ 1. addValue ├──────────────────────────────────────>│  Closure 3             │         │  USDC Vault         │
+ │    on Burve │               │                      │  ┌──────────────────┐  │         │  ┌──────────────┐  │
+ │             │               │                      │  │ valueStaked: 10k │  │         │  │ totalShares  │  │
+ │ 2. deposit- │  value token  │  Position #0         │  │ balances:        │  │ deposit │  │ held by Burve│  │
+ │    Collat-  ├──────────────>│  ┌────────────────┐  │  │  USDC: 5000e18   │──┼────────>│  │              │  │
+ │    eral()   │               │  │ proxy: 0xAAA   │──┼─>│  USDT: 5000e18   │  │         │  │ Other users' │  │
+ │             │               │  │ value: 200     │  │  └──────────────────┘  │         │  │ deposits too │  │
+ │ 3. borrow() │  USDC tokens  │  │ debt: $150     │  │                        │         │  └──────────────┘  │
+ │<────────────┼───────────────│  └────────────────┘  │  AssetBook:            │         │                    │
+ │  (from pool)│               │                      │  ┌──────────────────┐  │ withdraw│                    │
+ │             │               │  Position #1         │  │ [0xAAA][cid3]=200│  │<────────│  maxWithdraw()     │
+ │             │               │  ┌────────────────┐  │  │ [0xBBB][cid3]=500│  │         │  constrains how    │
+ │             │               │  │ proxy: 0xBBB   │──┼─>│ [0xCCC][cid7]=150│  │         │  much Burve can    │
+ │             │               │  │ value: 500     │  │  └──────────────────┘  │         │  pull out           │
+ │             │               │  │ debt: $300     │  │                        │         │                    │
+ │             │               │  └────────────────┘  │  Each proxy is a       │         │  highWaterMark     │
+ │             │               │                      │  SEPARATE address      │         │  auto-locks vertex │
+ │             │               │  ┌──────────────────┐│  in the AssetBook      │         │  if vault loses $  │
+ │ LP (lender) │  USDC deposit │  │ Lending Pools    ││                        │         └────────────────────┘
+ │─────────────┼──────────────>│  │ ┌──────────────┐ ││                        │
+ │             │               │  │ │USDC pool     │ ││                        │
+ │             │               │  │ │deposited: 10k│ ││                        │
+ │             │               │  │ │borrowed:  5k │ ││                        │
+ │             │               │  │ │available: 5k │ ││                        │
+ │             │               │  │ └──────────────┘ ││                        │
+ │             │               │  └──────────────────┘│                        │
+ └─────────────┘               └──────────────────────┘         └──────────────────────┘
 ```
 
-## Value Flow — How Borrowing Works
+**Two completely separate token pools exist:**
+
+1. **Collateral side** (right): User's value position lives in Burve Diamond, tokens in Dolomite vault. BurveLender never touches these tokens directly — only the proxy can call removeValue.
+2. **Lending pool side** (left): LP deposits sit in BurveLender contract. **These tokens NEVER go to Dolomite.** They are held as raw ERC20 balances in BurveLender.
+
+## Fund Isolation Proof
+
+### Claim: Liquidating Position A does NOT affect Position B's collateral
+
+**Evidence — Position isolation via CREATE2 proxies:**
 
 ```
-1. USER DEPOSITS LP INTO BURVE
-   ┌──────┐     addValue()      ┌────────────┐
-   │ User │ ──────────────────> │   Burve    │
-   │      │ <────────────────── │  Diamond   │
-   │      │   value position    │            │
-   └──────┘   (200 units)      └────────────┘
+Position A: proxy 0xAAA → AssetBook[0xAAA][cid3] = 200 value
+Position B: proxy 0xBBB → AssetBook[0xBBB][cid3] = 500 value
 
-2. USER DEPOSITS COLLATERAL INTO LENDER
-   ┌──────┐  depositCollateral() ┌────────────┐  transferFrom()  ┌───────┐
-   │ User │ ───────────────────> │  Burve     │ ───────────────> │ Proxy │
-   │      │  value: 200 units    │  Lender    │  value → proxy   │ 0xABC │
-   └──────┘                      └────────────┘                  └───────┘
-   Lender checks: collateralValueUSD >= $100 (MIN_POSITION_USD)
+Liquidate Position A:
+  1. proxy 0xAAA calls removeValue(200)
+  2. Closure.removeValue computes: scale = 200 / totalValueStaked
+     For each token: withdraw = scale × closure.balance[token]
+  3. Closure.valueStaked decreases by 200
+  4. AssetBook[0xAAA][cid3] = 0
 
-3. USER BORROWS TOKENS
-   ┌──────┐     borrow()        ┌────────────┐
-   │ User │ ──────────────────> │  Burve     │  Checks:
-   │      │ <────────────────── │  Lender    │  debtUSD <= colUSD × 80%
-   │      │   150 USDC tokens   │            │  Sends from lending pool
-   └──────┘                     └────────────┘
-
-4. COLLATERAL VALUATION (continuous)
-   ┌───────┐  getClosureValue() ┌────────────┐  latestRoundData() ┌────────┐
-   │ Proxy │ ──────────────────>│   Burve    │──────────────────>│ Oracle │
-   │ 0xABC │  nominal balances  │  Diamond   │  token prices      │ (CL)   │
-   └───────┘                    └────────────┘                    └────────┘
-                                      │
-                                      ▼
-              userShare = closureBalance × positionValue / totalValueStaked
-              usdValue  = Σ (userShare[i] × price[i] / 1e8)
+Position B after liquidation:
+  AssetBook[0xBBB][cid3] = 500  (UNCHANGED)
+  B's share of remaining closure = 500 / (totalValueStaked - 200)
+  B's proportional token share: SAME OR SLIGHTLY LARGER
 ```
 
-## Liquidation Flow
+**Why B is unaffected:**
+- `removeValue` withdraws a **proportional** fraction of each token (ValueFacet.sol → Closure.sol:218-247)
+- Before removal, `trimAllBalances()` distributes any pending trading fee earnings to ALL holders (including B)
+- B's AssetBook entry is never read or modified during A's liquidation
+- B's share of the remaining closure tokens is preserved (or slightly increased due to rounding in B's favor)
+
+### Claim: LP deposits in lending pools are never exposed to Dolomite
+
+**Evidence — token flow trace:**
+
+```
+depositLiquidity(USDC, 1000e18):
+  → IERC20(USDC).safeTransferFrom(LP, address(BurveLender), 1000e18)
+  → lendingPools[USDC].totalDeposited += 1000e18
+  → Tokens sit in BurveLender's ERC20 balance. Period.
+
+borrow(positionId, USDC, 500e18):
+  → IERC20(USDC).safeTransfer(borrower, 500e18)
+  → Tokens go from BurveLender → borrower. NOT to Dolomite.
+
+repay / liquidation:
+  → Tokens return to BurveLender via safeTransferFrom or removeValue
+```
+
+LP tokens never enter a Burve closure, never enter a Dolomite vault. They are held as raw ERC20 balances.
+
+### Claim: Other Burve LP users (not using BurveLender) are unaffected
+
+**Evidence — removeValue is identical to a normal LP withdrawal:**
+
+When BurveLender's proxy calls `removeValue(200)`, the Burve Diamond executes the exact same code path as any LP removing their position. There is no special treatment:
+
+```
+1. trimAllBalances()       — distributes pending fees to ALL holders
+2. Proportional removal    — withdraw[i] = (value/totalValue) × balance[i]
+3. Vertex.withdraw()       — pulls tokens from vault
+4. AssetBook.remove()      — decreases proxy's recorded value
+5. Closure.finalize()      — decreases valueStaked
+```
+
+Other LPs in the same closure see:
+- Their `valueStaked` share: **unchanged** (their value units didn't change)
+- Their proportional token share: **unchanged or slightly increased** (fewer total value units, same tokens)
+- Their pending earnings: **collected** (trimAllBalances runs first)
+
+### Claim: PositionProxy prevents unauthorized fund movement
+
+**Evidence — PositionProxy.sol access control:**
+
+```solidity
+constructor() { lender = msg.sender; }  // Set at deploy, immutable
+
+function execute(address target, bytes calldata data) external returns (bytes memory) {
+    if (msg.sender != lender) revert OnlyLender();  // ONLY BurveLender
+    ...
+}
+
+function transferToken(address token, address to, uint256 amount) external {
+    if (msg.sender != lender) revert OnlyLender();  // ONLY BurveLender
+    ...
+}
+```
+
+Not even the position owner can move tokens from the proxy. Only BurveLender can.
+
+## Risk Model — Where Funds CAN Be Lost
+
+### Risk 1: Bad Debt (LP loss)
+
+```
+Scenario:
+  Position collateral = $100 USD
+  Position debt = $85 USD (85% LTV, just liquidatable)
+  Oracle price drops 20% during liquidation tx
+
+Liquidation:
+  removeValue returns ~$80 of tokens (was $100 before price drop)
+  After swap: $78 of debt token available
+  Debt owed: $85
+
+  RESULT: $7 shortfall. Debt is cleared from pool.totalBorrowed
+  but only $78 was recovered. LP pool is short $7.
+
+  WHO LOSES: Lending pool LPs absorb the $7 loss.
+  Borrower and other borrowers are unaffected.
+```
+
+**Mitigation**: Conservative MAX_LTV + liquidation penalty provides buffer. At 80% MAX_LTV and 5% penalty, price must drop ~10% instantaneously to create bad debt.
+
+### Risk 2: Dolomite Vault Withdrawal Failure (liquidation blocked)
+
+```
+Scenario:
+  Dolomite USDC vault has 95% utilization (95% lent out)
+  vault.maxWithdraw(burve) returns only 5% of Burve's deposit
+  BurveLender tries to liquidate a position
+
+Code path:
+  liquidate() → proxy.execute(removeValue) → Vertex.withdraw()
+    → VaultProxy.withdraw() checks:
+      maxWithdrawable = vault.maxWithdraw() = SMALL
+      if (amount > maxWithdrawable) → revert WithdrawLimited
+
+  RESULT: Liquidation reverts. Position stays unhealthy but
+  cannot be liquidated until Dolomite utilization drops.
+
+  WHO LOSES: No one immediately. But if oracle prices keep falling
+  while liquidation is blocked, bad debt accumulates.
+```
+
+**Mitigation needed**: Dynamic LTV based on vault withdrawability, or liquid reserves.
+
+### Risk 3: Dolomite Vault Value Loss (collateral devaluation)
+
+```
+Scenario:
+  Dolomite borrower defaults → bad debt socialized to vault depositors
+  Vault share value drops 3%
+
+Code path:
+  E4626.isValid() checks: (DUST + totalAssets) >= highWaterMark
+    → returns FALSE
+  Vertex.validateLock() → locks the vertex
+
+  RESULT: Vertex auto-locks. No new deposits or swaps.
+  Withdrawals (removeValue) still work but return fewer tokens.
+  All Burve positions in that closure lose ~3% value.
+  BurveLender positions lose collateral value → may trigger liquidation.
+
+  WHO LOSES: ALL users with tokens in that closure (Burve LPs
+  AND BurveLender borrowers equally).
+```
+
+## Per-Token Collateral Factors
+
+Different tokens carry different risk. The `collateralFactor` discounts riskier tokens:
+
+```
+Example: Position with $500 USDC + $500 HONEY in closure
+
+  USDC factor = 95%  →  $500 × 0.95 = $475 borrowing power
+  HONEY factor = 80% →  $500 × 0.80 = $400 borrowing power
+                         ────────────────────────────────────
+  Raw collateral:                    $1,000
+  Adjusted collateral:              $  875
+  Max borrow (80% of adjusted):    $  700
+
+  Effective LTV by token:
+    USDC:  95% × 80% = 76% effective LTV
+    HONEY: 80% × 80% = 64% effective LTV
+```
+
+Set via `setCollateralFactor(token, factor)` (onlyOwner). View via:
+- `getTokenMargin(token)` → factor, effectiveMaxLTV, effectiveLiqLTV, price
+- `getPositionBreakdown(positionId)` → per-token raw/adjusted values, borrowing capacity
+- `maxBorrowable(positionId, token)` → max additional tokens borrowable (capped by pool liquidity)
+
+## Dolomite Exposure Analysis
+
+BurveLender does NOT borrow from Dolomite. Burve DEPOSITS into Dolomite ERC4626 vaults as a yield source. The risk is asymmetric:
+
+```
+                     NOT this:                          THIS:
+            ┌────────────────────────┐      ┌────────────────────────┐
+            │ Dolomite liquidates    │      │ Dolomite vault loses   │
+            │ BurveLender's position │      │ value from bad debt    │
+            │ (doesn't happen —      │      │ → Burve's vault shares │
+            │  Burve is a depositor, │      │   worth less           │
+            │  not a borrower)       │      │ → All Burve closure    │
+            └────────────────────────┘      │   balances decrease    │
+                                            │ → BurveLender collateral│
+                                            │   drops in USD value    │
+                                            │ → Positions may become  │
+                                            │   liquidatable          │
+                                            └────────────────────────┘
+```
+
+**Dolomite uses OracleAggregatorV2** (Chronicle + Redstone + Kodiak TWAP on Berachain), not Chainlink AggregatorV3. BurveLender should use the same oracle source via adapter contracts to avoid price divergence.
+
+## Liquidation Flow — Detailed
 
 ```
                     Health Factor < 1.0
@@ -119,15 +284,16 @@ interface AggregatorV3Interface {
 ```
 
 **How prices are used:**
-- **Collateral valuation**: Reads nominal balances from Burve closure, multiplies each token's share by its oracle price
+- **Collateral valuation**: Reads nominal balances from Burve closure, multiplies each token's share by its oracle price, applies per-token collateral factor
 - **Debt valuation**: Converts raw borrow amounts to USD using oracle price and token decimals
 - **Staleness check**: Reverts if oracle data is older than 1 hour
 
-**Berachain context**: Berachain mainnet does NOT have traditional Chainlink push-based price feeds. It has Chainlink Data Streams (pull-based), Pyth, API3, and a native Slinky oracle. For production, adapter contracts wrapping these behind `AggregatorV3Interface` are needed. For testing, we deploy mock aggregators with `setPriceFeed()`.
+**Berachain context**: Berachain mainnet does NOT have traditional Chainlink push-based price feeds. Dolomite uses Chronicle + Redstone + Kodiak TWAP via OracleAggregatorV2. For production, adapter contracts wrapping Dolomite's oracle behind `AggregatorV3Interface` are needed. For testing, we deploy mock aggregators with `setPriceFeed()`.
 
 ```
-Collateral USD = Σ (nominalShare[i] × oraclePrice[i] / 1e8)
-                     │                      │
+Collateral USD = Σ (nominalShare[i] × oraclePrice[i] × collateralFactor[i] / 1e8)
+                     │                      │                    │
+                     │                      │                    └── Per-token risk weight
                      │                      └── Chainlink 8-decimal price
                      └── 18-decimal normalized (from Burve closure)
 
@@ -161,13 +327,14 @@ Reserve:     10% of interest goes to protocol
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| MAX_LTV | 80% | Maximum loan-to-value ratio for borrowing |
-| LIQUIDATION_LTV | 85% | Health factor = colUSD × 85% / debtUSD |
+| MAX_LTV | 80% | Maximum loan-to-value ratio (applied to risk-adjusted collateral) |
+| LIQUIDATION_LTV | 85% | Health factor threshold (adjusted collateral × 85% / debt) |
 | LIQUIDATION_PENALTY | 5% | Total penalty on liquidation |
 | CALLER_BONUS | 3% | Portion of penalty paid to liquidator |
 | PROTOCOL_CUT | 2% | Portion of penalty retained by protocol |
 | MIN_POSITION_USD | $100 | Minimum collateral value to open a position |
 | MAX_STALENESS | 1 hour | Oracle price max age before revert |
+| Collateral factors | Per-token | 1e18 = 100%, lower = riskier token = less borrowing power |
 
 ## Why CREATE2 Proxies?
 
@@ -179,7 +346,20 @@ Each position gets its own `PositionProxy` deployed via CREATE2, giving it a uni
 Position 0 → Proxy 0xAAA → AssetBook[0xAAA][closure3] = 200 value
 Position 1 → Proxy 0xBBB → AssetBook[0xBBB][closure3] = 500 value
 Position 2 → Proxy 0xCCC → AssetBook[0xCCC][closure7] = 150 value
+
+Liquidating Position 0 calls removeValue on 0xAAA only.
+0xBBB and 0xCCC are never touched. Their value is unchanged.
 ```
+
+## Open Risks Requiring Resolution
+
+| Risk | Severity | Status | Mitigation Path |
+|------|----------|--------|-----------------|
+| Bad debt (collateral < debt at liquidation) | High | Unmitigated | LP insurance pool or bad debt socialization |
+| Dolomite withdrawal blocked (high util) | High | Unmitigated | Dynamic LTV or liquid reserve buffer |
+| Dolomite vault value loss | Medium | Partial (highWaterMark) | Tighter LTV, vault health monitoring |
+| Oracle divergence from Dolomite | Medium | Unmitigated | DolomiteOracleAdapter wrapping same feeds |
+| Multi-token debt surplus distribution | Medium | Bug exists | Fix surplus calc per debt token |
 
 ## Contract Structure
 
@@ -200,7 +380,7 @@ src/integrations/looper/
 
 ```bash
 # Unit tests (no fork required)
-make test-lender          # 15 tests
+make test-lender          # 23 tests (including collateral factor tests)
 make test-looper          # 6 tests
 
 # Fork tests against live Berachain diamond

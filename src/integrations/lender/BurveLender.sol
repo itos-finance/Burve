@@ -51,6 +51,8 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     mapping(address => address) public priceFeeds;
     /// token => decimals cache
     mapping(address => uint8) public tokenDecimals;
+    /// token => collateral factor (1e18 = 100%, 0 = default 100%)
+    mapping(address => uint256) public collateralFactors;
 
     /// The swap router for liquidation swaps (e.g. OogaBooga).
     address public router;
@@ -65,6 +67,7 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     event Liquidated(uint256 indexed positionId, address indexed liquidator, uint256 collateralValueUSD, uint256 debtValueUSD);
     event EarningsCollected(uint256 indexed positionId, address indexed recipient);
     event PriceFeedSet(address indexed token, address indexed feed);
+    event CollateralFactorSet(address indexed token, uint256 factor);
 
     // --- Errors ---
     error NotPositionOwner();
@@ -78,6 +81,7 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     error RouterFailure();
     error NoPriceFeed();
     error WithdrawalWouldLiquidate();
+    error InvalidCollateralFactor();
 
     constructor(address _router) Ownable(msg.sender) {
         router = _router;
@@ -97,6 +101,15 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     /// @notice Update the swap router address.
     function setRouter(address _router) external onlyOwner {
         router = _router;
+    }
+
+    /// @notice Set a per-token collateral factor (risk weight).
+    /// @param token The token address.
+    /// @param factor The collateral factor (1e18 = 100%, 5e17 = 50%). 0 resets to default (100%).
+    function setCollateralFactor(address token, uint256 factor) external onlyOwner {
+        if (factor > PRECISION) revert InvalidCollateralFactor();
+        collateralFactors[token] = factor;
+        emit CollateralFactorSet(token, factor);
     }
 
     // ============================================================
@@ -203,10 +216,10 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         borrowIndex[positionId][token] = pool.borrowIndexX128;
         pool.totalBorrowed += amount;
 
-        // Check LTV constraint AFTER the borrow
-        uint256 colUSD = collateralValueUSD(positionId);
+        // Check LTV constraint AFTER the borrow (using risk-adjusted collateral)
+        uint256 adjColUSD = adjustedCollateralValueUSD(positionId);
         uint256 debtUSD = borrowValueUSD(positionId);
-        if (debtUSD * PRECISION > colUSD * MAX_LTV) revert ExceedsMaxLTV();
+        if (debtUSD * PRECISION > adjColUSD * MAX_LTV) revert ExceedsMaxLTV();
 
         // Transfer borrowed tokens to the borrower
         IERC20(token).safeTransfer(msg.sender, amount);
@@ -268,11 +281,11 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
             )
         );
 
-        // Check health after withdrawal
+        // Check health after withdrawal (using risk-adjusted collateral)
         if (pos.depositedValue > 0) {
-            uint256 colUSD = collateralValueUSD(positionId);
+            uint256 adjColUSD = adjustedCollateralValueUSD(positionId);
             uint256 debtUSD = borrowValueUSD(positionId);
-            if (debtUSD > 0 && debtUSD * PRECISION > colUSD * MAX_LTV) {
+            if (debtUSD > 0 && debtUSD * PRECISION > adjColUSD * MAX_LTV) {
                 revert WithdrawalWouldLiquidate();
             }
         }
@@ -359,10 +372,10 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
             _settlePositionBorrow(positionId, debtTokens[i]);
         }
 
-        // Check that position is unhealthy
-        uint256 colUSD = collateralValueUSD(positionId);
+        // Check that position is unhealthy (using risk-adjusted collateral)
+        uint256 adjColUSD = adjustedCollateralValueUSD(positionId);
         uint256 debtUSD = borrowValueUSD(positionId);
-        if (debtUSD * PRECISION <= colUSD * LIQUIDATION_LTV) revert PositionHealthy();
+        if (debtUSD * PRECISION <= adjColUSD * LIQUIDATION_LTV) revert PositionHealthy();
 
         // Remove all value from Burve via proxy
         uint256[MAX_TOKENS] memory minAmounts;
@@ -436,7 +449,7 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         pos.depositedValue = 0;
         pos.depositedBgtValue = 0;
 
-        emit Liquidated(positionId, msg.sender, colUSD, debtUSD);
+        emit Liquidated(positionId, msg.sender, adjColUSD, debtUSD);
     }
 
     // ============================================================
@@ -478,15 +491,15 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     //                     VIEW FUNCTIONS
     // ============================================================
 
-    /// @notice Get the health factor for a position.
-    ///         Health factor = (collateralUSD * LIQUIDATION_LTV) / debtUSD
+    /// @notice Get the health factor for a position (using risk-adjusted collateral).
+    ///         Health factor = (adjustedCollateralUSD * LIQUIDATION_LTV) / debtUSD
     ///         Returns type(uint256).max if no debt.
     function healthFactor(uint256 positionId) external view returns (uint256) {
         uint256 debtUSD = borrowValueUSD(positionId);
         if (debtUSD == 0) return type(uint256).max;
 
-        uint256 colUSD = collateralValueUSD(positionId);
-        return FullMath.mulDiv(colUSD, LIQUIDATION_LTV, debtUSD);
+        uint256 adjColUSD = adjustedCollateralValueUSD(positionId);
+        return FullMath.mulDiv(adjColUSD, LIQUIDATION_LTV, debtUSD);
     }
 
     /// @notice Get the USD value of a position's collateral.
@@ -513,6 +526,85 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
             address feed = priceFeeds[token];
             if (feed == address(0)) continue;
             totalUSD += PositionValuer.valueTokenUSD(token, owed, decimals, feed);
+        }
+    }
+
+    /// @notice Get the risk-adjusted USD value of a position's collateral.
+    ///         Each token's contribution is scaled by its collateral factor.
+    function adjustedCollateralValueUSD(uint256 positionId) public view returns (uint256) {
+        LoanPosition storage pos = positions[positionId];
+        if (pos.borrower == address(0)) return 0;
+        return PositionValuer.weightedValuePositionUSD(
+            pos.pool, pos.closureId, pos.depositedValue, pos.depositedBgtValue,
+            priceFeeds, collateralFactors
+        );
+    }
+
+    /// @notice Get the maximum borrowable amount for a token given a position's collateral.
+    /// @param positionId The position to query.
+    /// @param token The token to borrow.
+    /// @return maxAmount The maximum borrowable amount in token's native decimals.
+    function maxBorrowable(uint256 positionId, address token) external view returns (uint256 maxAmount) {
+        uint256 adjColUSD = adjustedCollateralValueUSD(positionId);
+        uint256 debtUSD = borrowValueUSD(positionId);
+
+        uint256 maxDebtUSD = FullMath.mulDiv(adjColUSD, MAX_LTV, PRECISION);
+        if (debtUSD >= maxDebtUSD) return 0;
+
+        uint256 remainingUSD = maxDebtUSD - debtUSD;
+
+        // Convert USD to token amount
+        address feed = priceFeeds[token];
+        if (feed == address(0)) return 0;
+        uint8 decimals = tokenDecimals[token];
+        maxAmount = PositionValuer.usdToTokenAmount(remainingUSD, decimals, feed);
+
+        // Cap by pool liquidity
+        LendingPool storage pool = lendingPools[token];
+        uint256 available = pool.totalDeposited > pool.totalBorrowed
+            ? pool.totalDeposited - pool.totalBorrowed
+            : 0;
+        if (maxAmount > available) maxAmount = available;
+    }
+
+    /// @notice Get the effective LTV margin for a specific token.
+    /// @param token The token to query.
+    /// @return effectiveLTV The effective max LTV for this token (factor * MAX_LTV).
+    /// @return factor The raw collateral factor (1e18 = 100%).
+    function getTokenMargin(address token) external view returns (uint256 effectiveLTV, uint256 factor) {
+        factor = collateralFactors[token];
+        if (factor == 0) factor = PRECISION; // default 100%
+        effectiveLTV = FullMath.mulDiv(factor, MAX_LTV, PRECISION);
+    }
+
+    /// @notice Get a breakdown of per-token values for a position.
+    /// @param positionId The position to query.
+    /// @return tokens_ The pool tokens.
+    /// @return rawValues Per-token raw USD values (no factor applied).
+    /// @return adjustedValues Per-token risk-adjusted USD values.
+    /// @return totalRaw Sum of raw values.
+    /// @return totalAdjusted Sum of adjusted values.
+    function getPositionBreakdown(uint256 positionId) external view returns (
+        address[] memory tokens_,
+        uint256[MAX_TOKENS] memory rawValues,
+        uint256[MAX_TOKENS] memory adjustedValues,
+        uint256 totalRaw,
+        uint256 totalAdjusted
+    ) {
+        LoanPosition storage pos = positions[positionId];
+        if (pos.borrower == address(0)) return (tokens_, rawValues, adjustedValues, 0, 0);
+
+        tokens_ = IBurveMultiSimplex(pos.pool).getTokens();
+        rawValues = PositionValuer.tokenValuesUSD(
+            pos.pool, pos.closureId, pos.depositedValue, pos.depositedBgtValue, priceFeeds
+        );
+
+        for (uint256 i = 0; i < tokens_.length; i++) {
+            totalRaw += rawValues[i];
+            uint256 factor = collateralFactors[tokens_[i]];
+            if (factor == 0) factor = PRECISION;
+            adjustedValues[i] = FullMath.mulDiv(rawValues[i], factor, PRECISION);
+            totalAdjusted += adjustedValues[i];
         }
     }
 
