@@ -55,8 +55,11 @@ contract Closer is ReentrancyGuardTransient {
             revert InvalidToken();
         }
 
-        // 2. Snapshot outToken balance to handle pre-existing dust.
-        uint256 outBalanceBefore = IERC20(outToken).balanceOf(address(this));
+        // 2. Snapshot all token balances to scope approvals to only what removeValue provides.
+        uint256[MAX_TOKENS] memory balancesBefore;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            balancesBefore[i] = IERC20(tokens[i]).balanceOf(address(this));
+        }
 
         // 3. Transfer value position from user to this contract.
         ValueTokenFacet(pool).transferFrom(
@@ -76,21 +79,21 @@ contract Closer is ReentrancyGuardTransient {
             minAmountsReceived
         );
 
-        // 5. Swap all non-outToken balances into outToken via router.
+        // 5. Swap only the received amounts (not pre-existing balances) into outToken via router.
         for (uint256 i = 0; i < tokens.length; i++) {
             if (i == outTokenIdx) continue;
             if (txData[i].length == 0) continue;
 
-            uint256 balance = IERC20(tokens[i]).balanceOf(address(this));
-            if (balance == 0) continue;
+            uint256 received = IERC20(tokens[i]).balanceOf(address(this)) - balancesBefore[i];
+            if (received == 0) continue;
 
-            IERC20(tokens[i]).forceApprove(router, balance);
+            IERC20(tokens[i]).forceApprove(router, received);
             (bool success, ) = router.call(txData[i]);
             if (!success) revert RouterFailure();
         }
 
         // 6. Calculate totalOut, check slippage, and send to user.
-        totalOut = IERC20(outToken).balanceOf(address(this)) - outBalanceBefore;
+        totalOut = IERC20(outToken).balanceOf(address(this)) - balancesBefore[outTokenIdx];
         if (totalOut < minOutAmount) {
             revert MinOutAmountNotMet();
         }
