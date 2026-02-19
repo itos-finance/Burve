@@ -20,18 +20,23 @@ contract Swapper is ReentrancyGuardTransient {
 
     error RouterFailure();
     error MinOutAmountNotMet();
+    error ArrayLengthMismatch();
 
     /// Execute a batch of OogaBooga swaps, consolidating into outToken.
     /// @param outToken The single token to receive after all swaps.
     /// @param inTokens Array of tokens to swap (order matches txData).
     /// @param txData Router calldata for each inToken swap. Empty = skip.
     /// @param minOutAmount Minimum outToken the caller must receive.
+    /// @dev Intended for atomic use: send tokens to this contract and call swapAndForward
+    /// in the same transaction (or rapid succession). Do not leave tokens sitting in this contract.
     function swapAndForward(
         address outToken,
         address[] calldata inTokens,
         bytes[] calldata txData,
         uint256 minOutAmount
     ) external nonReentrant returns (uint256 totalOut) {
+        if (inTokens.length != txData.length) revert ArrayLengthMismatch();
+
         uint256 outBefore = IERC20(outToken).balanceOf(address(this));
 
         for (uint256 i = 0; i < inTokens.length; i++) {
@@ -42,6 +47,8 @@ contract Swapper is ReentrancyGuardTransient {
             IERC20(inTokens[i]).forceApprove(router, balance);
             (bool success, ) = router.call(txData[i]);
             if (!success) revert RouterFailure();
+            // Clear any residual approval to prevent leftover router allowances.
+            IERC20(inTokens[i]).forceApprove(router, 0);
         }
 
         totalOut = IERC20(outToken).balanceOf(address(this)) - outBefore;
