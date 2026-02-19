@@ -1,0 +1,13 @@
+{
+  "name": "burve-liquidator",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Liquidation bot for BurveLender positions",
+  "main": "index.mjs",
+  "author": "Brian Broeking",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "viem": "^2.31.0"
+  }
+}
