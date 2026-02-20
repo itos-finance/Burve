@@ -7,7 +7,7 @@ import {AggregatorV3Interface} from "./AggregatorV3Interface.sol";
 import {FullMath} from "../../FullMath.sol";
 
 /// @title PositionValuer
-/// @notice Oracle-based multi-token position valuation for BurveLender.
+/// @notice Oracle-based multi-token position valuation for Lender.
 ///         Queries Burve closure state, converts to real amounts via adjustor,
 ///         then prices each token using Chainlink feeds.
 library PositionValuer {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {MultiSetupTest} from "../../facets/MultiSetup.u.sol";
-import {BurveLender} from "../../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../../src/integrations/lender/Lender.sol";
 import {PositionProxy} from "../../../src/integrations/lender/PositionProxy.sol";
 import {InterestRateModel} from "../../../src/integrations/lender/InterestRateModel.sol";
 import {MAX_TOKENS} from "../../../src/multi/Constants.sol";
@@ -53,8 +53,8 @@ contract MockAggregator {
     }
 }
 
-contract TestBurveLender is MultiSetupTest {
-    BurveLender lender;
+contract TestLender is MultiSetupTest {
+    Lender lender;
     MockAggregator[] oracles;
     address constant ROUTER = address(0xDEAD);
 
@@ -70,8 +70,8 @@ contract TestBurveLender is MultiSetupTest {
         _initializeClosure(0x7, 1_000_000e18); // tokens 0,1,2
         vm.stopPrank();
 
-        // Deploy BurveLender
-        lender = new BurveLender(ROUTER);
+        // Deploy Lender
+        lender = new Lender(ROUTER);
         lender.setPoolAllowed(diamond, true);
 
         // Deploy mock oracles for each pool token
@@ -108,14 +108,14 @@ contract TestBurveLender is MultiSetupTest {
         );
     }
 
-    /// @dev Helper to deposit collateral into BurveLender.
+    /// @dev Helper to deposit collateral into Lender.
     function _depositCollateral(
         uint16 closureId,
         uint128 depositValue
     ) internal returns (uint256 positionId, uint256 posValue) {
         posValue = _openPosition(closureId, depositValue);
 
-        // Approve BurveLender to transfer value
+        // Approve Lender to transfer value
         ValueTokenFacet(diamond).approve(
             address(lender),
             closureId,
@@ -250,7 +250,7 @@ contract TestBurveLender is MultiSetupTest {
 
         // Try to borrow more than 80% LTV — should revert
         uint256 excessiveBorrow = colUSD; // 100% of collateral value
-        vm.expectRevert(BurveLender.ExceedsMaxLTV.selector);
+        vm.expectRevert(Lender.ExceedsMaxLTV.selector);
         lender.borrow(positionId, borrowToken, excessiveBorrow);
     }
 
@@ -333,7 +333,7 @@ contract TestBurveLender is MultiSetupTest {
         bytes[MAX_TOKENS] memory txData;
 
         vm.prank(bob);
-        vm.expectRevert(BurveLender.PositionHealthy.selector);
+        vm.expectRevert(Lender.PositionHealthy.selector);
         lender.liquidate(positionId, txData);
     }
 
@@ -382,7 +382,7 @@ contract TestBurveLender is MultiSetupTest {
 
         (,,,address proxy,,) = lender.positions(positionId);
         assertTrue(proxy != address(0), "proxy should exist");
-        assertEq(PositionProxy(proxy).lender(), address(lender), "proxy lender should be BurveLender");
+        assertEq(PositionProxy(proxy).lender(), address(lender), "proxy lender should be Lender");
     }
 
     function testProxyOnlyLender() public {
@@ -415,7 +415,7 @@ contract TestBurveLender is MultiSetupTest {
 
     function testCollateralFactorReverts() public {
         // Factor > 100% should revert
-        vm.expectRevert(BurveLender.InvalidCollateralFactor.selector);
+        vm.expectRevert(Lender.InvalidCollateralFactor.selector);
         lender.setCollateralFactor(tokens[0], 1e18 + 1);
 
         // Non-owner should revert
@@ -713,7 +713,7 @@ contract TestBurveLender is MultiSetupTest {
         lender.borrow(positionId, borrowToken, borrowAmount);
 
         // Try to withdraw most of the collateral — should fail
-        vm.expectRevert(BurveLender.WithdrawalWouldLiquidate.selector);
+        vm.expectRevert(Lender.WithdrawalWouldLiquidate.selector);
         lender.withdrawCollateral(positionId, (posValue * 90) / 100, 0);
     }
 
@@ -723,12 +723,12 @@ contract TestBurveLender is MultiSetupTest {
 
         // Alice tries to withdraw — should fail
         vm.prank(alice);
-        vm.expectRevert(BurveLender.NotPositionOwner.selector);
+        vm.expectRevert(Lender.NotPositionOwner.selector);
         lender.withdrawCollateral(positionId, 100, 0);
 
         // Alice tries to borrow — should fail
         vm.prank(alice);
-        vm.expectRevert(BurveLender.NotPositionOwner.selector);
+        vm.expectRevert(Lender.NotPositionOwner.selector);
         lender.borrow(positionId, tokens[0], 100);
     }
 
@@ -779,14 +779,14 @@ contract TestBurveLender is MultiSetupTest {
 
     function testPoolNotAllowedReverts() public {
         // Deploy a fresh lender without whitelisting the pool
-        BurveLender freshLender = new BurveLender(ROUTER);
+        Lender freshLender = new Lender(ROUTER);
         // Don't call setPoolAllowed
 
         // Open position value
         uint256 posValue = _openPosition(3, 1000e18);
         ValueTokenFacet(diamond).approve(address(freshLender), 3, posValue, 0);
 
-        vm.expectRevert(BurveLender.PoolNotAllowed.selector);
+        vm.expectRevert(Lender.PoolNotAllowed.selector);
         freshLender.depositCollateral(diamond, 3, posValue, 0);
     }
 
@@ -804,7 +804,7 @@ contract TestBurveLender is MultiSetupTest {
         // New deposits should fail
         uint256 posValue2 = _openPosition(3, 500e18);
         ValueTokenFacet(diamond).approve(address(lender), 3, posValue2, 0);
-        vm.expectRevert(BurveLender.PoolNotAllowed.selector);
+        vm.expectRevert(Lender.PoolNotAllowed.selector);
         lender.depositCollateral(diamond, 3, posValue2, 0);
 
         // Re-enable
@@ -833,7 +833,7 @@ contract TestBurveLender is MultiSetupTest {
         lender.borrow(positionId, borrowToken, 10e18);
 
         // Try to withdraw ALL collateral — should fail with HasOutstandingDebt
-        vm.expectRevert(BurveLender.HasOutstandingDebt.selector);
+        vm.expectRevert(Lender.HasOutstandingDebt.selector);
         lender.withdrawCollateral(positionId, posValue, 0);
     }
 
@@ -848,7 +848,7 @@ contract TestBurveLender is MultiSetupTest {
         // Create a token with no price feed
         address noPriceFeedToken = makeAddr("noPriceFeed");
 
-        vm.expectRevert(BurveLender.NoPriceFeed.selector);
+        vm.expectRevert(Lender.NoPriceFeed.selector);
         lender.borrow(positionId, noPriceFeedToken, 100e18);
     }
 
@@ -959,7 +959,7 @@ contract TestBurveLender is MultiSetupTest {
 
         // Bob can't touch pos1
         vm.prank(bob);
-        vm.expectRevert(BurveLender.NotPositionOwner.selector);
+        vm.expectRevert(Lender.NotPositionOwner.selector);
         lender.borrow(pos1, borrowToken, 1e18);
     }
 
@@ -1019,7 +1019,7 @@ contract TestBurveLender is MultiSetupTest {
         lender.depositLiquidity(address(fakeToken), 10_000e18);
 
         // Attempt to borrow the non-pool token — should revert
-        vm.expectRevert(BurveLender.NotPoolToken.selector);
+        vm.expectRevert(Lender.NotPoolToken.selector);
         lender.borrow(positionId, address(fakeToken), 100e18);
     }
 

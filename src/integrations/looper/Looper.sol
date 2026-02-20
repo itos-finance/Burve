@@ -5,7 +5,7 @@ import {TransferHelper} from "Commons/Util/TransferHelper.sol";
 import {RFTPayer} from "Commons/Util/RFT.sol";
 import {Auto165} from "Commons/ERC/Auto165.sol";
 import {SafeCast} from "Commons/Math/Cast.sol";
-import {BurveLender} from "../lender/BurveLender.sol";
+import {Lender} from "../lender/Lender.sol";
 import {IBurveMultiValue} from "../../multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../multi/interfaces/IBurveMultiSimplex.sol";
 import {ValueTokenFacet} from "../../multi/facets/ValueTokenFacet.sol";
@@ -15,20 +15,20 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 
-/// @title BurveLooper
+/// @title Looper
 /// @notice Stateless orchestrator for leveraged Burve positions.
-///         Iteratively deposits tokens into Burve, posts value as collateral in BurveLender,
+///         Iteratively deposits tokens into Burve, posts value as collateral in Lender,
 ///         borrows tokens, and re-deposits to achieve target leverage.
 ///         Also supports deleveraging (closing loops).
-contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
+contract Looper is RFTPayer, Auto165, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
 
-    BurveLender public immutable LENDER;
+    Lender public immutable LENDER;
 
     /// @dev Transient storage for the pool address during RFT callbacks.
     address public transient _pool;
 
-    /// @notice Maps BurveLender position IDs to the user who created them via openLoop.
+    /// @notice Maps Lender position IDs to the user who created them via openLoop.
     mapping(uint256 => address) public positionOwners;
 
     // --- Errors ---
@@ -46,7 +46,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
     event LoopReduced(uint256 indexed positionId, uint256 reducedValue, uint256 outAmount);
 
     constructor(address lender) {
-        LENDER = BurveLender(lender);
+        LENDER = Lender(lender);
     }
 
     /// @notice One-click leveraged position via iterative borrow-deposit loop.
@@ -55,7 +55,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
     /// @param inToken The token to deposit (must be a pool token).
     /// @param inAmount The amount of inToken to start with.
     /// @param iterations Number of borrow-deposit iterations (2-10).
-    /// @return positionId The BurveLender position ID created.
+    /// @return positionId The Lender position ID created.
     function openLoop(
         address pool,
         uint16 closureId,
@@ -93,7 +93,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         );
         totalValue += valueReceived;
 
-        // Approve BurveLender to transfer our value position
+        // Approve Lender to transfer our value position
         ValueTokenFacet(pool).approve(
             address(LENDER),
             closureId,
@@ -101,7 +101,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
             0
         );
 
-        // Post initial value as collateral in BurveLender
+        // Post initial value as collateral in Lender
         positionId = LENDER.depositCollateral(pool, closureId, valueReceived, 0);
         positionOwners[positionId] = msg.sender;
 
@@ -114,7 +114,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
             uint256 borrowAmount = FullMath.mulDiv(lastValueReceived, 70e16, 1e18);
             if (borrowAmount == 0) break;
 
-            // Borrow from BurveLender
+            // Borrow from Lender
             LENDER.borrow(positionId, inToken, borrowAmount);
             totalDebt += borrowAmount;
 
@@ -133,7 +133,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
             totalValue += valueReceived;
             lastValueReceived = valueReceived;
 
-            // Add the new value as additional collateral via BurveLender
+            // Add the new value as additional collateral via Lender
             ValueTokenFacet(pool).approve(
                 address(LENDER),
                 closureId,
@@ -144,12 +144,12 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         }
 
         // Transfer position ownership to the user
-        // The position in BurveLender is already owned by this contract as msg.sender,
-        // but since BurveLender stores msg.sender as borrower, we need the user to interact
+        // The position in Lender is already owned by this contract as msg.sender,
+        // but since Lender stores msg.sender as borrower, we need the user to interact
         // through this contract. Instead, we update: the position borrower is this contract
         // but we track that the actual user is msg.sender.
-        // NOTE: BurveLender should be modified to allow BurveLooper to create positions
-        // on behalf of users. For now, BurveLooper must be the borrower.
+        // NOTE: Lender should be modified to allow Looper to create positions
+        // on behalf of users. For now, Looper must be the borrower.
 
         // Reset approvals
         IERC20(inToken).forceApprove(pool, 0);
@@ -159,7 +159,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
     }
 
     /// @notice Fully close a leveraged position: repay all debt, withdraw, return tokens.
-    /// @param positionId The BurveLender position ID to close.
+    /// @param positionId The Lender position ID to close.
     /// @param outToken The token to receive.
     /// @param minOutAmount Minimum output amount.
     /// @return outAmount The total tokens returned to the user.
@@ -281,7 +281,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
     }
 
     /// @notice Collect Burve trading fee earnings from a looped position.
-    /// @param positionId The BurveLender position ID.
+    /// @param positionId The Lender position ID.
     /// @param recipient Where to send the earnings.
     function collectEarnings(uint256 positionId, address recipient) external nonReentrant {
         if (positionOwners[positionId] != msg.sender) revert NotPositionOwner();

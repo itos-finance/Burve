@@ -16,7 +16,7 @@ interface IDolomitePriceOracle {
 
 /// @title DolomiteOracleAdapter
 /// @notice Wraps a Dolomite price oracle behind Chainlink's AggregatorV3Interface,
-///         allowing BurveLender's PositionValuer to consume Dolomite prices seamlessly.
+///         allowing Lender's PositionValuer to consume Dolomite prices seamlessly.
 ///
 ///         Dolomite prices have `36 - tokenDecimals` decimals of precision.
 ///         Chainlink USD feeds use 8 decimals.

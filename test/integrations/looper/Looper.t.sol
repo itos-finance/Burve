@@ -2,8 +2,8 @@
 pragma solidity ^0.8.27;
 
 import {MultiSetupTest} from "../../facets/MultiSetup.u.sol";
-import {BurveLender} from "../../../src/integrations/lender/BurveLender.sol";
-import {BurveLooper} from "../../../src/integrations/looper/BurveLooper.sol";
+import {Lender} from "../../../src/integrations/lender/Lender.sol";
+import {Looper} from "../../../src/integrations/looper/Looper.sol";
 import {MAX_TOKENS} from "../../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {console2} from "forge-std/console2.sol";
@@ -41,9 +41,9 @@ contract MockAggregatorLooper {
     }
 }
 
-contract TestBurveLooper is MultiSetupTest {
-    BurveLender lender;
-    BurveLooper looper;
+contract TestLooper is MultiSetupTest {
+    Lender lender;
+    Looper looper;
     MockAggregatorLooper[] oracles;
     address constant ROUTER = address(0xDEAD);
 
@@ -59,9 +59,9 @@ contract TestBurveLooper is MultiSetupTest {
         _initializeClosure(0x7, 1_000_000e18); // tokens 0,1,2
         vm.stopPrank();
 
-        lender = new BurveLender(ROUTER);
+        lender = new Lender(ROUTER);
         lender.setPoolAllowed(diamond, true);
-        looper = new BurveLooper(address(lender));
+        looper = new Looper(address(lender));
 
         // Setup oracles
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -144,7 +144,7 @@ contract TestBurveLooper is MultiSetupTest {
 
         console2.log("position ID", positionId);
 
-        // Verify position exists in BurveLender
+        // Verify position exists in Lender
         (, address pool, uint16 cid,, uint256 depValue,) = lender.positions(positionId);
         assertEq(pool, diamond, "pool should be diamond");
         assertEq(cid, closureId, "closure should match");
@@ -163,7 +163,7 @@ contract TestBurveLooper is MultiSetupTest {
     }
 
     function testOpenLoopRejectsZeroAmount() public {
-        vm.expectRevert(BurveLooper.ZeroAmount.selector);
+        vm.expectRevert(Looper.ZeroAmount.selector);
         looper.openLoop(diamond, 3, tokens[0], 0, 3);
     }
 
@@ -171,13 +171,13 @@ contract TestBurveLooper is MultiSetupTest {
         MockERC20(tokens[0]).mint(address(this), 1000e18);
         IERC20(tokens[0]).approve(address(looper), 1000e18);
 
-        vm.expectRevert(BurveLooper.InvalidIterations.selector);
+        vm.expectRevert(Looper.InvalidIterations.selector);
         looper.openLoop(diamond, 3, tokens[0], 1000e18, 11);
     }
 
     function testOpenLoopRejectsInvalidToken() public {
         address fakeToken = makeAddr("fake");
-        vm.expectRevert(BurveLooper.InvalidToken.selector);
+        vm.expectRevert(Looper.InvalidToken.selector);
         looper.openLoop(diamond, 3, fakeToken, 1000e18, 3);
     }
 
@@ -241,7 +241,7 @@ contract TestBurveLooper is MultiSetupTest {
         uint256 positionId = _openTestLoop();
 
         vm.prank(bob);
-        vm.expectRevert(BurveLooper.NotPositionOwner.selector);
+        vm.expectRevert(Looper.NotPositionOwner.selector);
         looper.closeLoop(positionId, tokens[0], 0);
     }
 
@@ -275,7 +275,7 @@ contract TestBurveLooper is MultiSetupTest {
         uint256 positionId = _openTestLoop();
 
         vm.prank(bob);
-        vm.expectRevert(BurveLooper.NotPositionOwner.selector);
+        vm.expectRevert(Looper.NotPositionOwner.selector);
         looper.reduceLoop(positionId, 100e18, tokens[0], 0);
     }
 
@@ -296,7 +296,7 @@ contract TestBurveLooper is MultiSetupTest {
         uint256 positionId = _openTestLoop();
 
         vm.prank(bob);
-        vm.expectRevert(BurveLooper.NotPositionOwner.selector);
+        vm.expectRevert(Looper.NotPositionOwner.selector);
         looper.collectEarnings(positionId, bob);
     }
 
@@ -304,7 +304,7 @@ contract TestBurveLooper is MultiSetupTest {
         uint256 positionId = _openTestLoop();
 
         // Should not revert — the actual earnings might be zero in test
-        // but the call should pass through to BurveLender successfully
+        // but the call should pass through to Lender successfully
         looper.collectEarnings(positionId, address(this));
     }
 }

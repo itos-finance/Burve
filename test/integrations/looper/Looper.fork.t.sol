@@ -2,8 +2,8 @@
 pragma solidity ^0.8.27;
 
 import {BurveForkableTest} from "../Fork.u.sol";
-import {BurveLender} from "../../../src/integrations/lender/BurveLender.sol";
-import {BurveLooper} from "../../../src/integrations/looper/BurveLooper.sol";
+import {Lender} from "../../../src/integrations/lender/Lender.sol";
+import {Looper} from "../../../src/integrations/looper/Looper.sol";
 import {MAX_TOKENS} from "../../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {console2} from "forge-std/console2.sol";
@@ -34,9 +34,9 @@ contract ForkLooperMockAggregator {
     }
 }
 
-contract TestBurveLooperFork is BurveForkableTest {
-    BurveLender lender;
-    BurveLooper looper;
+contract TestLooperFork is BurveForkableTest {
+    Lender lender;
+    Looper looper;
     ForkLooperMockAggregator[] oracles;
 
     address constant MOCK_ROUTER = address(0xDEAD);
@@ -44,9 +44,9 @@ contract TestBurveLooperFork is BurveForkableTest {
     function postSetup() internal override {
         if (!forking) return;
 
-        lender = new BurveLender(MOCK_ROUTER);
+        lender = new Lender(MOCK_ROUTER);
         lender.setPoolAllowed(diamond, true);
-        looper = new BurveLooper(address(lender));
+        looper = new Looper(address(lender));
 
         // Setup mock oracles for first 3 tokens at $1.00
         for (uint256 i = 0; i < tokens.length && i < 3; i++) {

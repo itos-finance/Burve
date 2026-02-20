@@ -3,18 +3,18 @@ pragma solidity ^0.8.27;
 
 import {console2} from "forge-std/console2.sol";
 import {DealScript} from "./ScriptBase.sol";
-import {BurveLender} from "../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../src/integrations/lender/Lender.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {PositionHelper} from "./PositionHelper.sol";
 
 /// @title SetupPositions
-/// @notice On an Anvil fork, create lending pools + borrower positions on BurveLender.
+/// @notice On an Anvil fork, create lending pools + borrower positions on Lender.
 ///
 /// Env vars:
 ///   DEPLOYER_PRIVATE_KEY — Anvil account private key
-///   BURVE_LENDER — Address of deployed BurveLender (from DeployLenderAnvil)
+///   BURVE_LENDER — Address of deployed Lender (from DeployLenderAnvil)
 ///
 /// Usage:
 ///   BURVE_LENDER=0x... forge script script/liquidator/SetupPositions.s.sol \
@@ -26,7 +26,7 @@ contract SetupPositions is DealScript {
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(pk);
         address lenderAddr = vm.envAddress("BURVE_LENDER");
-        BurveLender lender = BurveLender(lenderAddr);
+        Lender lender = Lender(lenderAddr);
 
         address[] memory tokens = IBurveMultiSimplex(DIAMOND).getTokens();
         uint16 closureId = 3;
@@ -78,7 +78,7 @@ contract SetupPositions is DealScript {
         console2.log("Liquidation target:", posId1);
     }
 
-    function _logPosition(BurveLender lender, uint256 positionId) internal view {
+    function _logPosition(Lender lender, uint256 positionId) internal view {
         uint256 colUSD = lender.collateralValueUSD(positionId);
         uint256 debtUSD = lender.borrowValueUSD(positionId);
         uint256 hf = lender.healthFactor(positionId);

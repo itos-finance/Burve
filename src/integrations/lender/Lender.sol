@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import {LoanPosition, LendingPool} from "./BurveLenderStorage.sol";
+import {LoanPosition, LendingPool} from "./LenderStorage.sol";
 import {InterestRateModel} from "./InterestRateModel.sol";
 import {PositionValuer} from "./PositionValuer.sol";
 import {PositionProxy} from "./PositionProxy.sol";
@@ -16,11 +16,11 @@ import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol"
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
 
-/// @title BurveLender
+/// @title Lender
 /// @notice Lending protocol for Burve value positions. Users deposit value positions as collateral,
 ///         borrow tokens from lending pools, and can be liquidated if health factor drops below 1.
 ///         Each position is held by a CREATE2 proxy to prevent position merging in Burve's AssetBook.
-contract BurveLender is ReentrancyGuardTransient, Ownable {
+contract Lender is ReentrancyGuardTransient, Ownable {
     using SafeERC20 for IERC20;
 
     // --- Constants ---

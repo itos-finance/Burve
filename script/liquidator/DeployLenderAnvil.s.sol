@@ -3,13 +3,13 @@ pragma solidity ^0.8.27;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveLender} from "../../src/integrations/lender/BurveLender.sol";
-import {BurveLooper} from "../../src/integrations/looper/BurveLooper.sol";
+import {Lender} from "../../src/integrations/lender/Lender.sol";
+import {Looper} from "../../src/integrations/looper/Looper.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {MockAggregator} from "./MockAggregator.sol";
 
 /// @title DeployLenderAnvil
-/// @notice Deploy BurveLender + mock oracles on an Anvil fork of Berachain.
+/// @notice Deploy Lender + mock oracles on an Anvil fork of Berachain.
 ///         Uses the live diamond at 0xa1beD...089 and deploys mock Chainlink
 ///         price feeds for all pool tokens (all set to $1.00 initially).
 ///
@@ -27,14 +27,14 @@ contract DeployLenderAnvil is Script {
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(pk);
 
-        // Deploy BurveLender
-        BurveLender lender = new BurveLender(MOCK_ROUTER);
+        // Deploy Lender
+        Lender lender = new Lender(MOCK_ROUTER);
         lender.setPoolAllowed(DIAMOND, true);
-        console2.log("BurveLender:", address(lender));
+        console2.log("Lender:", address(lender));
 
-        // Deploy BurveLooper
-        BurveLooper looper = new BurveLooper(address(lender));
-        console2.log("BurveLooper:", address(looper));
+        // Deploy Looper
+        Looper looper = new Looper(address(lender));
+        console2.log("Looper:", address(looper));
 
         // Get pool tokens from live diamond
         address[] memory tokens = IBurveMultiSimplex(DIAMOND).getTokens();
@@ -54,8 +54,8 @@ contract DeployLenderAnvil is Script {
         console2.log("");
         console2.log("=== DEPLOYMENT SUMMARY ===");
         console2.log("Diamond:     ", DIAMOND);
-        console2.log("BurveLender: ", address(lender));
-        console2.log("BurveLooper: ", address(looper));
+        console2.log("Lender: ", address(lender));
+        console2.log("Looper: ", address(looper));
         console2.log("All oracles set to $1.00 (1e8)");
     }
 }

@@ -8,7 +8,7 @@ import {SafeCast} from "Commons/Math/Cast.sol";
 import {IBurveMultiValue} from "../../src/multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {ValueTokenFacet} from "../../src/multi/facets/ValueTokenFacet.sol";
-import {BurveLender} from "../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../src/integrations/lender/Lender.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
@@ -31,13 +31,13 @@ contract PositionHelper is RFTPayer, Auto165 {
         owner = msg.sender;
     }
 
-    /// @notice Create a value position and deposit as collateral in BurveLender.
-    /// @param lender The BurveLender address.
+    /// @notice Create a value position and deposit as collateral in Lender.
+    /// @param lender The Lender address.
     /// @param closureId The closure to deposit into.
     /// @param value The value units to add.
     /// @param borrowToken The token to borrow (or address(0) for no borrow).
     /// @param ltvPercent The LTV percentage to borrow at (0-80).
-    /// @return positionId The BurveLender position ID.
+    /// @return positionId The Lender position ID.
     function createPosition(
         address lender,
         uint16 closureId,
@@ -65,16 +65,16 @@ contract PositionHelper is RFTPayer, Auto165 {
         // Get our value balance
         (uint256 posValue, ) = ValueTokenFacet(diamond).balanceOf(address(this), closureId);
 
-        // Approve BurveLender and deposit as collateral
+        // Approve Lender and deposit as collateral
         ValueTokenFacet(diamond).approve(lender, closureId, posValue, 0);
-        positionId = BurveLender(lender).depositCollateral(diamond, closureId, posValue, 0);
+        positionId = Lender(lender).depositCollateral(diamond, closureId, posValue, 0);
 
         // Borrow if requested
         if (ltvPercent > 0 && borrowToken != address(0)) {
-            uint256 colUSD = BurveLender(lender).collateralValueUSD(positionId);
+            uint256 colUSD = Lender(lender).collateralValueUSD(positionId);
             uint256 borrowAmount = (colUSD * ltvPercent) / 100;
             if (borrowAmount > 0) {
-                BurveLender(lender).borrow(positionId, borrowToken, borrowAmount);
+                Lender(lender).borrow(positionId, borrowToken, borrowAmount);
                 // Send borrowed tokens back to owner
                 uint256 bal = IERC20(borrowToken).balanceOf(address(this));
                 if (bal > 0) {

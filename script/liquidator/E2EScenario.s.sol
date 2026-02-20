@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {console2} from "forge-std/console2.sol";
 import {DealScript} from "./ScriptBase.sol";
-import {BurveLender} from "../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../src/integrations/lender/Lender.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -14,7 +14,7 @@ import {PositionHelper} from "./PositionHelper.sol";
 /// @notice All-in-one script: deploy, create positions, crash oracle, liquidate.
 ///
 /// Runs the complete liquidation scenario on an Anvil fork:
-///   1. Deploy BurveLender + mock oracles (all $1.00)
+///   1. Deploy Lender + mock oracles (all $1.00)
 ///   2. Seed lending pools with liquidity
 ///   3. Create a healthy position (10% LTV)
 ///   4. Create a near-max position (75% LTV — liquidation target)
@@ -28,7 +28,7 @@ import {PositionHelper} from "./PositionHelper.sol";
 contract E2EScenario is DealScript {
     address constant DIAMOND = 0xa1beD164c12CD9479A1049f97BDe5b3D6EC21089;
 
-    BurveLender lender;
+    Lender lender;
     PositionHelper helper;
     MockAggregator[] oracles;
     address[] tokens;
@@ -46,10 +46,10 @@ contract E2EScenario is DealScript {
 
         vm.startBroadcast(pk);
 
-        lender = new BurveLender(address(0xDEAD));
+        lender = new Lender(address(0xDEAD));
         lender.setPoolAllowed(DIAMOND, true);
         helper = new PositionHelper(DIAMOND);
-        console2.log("BurveLender:", address(lender));
+        console2.log("Lender:", address(lender));
         console2.log("PositionHelper:", address(helper));
 
         for (uint256 i = 0; i < tokens.length; i++) {

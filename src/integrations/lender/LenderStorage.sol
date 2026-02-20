@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-/// @notice Per-position loan data for BurveLender.
+/// @notice Per-position loan data for Lender.
 struct LoanPosition {
     address borrower;
     address pool;           // Burve diamond address
@@ -11,7 +11,7 @@ struct LoanPosition {
     uint256 depositedBgtValue;
 }
 
-/// @notice Per-token lending pool state for BurveLender.
+/// @notice Per-token lending pool state for Lender.
 struct LendingPool {
     uint256 totalDeposited;     // Total tokens deposited by LPs
     uint256 totalBorrowed;      // Total tokens currently borrowed

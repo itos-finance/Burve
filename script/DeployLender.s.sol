@@ -3,11 +3,11 @@ pragma solidity ^0.8.27;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveLender} from "../src/integrations/lender/BurveLender.sol";
-import {BurveLooper} from "../src/integrations/looper/BurveLooper.sol";
+import {Lender} from "../src/integrations/lender/Lender.sol";
+import {Looper} from "../src/integrations/looper/Looper.sol";
 import {DolomiteOracleAdapter} from "../src/integrations/lender/DolomiteOracleAdapter.sol";
 
-contract DeployBurveLender is Script {
+contract DeployLender is Script {
     address constant BERACHAIN_ROUTER =
         0xFd88aD4849BA0F729D6fF4bC27Ff948Ab1Ac3dE7;
 
@@ -28,13 +28,13 @@ contract DeployBurveLender is Script {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy BurveLender
-        BurveLender lender = new BurveLender(BERACHAIN_ROUTER);
-        console2.log("BurveLender deployed at:", address(lender));
+        // 1. Deploy Lender
+        Lender lender = new Lender(BERACHAIN_ROUTER);
+        console2.log("Lender deployed at:", address(lender));
 
-        // 2. Deploy BurveLooper
-        BurveLooper looper = new BurveLooper(address(lender));
-        console2.log("BurveLooper deployed at:", address(looper));
+        // 2. Deploy Looper
+        Looper looper = new Looper(address(lender));
+        console2.log("Looper deployed at:", address(looper));
 
         // 3. Deploy DolomiteOracleAdapters (one per token)
         DolomiteOracleAdapter usdcOracle = new DolomiteOracleAdapter(DOLOMITE_ORACLE, USDC, 6);
@@ -44,7 +44,7 @@ contract DeployBurveLender is Script {
         console2.log("USDT Oracle Adapter:", address(usdtOracle));
         console2.log("HONEY Oracle Adapter:", address(honeyOracle));
 
-        // 4. Configure BurveLender
+        // 4. Configure Lender
         lender.setPoolAllowed(BURVE_DIAMOND, true);
         lender.setPriceFeed(USDC, address(usdcOracle), 6);
         lender.setPriceFeed(USDT, address(usdtOracle), 6);

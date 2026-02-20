@@ -7,8 +7,8 @@ import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol"
 /// @title PositionProxy
 /// @notice Lightweight CREATE2 proxy that holds a single user's Burve value position.
 ///         Each proxy has a unique address in Burve's AssetBook, preventing position merging
-///         when multiple users deposit through BurveLender.
-///         Only the BurveLender (deployer) can call execute() on this proxy.
+///         when multiple users deposit through Lender.
+///         Only the Lender (deployer) can call execute() on this proxy.
 contract PositionProxy {
     using SafeERC20 for IERC20;
 
@@ -20,7 +20,7 @@ contract PositionProxy {
         lender = msg.sender;
     }
 
-    /// @notice Execute an arbitrary call on behalf of BurveLender.
+    /// @notice Execute an arbitrary call on behalf of Lender.
     /// @dev Only callable by the lender contract.
     /// @param target The target contract to call.
     /// @param data The calldata to send.
@@ -37,7 +37,7 @@ contract PositionProxy {
         }
     }
 
-    /// @notice Transfer tokens out of this proxy back to BurveLender or another recipient.
+    /// @notice Transfer tokens out of this proxy back to Lender or another recipient.
     /// @dev Only callable by the lender contract.
     /// @param token The ERC20 token to transfer.
     /// @param to The recipient address.

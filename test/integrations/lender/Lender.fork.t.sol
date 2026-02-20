@@ -2,9 +2,9 @@
 pragma solidity ^0.8.27;
 
 import {BurveForkableTest} from "../Fork.u.sol";
-import {BurveLender} from "../../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../../src/integrations/lender/Lender.sol";
 import {PositionProxy} from "../../../src/integrations/lender/PositionProxy.sol";
-import {BurveLooper} from "../../../src/integrations/looper/BurveLooper.sol";
+import {Looper} from "../../../src/integrations/looper/Looper.sol";
 import {MAX_TOKENS} from "../../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {console2} from "forge-std/console2.sol";
@@ -53,17 +53,17 @@ contract MockStableRouter {
     }
 }
 
-contract TestBurveLenderFork is BurveForkableTest {
-    BurveLender lender;
+contract TestLenderFork is BurveForkableTest {
+    Lender lender;
     MockStableRouter mockRouter;
     ForkMockAggregator[] oracles;
 
     function postSetup() internal override {
         if (!forking) return;
 
-        // Deploy mock router and BurveLender fresh on top of forked state
+        // Deploy mock router and Lender fresh on top of forked state
         mockRouter = new MockStableRouter();
-        lender = new BurveLender(address(mockRouter));
+        lender = new Lender(address(mockRouter));
         lender.setPoolAllowed(diamond, true);
 
         // Deploy mock oracles for the first 3 pool tokens (stablecoins) at $1.00
@@ -96,7 +96,7 @@ contract TestBurveLenderFork is BurveForkableTest {
         (posValue, ) = ValueTokenFacet(diamond).balanceOf(address(this), closureId);
     }
 
-    /// @dev Helper: deposit collateral into BurveLender.
+    /// @dev Helper: deposit collateral into Lender.
     function _depositCollateral(
         uint16 closureId,
         uint128 depositValue
@@ -197,9 +197,9 @@ contract TestBurveLenderFork is BurveForkableTest {
             (tokens[1], 0, tokens[0], address(lender))
         );
         // NOTE: the actual amount doesn't matter in the txData encoding for this mock
-        // because BurveLender reads the balance and approves the router for that balance.
+        // because Lender reads the balance and approves the router for that balance.
         // The mock router's swap() uses transferFrom for the exact amount though.
-        // We need to encode with a placeholder amount — but actually BurveLender calls
+        // We need to encode with a placeholder amount — but actually Lender calls
         // router.call(txData[i]) after forceApprove(router, bal), and the router reads
         // the approved amount. Our mock just does transferFrom(msg.sender, ..., amount).
         // The amount in txData won't match the actual balance.
@@ -207,7 +207,7 @@ contract TestBurveLenderFork is BurveForkableTest {
         // OR have the test compute amounts. Let's use a simpler approach:
         // encode the swap with a large amount, and the mock router just transfers what it gets.
 
-        // Actually, looking at the flow: BurveLender does forceApprove(router, bal) then
+        // Actually, looking at the flow: Lender does forceApprove(router, bal) then
         // router.call(txData[i]). The amount in txData is baked in. Let's skip txData[1]
         // and instead not swap — just let the lender have the tokens[1] balance too.
         // The liquidation will work as long as the debt tokens get repaid.
@@ -256,7 +256,7 @@ contract TestBurveLenderFork is BurveForkableTest {
 
         address liquidator = makeAddr("liquidator");
         vm.prank(liquidator);
-        vm.expectRevert(BurveLender.PositionHealthy.selector);
+        vm.expectRevert(Lender.PositionHealthy.selector);
         lender.liquidate(positionId, txData);
     }
 
@@ -264,10 +264,10 @@ contract TestBurveLenderFork is BurveForkableTest {
     //  Test 4: Looper openLoop on live diamond
     // ============================================================
 
-    /// @dev Looper fork test is skipped: BurveLooper.openLoop() treats colUSD * 70%
+    /// @dev Looper fork test is skipped: Looper.openLoop() treats colUSD * 70%
     ///      as a raw token borrow amount, which only works for 18-decimal tokens.
     ///      On the live Berachain pool with 6-decimal stablecoins (USDC/USDT), the
     ///      borrow amount overflows the closure's imbalance tolerance.
     ///      The looper needs a decimal-aware borrow amount conversion for production.
-    ///      See BurveLooper unit tests (test/integrations/looper/) which pass with 18-dec mocks.
+    ///      See Looper unit tests (test/integrations/looper/) which pass with 18-dec mocks.
 }

@@ -1,4 +1,4 @@
-# BurveLender — Lending Against Burve Positions
+# Lender — Lending Against Burve Positions
 
 Borrow tokens against your Burve LP positions. Deposit your value position as collateral, borrow stablecoins, and keep earning Burve trading fees while leveraged.
 
@@ -9,7 +9,7 @@ Borrow tokens against your Burve LP positions. Deposit your value position as co
  ════════════════               ══════════════════════            ══════════════════════            ═══════════════════════
 
  ┌─────────────┐               ┌──────────────────────┐         ┌──────────────────────┐         ┌────────────────────┐
- │  Borrower   │               │   BurveLender.sol    │         │   Burve Diamond      │         │  Dolomite ERC4626  │
+ │  Borrower   │               │   Lender.sol    │         │   Burve Diamond      │         │  Dolomite ERC4626  │
  │             │               │                      │         │                      │         │                    │
  │ 1. addValue ├──────────────────────────────────────>│  Closure 3             │         │  USDC Vault         │
  │    on Burve │               │                      │  ┌──────────────────┐  │         │  ┌──────────────┐  │
@@ -42,8 +42,8 @@ Borrow tokens against your Burve LP positions. Deposit your value position as co
 
 **Two completely separate token pools exist:**
 
-1. **Collateral side** (right): User's value position lives in Burve Diamond, tokens in Dolomite vault. BurveLender never touches these tokens directly — only the proxy can call removeValue.
-2. **Lending pool side** (left): LP deposits sit in BurveLender contract. **These tokens NEVER go to Dolomite.** They are held as raw ERC20 balances in BurveLender.
+1. **Collateral side** (right): User's value position lives in Burve Diamond, tokens in Dolomite vault. Lender never touches these tokens directly — only the proxy can call removeValue.
+2. **Lending pool side** (left): LP deposits sit in Lender contract. **These tokens NEVER go to Dolomite.** They are held as raw ERC20 balances in Lender.
 
 ## Fund Isolation Proof
 
@@ -80,25 +80,25 @@ Position B after liquidation:
 
 ```
 depositLiquidity(USDC, 1000e18):
-  → IERC20(USDC).safeTransferFrom(LP, address(BurveLender), 1000e18)
+  → IERC20(USDC).safeTransferFrom(LP, address(Lender), 1000e18)
   → lendingPools[USDC].totalDeposited += 1000e18
-  → Tokens sit in BurveLender's ERC20 balance. Period.
+  → Tokens sit in Lender's ERC20 balance. Period.
 
 borrow(positionId, USDC, 500e18):
   → IERC20(USDC).safeTransfer(borrower, 500e18)
-  → Tokens go from BurveLender → borrower. NOT to Dolomite.
+  → Tokens go from Lender → borrower. NOT to Dolomite.
 
 repay / liquidation:
-  → Tokens return to BurveLender via safeTransferFrom or removeValue
+  → Tokens return to Lender via safeTransferFrom or removeValue
 ```
 
 LP tokens never enter a Burve closure, never enter a Dolomite vault. They are held as raw ERC20 balances.
 
-### Claim: Other Burve LP users (not using BurveLender) are unaffected
+### Claim: Other Burve LP users (not using Lender) are unaffected
 
 **Evidence — removeValue is identical to a normal LP withdrawal:**
 
-When BurveLender's proxy calls `removeValue(200)`, the Burve Diamond executes the exact same code path as any LP removing their position. There is no special treatment:
+When Lender's proxy calls `removeValue(200)`, the Burve Diamond executes the exact same code path as any LP removing their position. There is no special treatment:
 
 ```
 1. trimAllBalances()       — distributes pending fees to ALL holders
@@ -121,17 +121,17 @@ Other LPs in the same closure see:
 constructor() { lender = msg.sender; }  // Set at deploy, immutable
 
 function execute(address target, bytes calldata data) external returns (bytes memory) {
-    if (msg.sender != lender) revert OnlyLender();  // ONLY BurveLender
+    if (msg.sender != lender) revert OnlyLender();  // ONLY Lender
     ...
 }
 
 function transferToken(address token, address to, uint256 amount) external {
-    if (msg.sender != lender) revert OnlyLender();  // ONLY BurveLender
+    if (msg.sender != lender) revert OnlyLender();  // ONLY Lender
     ...
 }
 ```
 
-Not even the position owner can move tokens from the proxy. Only BurveLender can.
+Not even the position owner can move tokens from the proxy. Only Lender can.
 
 ## Risk Model — Where Funds CAN Be Lost
 
@@ -163,7 +163,7 @@ Liquidation:
 Scenario:
   Dolomite USDC vault has 95% utilization (95% lent out)
   vault.maxWithdraw(burve) returns only 5% of Burve's deposit
-  BurveLender tries to liquidate a position
+  Lender tries to liquidate a position
 
 Code path:
   liquidate() → proxy.execute(removeValue) → Vertex.withdraw()
@@ -195,10 +195,10 @@ Code path:
   RESULT: Vertex auto-locks. No new deposits or swaps.
   Withdrawals (removeValue) still work but return fewer tokens.
   All Burve positions in that closure lose ~3% value.
-  BurveLender positions lose collateral value → may trigger liquidation.
+  Lender positions lose collateral value → may trigger liquidation.
 
   WHO LOSES: ALL users with tokens in that closure (Burve LPs
-  AND BurveLender borrowers equally).
+  AND Lender borrowers equally).
 ```
 
 ## Per-Token Collateral Factors
@@ -227,25 +227,25 @@ Set via `setCollateralFactor(token, factor)` (onlyOwner). View via:
 
 ## Dolomite Exposure Analysis
 
-BurveLender does NOT borrow from Dolomite. Burve DEPOSITS into Dolomite ERC4626 vaults as a yield source. The risk is asymmetric:
+Lender does NOT borrow from Dolomite. Burve DEPOSITS into Dolomite ERC4626 vaults as a yield source. The risk is asymmetric:
 
 ```
                      NOT this:                          THIS:
             ┌────────────────────────┐      ┌────────────────────────┐
             │ Dolomite liquidates    │      │ Dolomite vault loses   │
-            │ BurveLender's position │      │ value from bad debt    │
+            │ Lender's position │      │ value from bad debt    │
             │ (doesn't happen —      │      │ → Burve's vault shares │
             │  Burve is a depositor, │      │   worth less           │
             │  not a borrower)       │      │ → All Burve closure    │
             └────────────────────────┘      │   balances decrease    │
-                                            │ → BurveLender collateral│
+                                            │ → Lender collateral│
                                             │   drops in USD value    │
                                             │ → Positions may become  │
                                             │   liquidatable          │
                                             └────────────────────────┘
 ```
 
-**Dolomite uses OracleAggregatorV2** (Chronicle + Redstone + Kodiak TWAP on Berachain), not Chainlink AggregatorV3. BurveLender should use the same oracle source via adapter contracts to avoid price divergence.
+**Dolomite uses OracleAggregatorV2** (Chronicle + Redstone + Kodiak TWAP on Berachain), not Chainlink AggregatorV3. Lender should use the same oracle source via adapter contracts to avoid price divergence.
 
 ## Liquidation Flow — Detailed
 
@@ -272,7 +272,7 @@ BurveLender does NOT borrow from Dolomite. Burve DEPOSITS into Dolomite ERC4626 
 
 ## Oracle System
 
-BurveLender uses the **Chainlink AggregatorV3Interface** for price feeds:
+Lender uses the **Chainlink AggregatorV3Interface** for price feeds:
 
 ```solidity
 interface AggregatorV3Interface {
@@ -368,7 +368,7 @@ Reserve:     10% of interest goes to protocol
 
 ## Why CREATE2 Proxies?
 
-Burve's `AssetBook` merges all value deposited by the same address into the same closure. If BurveLender held all positions directly, every user's collateral would be merged into one position — making individual liquidation impossible.
+Burve's `AssetBook` merges all value deposited by the same address into the same closure. If Lender held all positions directly, every user's collateral would be merged into one position — making individual liquidation impossible.
 
 Each position gets its own `PositionProxy` deployed via CREATE2, giving it a unique address in Burve's AssetBook:
 
@@ -395,8 +395,8 @@ Liquidating Position 0 calls removeValue on 0xAAA only.
 
 ```
 src/integrations/lender/
-├── BurveLender.sol              Main contract: deposit, borrow, repay, liquidate
-├── BurveLenderStorage.sol       Position and lending pool structs
+├── Lender.sol              Main contract: deposit, borrow, repay, liquidate
+├── LenderStorage.sol       Position and lending pool structs
 ├── PositionProxy.sol            CREATE2 proxy (1 per position)
 ├── PositionValuer.sol           Oracle-based USD valuation library
 ├── InterestRateModel.sol        Two-slope interest rate math
@@ -404,7 +404,7 @@ src/integrations/lender/
 └── DolomiteOracleAdapter.sol    Wraps Dolomite oracle behind AggregatorV3Interface
 
 src/integrations/looper/
-└── BurveLooper.sol              Leveraged position opener (iterative borrow-deposit)
+└── Looper.sol              Leveraged position opener (iterative borrow-deposit)
 ```
 
 ## Testing

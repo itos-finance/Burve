@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveLender} from "../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../src/integrations/lender/Lender.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {MockAggregator} from "./MockAggregator.sol";
 
@@ -16,7 +16,7 @@ import {MockAggregator} from "./MockAggregator.sol";
 ///
 /// Env vars:
 ///   DEPLOYER_PRIVATE_KEY — Anvil account private key (oracle owner)
-///   BURVE_LENDER — Address of deployed BurveLender
+///   BURVE_LENDER — Address of deployed Lender
 ///   CRASH_PRICE — (optional) New price in Chainlink 8-decimal format. Default: 50000000 ($0.50)
 ///
 /// Usage:
@@ -30,7 +30,7 @@ contract CrashOracle is Script {
         address lenderAddr = vm.envAddress("BURVE_LENDER");
         int256 crashPrice = int256(vm.envOr("CRASH_PRICE", uint256(50000000))); // default $0.50
 
-        BurveLender lender = BurveLender(lenderAddr);
+        Lender lender = Lender(lenderAddr);
         address[] memory tokens = IBurveMultiSimplex(DIAMOND).getTokens();
 
         // Log health factors before crash

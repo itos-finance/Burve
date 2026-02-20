@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {BurveLender} from "../../src/integrations/lender/BurveLender.sol";
+import {Lender} from "../../src/integrations/lender/Lender.sol";
 import {IBurveMultiSimplex} from "../../src/multi/interfaces/IBurveMultiSimplex.sol";
 import {MAX_TOKENS} from "../../src/multi/Constants.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -16,7 +16,7 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 ///
 /// Env vars:
 ///   DEPLOYER_PRIVATE_KEY — Anvil account private key (liquidator)
-///   BURVE_LENDER — Address of deployed BurveLender
+///   BURVE_LENDER — Address of deployed Lender
 ///   POSITION_ID — (optional) Specific position to liquidate. If not set, scans all.
 ///
 /// Usage:
@@ -29,7 +29,7 @@ contract Liquidate is Script {
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address liquidator = vm.addr(pk);
         address lenderAddr = vm.envAddress("BURVE_LENDER");
-        BurveLender lender = BurveLender(lenderAddr);
+        Lender lender = Lender(lenderAddr);
 
         address[] memory poolTokens = IBurveMultiSimplex(DIAMOND).getTokens();
 
