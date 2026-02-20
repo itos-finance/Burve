@@ -60,6 +60,7 @@ contract TestBurveLooper is MultiSetupTest {
         vm.stopPrank();
 
         lender = new BurveLender(ROUTER);
+        lender.setPoolAllowed(diamond, true);
         looper = new BurveLooper(address(lender));
 
         // Setup oracles
@@ -178,5 +179,132 @@ contract TestBurveLooper is MultiSetupTest {
         address fakeToken = makeAddr("fake");
         vm.expectRevert(BurveLooper.InvalidToken.selector);
         looper.openLoop(diamond, 3, fakeToken, 1000e18, 3);
+    }
+
+    /// @dev Helper to open a looped position and return the positionId.
+    function _openTestLoop() internal returns (uint256 positionId) {
+        _seedLendingPools(100_000e18);
+
+        address inToken = tokens[0];
+        uint16 closureId = 3;
+        uint256 inAmount = 1000e18;
+
+        MockERC20(inToken).mint(address(this), inAmount);
+        IERC20(inToken).approve(address(looper), inAmount);
+
+        positionId = looper.openLoop(diamond, closureId, inToken, inAmount, 3);
+    }
+
+    // ============================================================
+    //                     CLOSE LOOP TESTS
+    // ============================================================
+
+    function testCloseLoop() public {
+        uint256 positionId = _openTestLoop();
+
+        // Record balances before close
+        uint256[] memory balBefore = new uint256[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            balBefore[i] = IERC20(tokens[i]).balanceOf(address(this));
+        }
+
+        // User must repay debt. The Looper pulls debt tokens from user, so user needs to have them.
+        // Fund user with enough tokens to cover the debt
+        address inToken = tokens[0];
+        uint256 debt = lender.currentBorrow(positionId, inToken);
+        MockERC20(inToken).mint(address(this), debt);
+        IERC20(inToken).approve(address(looper), debt);
+
+        // Close the loop
+        uint256 outAmount = looper.closeLoop(positionId, inToken, 0);
+        console2.log("closeLoop outAmount", outAmount);
+
+        // Verify position is emptied
+        (,,,, uint256 depValue,) = lender.positions(positionId);
+        assertEq(depValue, 0, "deposited value should be 0 after close");
+
+        // Verify debt is repaid
+        uint256 owedAfter = lender.currentBorrow(positionId, inToken);
+        assertEq(owedAfter, 0, "debt should be 0 after close");
+
+        // Verify user received tokens back (sum across all tokens)
+        uint256 totalReceived;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            uint256 received = IERC20(tokens[i]).balanceOf(address(this)) - balBefore[i];
+            totalReceived += received;
+        }
+        console2.log("total tokens received", totalReceived);
+        assertGt(totalReceived, 0, "user should receive tokens back");
+    }
+
+    function testCloseLoopRevertsForNonOwner() public {
+        uint256 positionId = _openTestLoop();
+
+        vm.prank(bob);
+        vm.expectRevert(BurveLooper.NotPositionOwner.selector);
+        looper.closeLoop(positionId, tokens[0], 0);
+    }
+
+    // ============================================================
+    //                     REDUCE LOOP TESTS
+    // ============================================================
+
+    function testReduceLoop() public {
+        uint256 positionId = _openTestLoop();
+
+        (,,,, uint256 depValueBefore,) = lender.positions(positionId);
+        console2.log("deposited value before reduce", depValueBefore);
+
+        // Reduce by 10% of value (conservative to stay within LTV)
+        uint256 reduceBy = depValueBefore / 10;
+
+        uint256 outAmount = looper.reduceLoop(positionId, reduceBy, tokens[0], 0);
+        console2.log("reduceLoop outAmount", outAmount);
+
+        // Verify value reduced
+        (,,,, uint256 depValueAfter,) = lender.positions(positionId);
+        assertEq(depValueAfter, depValueBefore - reduceBy, "value should decrease by reduceBy");
+
+        // Position should still be healthy
+        uint256 hf = lender.healthFactor(positionId);
+        console2.log("health factor after reduce", hf);
+        assertGt(hf, 1e18, "position should remain healthy");
+    }
+
+    function testReduceLoopRevertsForNonOwner() public {
+        uint256 positionId = _openTestLoop();
+
+        vm.prank(bob);
+        vm.expectRevert(BurveLooper.NotPositionOwner.selector);
+        looper.reduceLoop(positionId, 100e18, tokens[0], 0);
+    }
+
+    // ============================================================
+    //                     POSITION OWNERSHIP TESTS
+    // ============================================================
+
+    function testPositionOwnerIsTracked() public {
+        uint256 positionId = _openTestLoop();
+        assertEq(looper.positionOwners(positionId), address(this), "position owner should be caller");
+    }
+
+    // ============================================================
+    //                     EARNINGS COLLECTION
+    // ============================================================
+
+    function testCollectEarningsRevertsForNonOwner() public {
+        uint256 positionId = _openTestLoop();
+
+        vm.prank(bob);
+        vm.expectRevert(BurveLooper.NotPositionOwner.selector);
+        looper.collectEarnings(positionId, bob);
+    }
+
+    function testCollectEarningsPassthrough() public {
+        uint256 positionId = _openTestLoop();
+
+        // Should not revert — the actual earnings might be zero in test
+        // but the call should pass through to BurveLender successfully
+        looper.collectEarnings(positionId, address(this));
     }
 }

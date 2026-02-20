@@ -47,6 +47,7 @@ contract E2EScenario is DealScript {
         vm.startBroadcast(pk);
 
         lender = new BurveLender(address(0xDEAD));
+        lender.setPoolAllowed(DIAMOND, true);
         helper = new PositionHelper(DIAMOND);
         console2.log("BurveLender:", address(lender));
         console2.log("PositionHelper:", address(helper));
@@ -138,11 +139,9 @@ contract E2EScenario is DealScript {
         console2.log("Target HF:", hfTarget);
 
         if (hfTarget < 1e18) {
-            address[] memory debtTokens = new address[](1);
-            debtTokens[0] = tokens[0];
             bytes[MAX_TOKENS] memory txData;
 
-            lender.liquidate(posTarget, txData, debtTokens);
+            lender.liquidate(posTarget, txData);
             console2.log("Liquidation executed!");
         } else {
             console2.log("Position still healthy, skipping");

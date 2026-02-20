@@ -56,7 +56,8 @@ contract TestSwapper is BurveForkableTest {
     }
 
     /// Open a position on the live Burve stablecoin pool (closure 3 = USDC+USDT),
-    /// collect earnings to the Swapper, then call swapAndForward to consolidate into USDC.
+    /// collect earnings to this test contract, approve Swapper, then call swapAndForward
+    /// to consolidate into USDC.
     function testSwapAndForwardTwoToken() public forkOnly {
         swapper = deploySwapperDeterministically();
 
@@ -69,24 +70,27 @@ contract TestSwapper is BurveForkableTest {
         console2.log("opened position value", posValue);
         assertGt(posValue, 0, "position should exist");
 
-        // --- Collect earnings to Swapper ---
+        // --- Collect earnings to this contract (not Swapper) ---
         IBurveMultiValue(diamond).collectEarnings(
-            address(swapper),
+            address(this),
             closureId
         );
 
-        // --- swapAndForward ---
-        // No router txData — the outToken's portion from collectEarnings flows through.
-        // Non-outToken stays in the swapper (in production OogaBooga txData would swap it).
+        // --- Approve Swapper and call swapAndForward ---
         address[] memory inTokens = new address[](1);
         inTokens[0] = poolTokens[1]; // USDT
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = IERC20(poolTokens[1]).balanceOf(address(this));
         bytes[] memory txData = new bytes[](1);
-        // empty txData[0] — skip USDT swap
+        // empty txData[0] — skip USDT swap (no router call)
+
+        IERC20(poolTokens[1]).approve(address(swapper), amounts[0]);
 
         uint256 outBefore = IERC20(outToken).balanceOf(address(this));
         uint256 totalOut = swapper.swapAndForward(
             outToken,
             inTokens,
+            amounts,
             txData,
             0
         );
@@ -117,23 +121,30 @@ contract TestSwapper is BurveForkableTest {
         console2.log("opened position value", posValue);
         assertGt(posValue, 0, "position should exist");
 
-        // --- Collect earnings to Swapper ---
+        // --- Collect earnings to this contract ---
         IBurveMultiValue(diamond).collectEarnings(
-            address(swapper),
+            address(this),
             closureId
         );
 
-        // --- swapAndForward ---
+        // --- Approve Swapper and call swapAndForward ---
         address[] memory inTokens = new address[](2);
         inTokens[0] = poolTokens[1]; // USDT
         inTokens[1] = poolTokens[2]; // HONEY
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = IERC20(poolTokens[1]).balanceOf(address(this));
+        amounts[1] = IERC20(poolTokens[2]).balanceOf(address(this));
         bytes[] memory txData = new bytes[](2);
         // empty txData — skip all swaps
+
+        IERC20(poolTokens[1]).approve(address(swapper), amounts[0]);
+        IERC20(poolTokens[2]).approve(address(swapper), amounts[1]);
 
         uint256 outBefore = IERC20(outToken).balanceOf(address(this));
         uint256 totalOut = swapper.swapAndForward(
             outToken,
             inTokens,
+            amounts,
             txData,
             0
         );

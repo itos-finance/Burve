@@ -72,6 +72,7 @@ contract TestBurveLender is MultiSetupTest {
 
         // Deploy BurveLender
         lender = new BurveLender(ROUTER);
+        lender.setPoolAllowed(diamond, true);
 
         // Deploy mock oracles for each pool token
         // All tokens at $1.00 (1e8 Chainlink precision)
@@ -137,7 +138,7 @@ contract TestBurveLender is MultiSetupTest {
 
         lender.depositLiquidity(token, 1_000e18);
 
-        (uint256 totalDeposited,,,,,uint256 totalShares) = lender.lendingPools(token);
+        (uint256 totalDeposited,,,,uint256 totalShares) = lender.lendingPools(token);
         assertEq(totalDeposited, 1_000e18, "total deposited should be 1000");
         assertEq(totalShares, 1_000e18, "initial shares should equal deposit");
         assertEq(lender.lpShares(token, address(this)), 1_000e18, "lp shares should match");
@@ -330,12 +331,10 @@ contract TestBurveLender is MultiSetupTest {
 
         // Attempt liquidation — should revert
         bytes[MAX_TOKENS] memory txData;
-        address[] memory debtTokens = new address[](1);
-        debtTokens[0] = borrowToken;
 
         vm.prank(bob);
         vm.expectRevert(BurveLender.PositionHealthy.selector);
-        lender.liquidate(positionId, txData, debtTokens);
+        lender.liquidate(positionId, txData);
     }
 
     // ============================================================
@@ -558,5 +557,511 @@ contract TestBurveLender is MultiSetupTest {
         lender.setCollateralFactor(tokens[0], 0);
         uint256 adjReset = lender.adjustedCollateralValueUSD(positionId);
         assertEq(adjReset, rawCol, "reset to 0 should restore full value");
+    }
+
+    // ============================================================
+    //                     LIQUIDATION TESTS
+    // ============================================================
+
+    function testLiquidationAfterPriceDrop() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        // Deposit collateral and borrow near max LTV
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        uint256 maxBorrow = lender.maxBorrowable(positionId, borrowToken);
+        // Borrow 60% of max. In a 2-token closure, removeValue returns ~50% per token.
+        // Without a real router swap, the debt must be coverable by the borrowed token's
+        // share of the removeValue proceeds alone (~500e18 of tokens[0]).
+        uint256 borrowAmount = (maxBorrow * 60) / 100;
+        lender.borrow(positionId, borrowToken, borrowAmount);
+
+        // Position should be healthy
+        uint256 hf = lender.healthFactor(positionId);
+        assertGt(hf, 1e18, "should be healthy before price drop");
+
+        // Drop only the NON-borrowed collateral token price aggressively.
+        // Closure 3 = tokens[0]+tokens[1]. We borrow tokens[0], so drop tokens[1] to crash collateral.
+        // At 60% max borrow (~$480 debt), collateral must drop below $480/0.85 = ~$565
+        // tokens[0] stays at $500, so tokens[1] must drop below $65 → price to $0.05
+        oracles[1].setPrice(0.05e8);
+
+        // Position should now be unhealthy
+        hf = lender.healthFactor(positionId);
+        console2.log("health factor after price drop", hf);
+        assertLt(hf, 1e18, "should be unhealthy after price drop");
+
+        // Liquidate
+        bytes[MAX_TOKENS] memory txData; // no swaps needed in mock
+
+        vm.prank(bob);
+        lender.liquidate(positionId, txData);
+
+        // Position should be emptied
+        (,,,,uint256 depValue,) = lender.positions(positionId);
+        assertEq(depValue, 0, "deposited value should be 0 after liquidation");
+    }
+
+    // ============================================================
+    //                     ADD COLLATERAL TESTS
+    // ============================================================
+
+    function testAddCollateral() public {
+        uint16 closureId = 3;
+        (uint256 positionId, uint256 posValue) = _depositCollateral(closureId, 500e18);
+
+        // Open a second position to have value to add
+        uint256 extraValue = _openPosition(closureId, 500e18);
+
+        // Approve and add
+        ValueTokenFacet(diamond).approve(address(lender), closureId, extraValue, 0);
+        lender.addCollateral(positionId, extraValue, 0);
+
+        (,,,,uint256 depValue,) = lender.positions(positionId);
+        assertEq(depValue, posValue + extraValue, "deposited value should increase");
+    }
+
+    // ============================================================
+    //                     REPAY MAX TESTS
+    // ============================================================
+
+    function testRepayMax() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 10_000e18);
+
+        // Deposit collateral and borrow
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+        lender.borrow(positionId, borrowToken, 100e18);
+
+        // Advance time to accrue interest
+        vm.warp(block.timestamp + 30 days);
+
+        uint256 owedNow = lender.currentBorrow(positionId, borrowToken);
+        assertGt(owedNow, 100e18, "interest should have accrued");
+
+        // Repay with max uint
+        MockERC20(borrowToken).mint(address(this), 1000e18); // extra to cover interest
+        IERC20(borrowToken).approve(address(lender), type(uint256).max);
+        lender.repay(positionId, borrowToken, type(uint256).max);
+
+        uint256 owedAfter = lender.currentBorrow(positionId, borrowToken);
+        assertEq(owedAfter, 0, "debt should be 0 after max repay");
+    }
+
+    // ============================================================
+    //                     ORACLE EDGE CASE TESTS
+    // ============================================================
+
+    function testOracleStalenessReverts() public {
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Warp forward 2 hours so oracles become stale (MAX_STALENESS = 1 hour)
+        vm.warp(block.timestamp + 2 hours);
+
+        // Querying value should revert with StaleOracle
+        vm.expectRevert();
+        lender.collateralValueUSD(positionId);
+    }
+
+    function testOracleZeroPriceReverts() public {
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Set price to 0
+        oracles[0].setPrice(0);
+
+        vm.expectRevert();
+        lender.collateralValueUSD(positionId);
+    }
+
+    // ============================================================
+    //                     WITHDRAWAL EDGE CASES
+    // ============================================================
+
+    function testWithdrawCollateralRevertsWhenBorrowedTooMuch() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        uint16 closureId = 3;
+        (uint256 positionId, uint256 posValue) = _depositCollateral(closureId, 1000e18);
+
+        // Borrow at ~75% LTV
+        uint256 colUSD = lender.collateralValueUSD(positionId);
+        uint256 borrowAmount = (colUSD * 75) / 100;
+        lender.borrow(positionId, borrowToken, borrowAmount);
+
+        // Try to withdraw most of the collateral — should fail
+        vm.expectRevert(BurveLender.WithdrawalWouldLiquidate.selector);
+        lender.withdrawCollateral(positionId, (posValue * 90) / 100, 0);
+    }
+
+    function testNotPositionOwnerReverts() public {
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Alice tries to withdraw — should fail
+        vm.prank(alice);
+        vm.expectRevert(BurveLender.NotPositionOwner.selector);
+        lender.withdrawCollateral(positionId, 100, 0);
+
+        // Alice tries to borrow — should fail
+        vm.prank(alice);
+        vm.expectRevert(BurveLender.NotPositionOwner.selector);
+        lender.borrow(positionId, tokens[0], 100);
+    }
+
+    // ============================================================
+    //                     LP INTEREST EARNING TESTS
+    // ============================================================
+
+    function testLPEarnsInterest() public {
+        address borrowToken = tokens[0];
+
+        // Alice deposits liquidity
+        MockERC20(borrowToken).mint(alice, 10_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 10_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 10_000e18);
+
+        // Deposit collateral and borrow (stay within 80% LTV)
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+        uint256 maxBorrow = lender.maxBorrowable(positionId, borrowToken);
+        lender.borrow(positionId, borrowToken, maxBorrow / 2); // borrow at 40% LTV
+
+        // Advance time
+        vm.warp(block.timestamp + 365.25 days);
+
+        // Repay borrow first to free liquidity
+        uint256 owed = lender.currentBorrow(positionId, borrowToken);
+        MockERC20(borrowToken).mint(address(this), owed);
+        IERC20(borrowToken).approve(address(lender), owed);
+        lender.repay(positionId, borrowToken, type(uint256).max);
+
+        // Alice withdraws all — should get more than deposited due to interest
+        uint256 aliceShares = lender.lpShares(borrowToken, alice);
+        uint256 aliceBalBefore = IERC20(borrowToken).balanceOf(alice);
+        vm.prank(alice);
+        lender.withdrawLiquidity(borrowToken, aliceShares);
+
+        uint256 aliceBalAfter = IERC20(borrowToken).balanceOf(alice);
+        uint256 received = aliceBalAfter - aliceBalBefore;
+        assertGt(received, 10_000e18, "LP should earn interest");
+        console2.log("LP earned", received - 10_000e18);
+    }
+
+    // ============================================================
+    //                     POOL WHITELIST TESTS
+    // ============================================================
+
+    function testPoolNotAllowedReverts() public {
+        // Deploy a fresh lender without whitelisting the pool
+        BurveLender freshLender = new BurveLender(ROUTER);
+        // Don't call setPoolAllowed
+
+        // Open position value
+        uint256 posValue = _openPosition(3, 1000e18);
+        ValueTokenFacet(diamond).approve(address(freshLender), 3, posValue, 0);
+
+        vm.expectRevert(BurveLender.PoolNotAllowed.selector);
+        freshLender.depositCollateral(diamond, 3, posValue, 0);
+    }
+
+    function testPoolWhitelistCanBeToggled() public {
+        // Deposit works with whitelist
+        uint256 posValue = _openPosition(3, 500e18);
+        ValueTokenFacet(diamond).approve(address(lender), 3, posValue, 0);
+        uint256 posId = lender.depositCollateral(diamond, 3, posValue, 0);
+        (,,,,uint256 dep,) = lender.positions(posId);
+        assertGt(dep, 0, "deposit should work with whitelist");
+
+        // Revoke whitelist
+        lender.setPoolAllowed(diamond, false);
+
+        // New deposits should fail
+        uint256 posValue2 = _openPosition(3, 500e18);
+        ValueTokenFacet(diamond).approve(address(lender), 3, posValue2, 0);
+        vm.expectRevert(BurveLender.PoolNotAllowed.selector);
+        lender.depositCollateral(diamond, 3, posValue2, 0);
+
+        // Re-enable
+        lender.setPoolAllowed(diamond, true);
+        lender.depositCollateral(diamond, 3, posValue2, 0);
+    }
+
+    // ============================================================
+    //                     WITHDRAW ALL WITH DEBT TEST
+    // ============================================================
+
+    function testWithdrawAllCollateralWithDebtReverts() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        uint16 closureId = 3;
+        (uint256 positionId, uint256 posValue) = _depositCollateral(closureId, 1000e18);
+
+        // Borrow small amount
+        lender.borrow(positionId, borrowToken, 10e18);
+
+        // Try to withdraw ALL collateral — should fail with HasOutstandingDebt
+        vm.expectRevert(BurveLender.HasOutstandingDebt.selector);
+        lender.withdrawCollateral(positionId, posValue, 0);
+    }
+
+    // ============================================================
+    //                     BORROW WITHOUT PRICE FEED TEST
+    // ============================================================
+
+    function testBorrowWithoutPriceFeedReverts() public {
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        // Create a token with no price feed
+        address noPriceFeedToken = makeAddr("noPriceFeed");
+
+        vm.expectRevert(BurveLender.NoPriceFeed.selector);
+        lender.borrow(positionId, noPriceFeedToken, 100e18);
+    }
+
+    // ============================================================
+    //                     LIQUIDATION SURPLUS DISTRIBUTION TEST
+    // ============================================================
+
+    function testLiquidationSurplusDistribution() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        // Deposit collateral and borrow conservatively
+        uint16 closureId = 3;
+        (uint256 positionId, ) = _depositCollateral(closureId, 1000e18);
+
+        uint256 maxBorrow = lender.maxBorrowable(positionId, borrowToken);
+        // Borrow 60% of max — high enough to become unhealthy on price drop,
+        // but low enough that tokens[0] proceeds from removeValue cover the debt
+        uint256 borrowAmount = (maxBorrow * 60) / 100;
+        lender.borrow(positionId, borrowToken, borrowAmount);
+
+        // Get borrower address before liquidation clears it
+        (address borrower,,,,,) = lender.positions(positionId);
+
+        // Aggressively drop non-borrowed token to trigger liquidation
+        oracles[1].setPrice(0.05e8);
+
+        uint256 hf = lender.healthFactor(positionId);
+        assertLt(hf, 1e18, "should be unhealthy");
+
+        // Record balances before liquidation
+        uint256 bobBalBefore = IERC20(borrowToken).balanceOf(bob);
+        uint256 borrowerBalBefore = IERC20(borrowToken).balanceOf(borrower);
+
+        bytes[MAX_TOKENS] memory txData;
+        vm.prank(bob);
+        lender.liquidate(positionId, txData);
+
+        // Verify liquidator received bonus (3% of surplus)
+        uint256 bobBalAfter = IERC20(borrowToken).balanceOf(bob);
+        assertGt(bobBalAfter, bobBalBefore, "liquidator should receive bonus");
+
+        // Verify borrower received remainder (95% of surplus)
+        uint256 borrowerBalAfter = IERC20(borrowToken).balanceOf(borrower);
+        assertGt(borrowerBalAfter, borrowerBalBefore, "borrower should receive surplus");
+
+        // Liquidator should get less than borrower (3% vs 95%)
+        uint256 liquidatorGain = bobBalAfter - bobBalBefore;
+        uint256 borrowerGain = borrowerBalAfter - borrowerBalBefore;
+        assertGt(borrowerGain, liquidatorGain, "borrower share should exceed liquidator share");
+
+        console2.log("liquidator bonus", liquidatorGain);
+        console2.log("borrower surplus", borrowerGain);
+
+        // Verify position is cleared
+        (address borrowerAfter,,,,uint256 depValue,) = lender.positions(positionId);
+        assertEq(depValue, 0, "deposited value should be 0");
+        assertEq(borrowerAfter, address(0), "borrower should be cleared");
+    }
+
+    // ============================================================
+    //                     MULTIPLE BORROWERS TEST
+    // ============================================================
+
+    function testMultiplePositionsIndependent() public {
+        address borrowToken = tokens[0];
+
+        // Seed lending pool
+        MockERC20(borrowToken).mint(alice, 100_000e18);
+        vm.prank(alice);
+        IERC20(borrowToken).approve(address(lender), 100_000e18);
+        vm.prank(alice);
+        lender.depositLiquidity(borrowToken, 100_000e18);
+
+        // Position 1: this contract
+        uint16 closureId = 3;
+        (uint256 pos1, ) = _depositCollateral(closureId, 1000e18);
+        lender.borrow(pos1, borrowToken, 100e18);
+
+        // Position 2: bob
+        uint256 posValue2 = _openPosition(closureId, 1000e18);
+        ValueTokenFacet(diamond).approve(address(bob), closureId, posValue2, 0);
+
+        vm.startPrank(bob);
+        ValueTokenFacet(diamond).approve(address(lender), closureId, posValue2, 0);
+        vm.stopPrank();
+
+        // Transfer value to bob so he can deposit
+        ValueTokenFacet(diamond).transfer(bob, closureId, posValue2, 0);
+
+        vm.startPrank(bob);
+        ValueTokenFacet(diamond).approve(address(lender), closureId, posValue2, 0);
+        uint256 pos2 = lender.depositCollateral(diamond, closureId, posValue2, 0);
+        lender.borrow(pos2, borrowToken, 50e18);
+        vm.stopPrank();
+
+        // Verify positions are independent
+        uint256 owed1 = lender.currentBorrow(pos1, borrowToken);
+        uint256 owed2 = lender.currentBorrow(pos2, borrowToken);
+        assertEq(owed1, 100e18, "pos1 debt should be 100");
+        assertEq(owed2, 50e18, "pos2 debt should be 50");
+
+        // Bob can't touch pos1
+        vm.prank(bob);
+        vm.expectRevert(BurveLender.NotPositionOwner.selector);
+        lender.borrow(pos1, borrowToken, 1e18);
+    }
+
+    // ============================================================
+    //                     SHARE INFLATION ATTACK TEST
+    // ============================================================
+
+    function testShareInflationMitigated() public {
+        address token = tokens[0];
+
+        // Attacker deposits 1 wei first, then donates a large amount to inflate share price
+        MockERC20(token).mint(alice, 1 + 10_000e18);
+        vm.startPrank(alice);
+        IERC20(token).approve(address(lender), type(uint256).max);
+        lender.depositLiquidity(token, 1); // Deposit 1 wei to get shares
+        vm.stopPrank();
+
+        // Attacker directly transfers tokens to inflate the pool
+        // (In real attack, attacker would use a different mechanism to donate)
+        // With virtual shares, this donation doesn't drastically affect the share price
+        vm.prank(alice);
+        IERC20(token).transfer(address(lender), 10_000e18);
+
+        // Victim deposits a normal amount
+        MockERC20(token).mint(bob, 1000e18);
+        vm.startPrank(bob);
+        IERC20(token).approve(address(lender), 1000e18);
+        lender.depositLiquidity(token, 1000e18);
+        vm.stopPrank();
+
+        // Victim should receive non-zero shares
+        uint256 bobShares = lender.lpShares(token, bob);
+        assertGt(bobShares, 0, "victim should receive shares even after donation attack");
+
+        // Victim should be able to withdraw a meaningful amount (not rounded to zero)
+        vm.prank(bob);
+        lender.withdrawLiquidity(token, bobShares);
+        uint256 bobBal = IERC20(token).balanceOf(bob);
+        // With virtual shares, bob shouldn't lose more than a tiny fraction
+        assertGt(bobBal, 900e18, "victim should recover most of deposit with virtual shares");
+    }
+
+    // ============================================================
+    //          BORROW RESTRICTED TO POOL TOKENS
+    // ============================================================
+
+    function testBorrowNonPoolTokenReverts() public {
+        // Deposit collateral
+        (uint256 positionId,) = _depositCollateral(0x3, 1000e18);
+
+        // Create a non-pool token and set up a price feed + liquidity for it
+        MockERC20 fakeToken = new MockERC20("FAKE", "FAKE", 18);
+        MockAggregator fakeOracle = new MockAggregator(1e8, 8);
+        lender.setPriceFeed(address(fakeToken), address(fakeOracle), 18);
+        fakeToken.mint(address(this), 10_000e18);
+        IERC20(address(fakeToken)).approve(address(lender), 10_000e18);
+        lender.depositLiquidity(address(fakeToken), 10_000e18);
+
+        // Attempt to borrow the non-pool token — should revert
+        vm.expectRevert(BurveLender.NotPoolToken.selector);
+        lender.borrow(positionId, address(fakeToken), 100e18);
+    }
+
+    // ============================================================
+    //          PROTOCOL REVENUE WITHDRAWAL
+    // ============================================================
+
+    function testClaimProtocolRevenue() public {
+        address token = tokens[0];
+
+        // LP deposits
+        MockERC20(token).mint(address(this), 10_000e18);
+        IERC20(token).approve(address(lender), 10_000e18);
+        lender.depositLiquidity(token, 10_000e18);
+
+        // Open position and borrow a small amount (10% of max to avoid LTV issues after interest)
+        (uint256 positionId,) = _depositCollateral(0x3, 1000e18);
+        uint256 maxBorrow = lender.maxBorrowable(positionId, token);
+        uint256 borrowAmt = maxBorrow / 10; // 10% of max — safe even with 1 year interest
+        lender.borrow(positionId, token, borrowAmt);
+
+        // Advance time for interest to accrue
+        vm.warp(block.timestamp + 365 days);
+
+        // Update oracle timestamps so they don't go stale
+        for (uint256 i = 0; i < oracles.length; i++) {
+            oracles[i].setPrice(1e8);
+        }
+
+        // Owner claims protocol revenue
+        address treasury = address(0xBEEF);
+        uint256 balBefore = IERC20(token).balanceOf(treasury);
+        lender.claimProtocolRevenue(token, treasury);
+        uint256 balAfter = IERC20(token).balanceOf(treasury);
+
+        // Revenue should be > 0 (interest reserve cut)
+        assertGt(balAfter - balBefore, 0, "protocol should receive revenue from interest reserves");
+    }
+
+    function testClaimProtocolRevenueOnlyOwner() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        lender.claimProtocolRevenue(tokens[0], alice);
     }
 }

@@ -91,7 +91,7 @@ contract PositionHelper is RFTPayer, Auto165 {
         address[] calldata tokens,
         int256[] calldata requests,
         bytes calldata
-    ) external returns (bytes memory) {
+    ) external returns (bytes memory ret) {
         require(msg.sender == _pool, "invalid caller");
         for (uint256 i = 0; i < tokens.length; i++) {
             if (requests[i] > 0) {

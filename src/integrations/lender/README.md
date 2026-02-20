@@ -288,7 +288,37 @@ interface AggregatorV3Interface {
 - **Debt valuation**: Converts raw borrow amounts to USD using oracle price and token decimals
 - **Staleness check**: Reverts if oracle data is older than 1 hour
 
-**Berachain context**: Berachain mainnet does NOT have traditional Chainlink push-based price feeds. Dolomite uses Chronicle + Redstone + Kodiak TWAP via OracleAggregatorV2. For production, adapter contracts wrapping Dolomite's oracle behind `AggregatorV3Interface` are needed. For testing, we deploy mock aggregators with `setPriceFeed()`.
+**Berachain context**: Berachain mainnet does NOT have traditional Chainlink push-based price feeds. Dolomite uses Chronicle + Redstone + Kodiak TWAP via OracleAggregatorV2. The `DolomiteOracleAdapter` wraps Dolomite's oracle behind `AggregatorV3Interface` for production use. For testing, we deploy mock aggregators with `setPriceFeed()`.
+
+### DolomiteOracleAdapter
+
+Converts Dolomite prices (precision: `36 - tokenDecimals` decimals) to Chainlink format (8 decimals):
+
+```
+Dolomite:  getPrice(token) → MonetaryPrice { value: priceWithPrecision }
+Adapter:   latestRoundData() → (0, chainlinkAnswer, now, now, 0)
+
+Conversion: chainlinkAnswer = dolomitePrice / 10^(28 - tokenDecimals)
+
+Examples:
+  USDC (6 dec):  1e30 (Dolomite $1.00) → 1e8 (Chainlink)
+  WETH (18 dec): 2000e18 (Dolomite $2000) → 2000e8 (Chainlink)
+  WBTC (8 dec):  60000e28 (Dolomite $60k) → 60000e8 (Chainlink)
+```
+
+**Deployed Dolomite oracle addresses (Berachain mainnet):**
+- OracleAggregatorV2: `0xa150Ef2D5827dB283321D15d62d5D07fB41d636E`
+- DolomiteMargin: `0x003Ca23Fd5F0ca87D01F6eC6CD14A8AE60c2b97D`
+
+Deploy one adapter per token:
+```solidity
+DolomiteOracleAdapter adapter = new DolomiteOracleAdapter(
+    0xa150Ef2D5827dB283321D15d62d5D07fB41d636E, // Dolomite OracleAggregatorV2
+    tokenAddress,
+    tokenDecimals
+);
+lender.setPriceFeed(tokenAddress, address(adapter), tokenDecimals);
+```
 
 ```
 Collateral USD = Σ (nominalShare[i] × oraclePrice[i] × collateralFactor[i] / 1e8)
@@ -358,30 +388,31 @@ Liquidating Position 0 calls removeValue on 0xAAA only.
 | Bad debt (collateral < debt at liquidation) | High | Unmitigated | LP insurance pool or bad debt socialization |
 | Dolomite withdrawal blocked (high util) | High | Unmitigated | Dynamic LTV or liquid reserve buffer |
 | Dolomite vault value loss | Medium | Partial (highWaterMark) | Tighter LTV, vault health monitoring |
-| Oracle divergence from Dolomite | Medium | Unmitigated | DolomiteOracleAdapter wrapping same feeds |
-| Multi-token debt surplus distribution | Medium | Bug exists | Fix surplus calc per debt token |
+| Oracle divergence from Dolomite | Medium | Mitigated | DolomiteOracleAdapter wraps Dolomite oracle behind AggregatorV3 |
+| Multi-token debt surplus distribution | Medium | Fixed | Surplus calc uses PRECISION denominator (3% caller, 2% protocol, 95% borrower) |
 
 ## Contract Structure
 
 ```
 src/integrations/lender/
-├── BurveLender.sol          Main contract: deposit, borrow, repay, liquidate
-├── BurveLenderStorage.sol   Position and lending pool structs
-├── PositionProxy.sol        CREATE2 proxy (1 per position)
-├── PositionValuer.sol       Oracle-based USD valuation library
-├── InterestRateModel.sol    Two-slope interest rate math
-└── AggregatorV3Interface.sol  Chainlink oracle interface
+├── BurveLender.sol              Main contract: deposit, borrow, repay, liquidate
+├── BurveLenderStorage.sol       Position and lending pool structs
+├── PositionProxy.sol            CREATE2 proxy (1 per position)
+├── PositionValuer.sol           Oracle-based USD valuation library
+├── InterestRateModel.sol        Two-slope interest rate math
+├── AggregatorV3Interface.sol    Chainlink oracle interface
+└── DolomiteOracleAdapter.sol    Wraps Dolomite oracle behind AggregatorV3Interface
 
 src/integrations/looper/
-└── BurveLooper.sol          Leveraged position opener (iterative borrow-deposit)
+└── BurveLooper.sol              Leveraged position opener (iterative borrow-deposit)
 ```
 
 ## Testing
 
 ```bash
 # Unit tests (no fork required)
-make test-lender          # 23 tests (including collateral factor tests)
-make test-looper          # 6 tests
+make test-lender          # 38 lender + 10 adapter = 48 tests
+make test-looper          # 11 tests
 
 # Fork tests against live Berachain diamond
 make anvil-fork           # Start Anvil in terminal 1

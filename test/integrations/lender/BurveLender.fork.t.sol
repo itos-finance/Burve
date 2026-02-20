@@ -64,6 +64,7 @@ contract TestBurveLenderFork is BurveForkableTest {
         // Deploy mock router and BurveLender fresh on top of forked state
         mockRouter = new MockStableRouter();
         lender = new BurveLender(address(mockRouter));
+        lender.setPoolAllowed(diamond, true);
 
         // Deploy mock oracles for the first 3 pool tokens (stablecoins) at $1.00
         for (uint256 i = 0; i < tokens.length && i < 3; i++) {
@@ -217,14 +218,11 @@ contract TestBurveLenderFork is BurveForkableTest {
         // without needing perfect swap routing.
         txData[1] = ""; // no swap
 
-        address[] memory debtTokens = new address[](1);
-        debtTokens[0] = borrowToken;
-
         // Record state before liquidation
         address liquidator = makeAddr("liquidator");
 
         vm.prank(liquidator);
-        lender.liquidate(positionId, txData, debtTokens);
+        lender.liquidate(positionId, txData);
 
         // Verify position is cleared
         (,,,,uint256 depValue,) = lender.positions(positionId);
@@ -255,13 +253,11 @@ contract TestBurveLenderFork is BurveForkableTest {
         assertGt(hf, 1e18, "position should be healthy");
 
         bytes[MAX_TOKENS] memory txData;
-        address[] memory debtTokens = new address[](1);
-        debtTokens[0] = borrowToken;
 
         address liquidator = makeAddr("liquidator");
         vm.prank(liquidator);
         vm.expectRevert(BurveLender.PositionHealthy.selector);
-        lender.liquidate(positionId, txData, debtTokens);
+        lender.liquidate(positionId, txData);
     }
 
     // ============================================================

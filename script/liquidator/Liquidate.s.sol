@@ -54,14 +54,11 @@ contract Liquidate is Script {
 
             console2.log("Liquidating position", i, "HF:", hf);
 
-            // Build debt tokens array — tokens that have borrows on this position
-            address[] memory debtTokens = _getDebtTokens(lender, i, poolTokens);
-
             // No swaps needed for Anvil test — empty txData
             bytes[MAX_TOKENS] memory txData;
 
             // Execute liquidation
-            lender.liquidate(i, txData, debtTokens);
+            lender.liquidate(i, txData);
 
             // Check result
             (,,,,uint256 depAfter,) = lender.positions(i);
@@ -83,28 +80,4 @@ contract Liquidate is Script {
         console2.log("Positions liquidated:", liquidated);
     }
 
-    function _getDebtTokens(
-        BurveLender lender,
-        uint256 positionId,
-        address[] memory poolTokens
-    ) internal view returns (address[] memory) {
-        // Count debt tokens
-        uint256 count;
-        for (uint256 i = 0; i < poolTokens.length; i++) {
-            if (lender.currentBorrow(positionId, poolTokens[i]) > 0) {
-                count++;
-            }
-        }
-
-        // Build array
-        address[] memory debtTokens = new address[](count);
-        uint256 idx;
-        for (uint256 i = 0; i < poolTokens.length; i++) {
-            if (lender.currentBorrow(positionId, poolTokens[i]) > 0) {
-                debtTokens[idx++] = poolTokens[i];
-            }
-        }
-
-        return debtTokens;
-    }
 }

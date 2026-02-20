@@ -8,9 +8,9 @@ import {PositionProxy} from "./PositionProxy.sol";
 import {IBurveMultiValue} from "../../multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../multi/interfaces/IBurveMultiSimplex.sol";
 import {ValueTokenFacet} from "../../multi/facets/ValueTokenFacet.sol";
-import {IAdjustor} from "../adjustor/IAdjustor.sol";
 import {MAX_TOKENS} from "../../multi/Constants.sol";
 import {FullMath} from "../../FullMath.sol";
+import {SafeCast} from "Commons/Math/Cast.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardTransient} from "openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
@@ -31,6 +31,8 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     uint256 public constant MIN_POSITION_USD = 100e18;    // $100 minimum
     uint256 public constant PRECISION = 1e18;
     uint256 internal constant X128 = 1 << 128;
+    uint256 internal constant VIRTUAL_SHARES = 1e3;  // Virtual shares offset to prevent share inflation attack
+    uint256 internal constant VIRTUAL_DEPOSIT = 1e3;  // Virtual deposit offset
 
     // --- State ---
     uint256 public nextPositionId;
@@ -57,6 +59,9 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     /// The swap router for liquidation swaps (e.g. OogaBooga).
     address public router;
 
+    /// Whitelisted Burve diamond pools.
+    mapping(address => bool) public allowedPools;
+
     // --- Events ---
     event CollateralDeposited(uint256 indexed positionId, address indexed borrower, address pool, uint16 closureId, uint256 value, uint256 bgtValue);
     event CollateralWithdrawn(uint256 indexed positionId, uint256 value, uint256 bgtValue);
@@ -82,6 +87,10 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
     error NoPriceFeed();
     error WithdrawalWouldLiquidate();
     error InvalidCollateralFactor();
+    error HasOutstandingDebt();
+    error LiquidationShortfall();
+    error PoolNotAllowed();
+    error NotPoolToken();
 
     constructor(address _router) Ownable(msg.sender) {
         router = _router;
@@ -112,6 +121,26 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         emit CollateralFactorSet(token, factor);
     }
 
+    /// @notice Whitelist or de-whitelist a Burve diamond pool.
+    function setPoolAllowed(address pool, bool allowed) external onlyOwner {
+        allowedPools[pool] = allowed;
+    }
+
+    /// @notice Withdraw accumulated protocol revenue for a token.
+    ///         Revenue = contract balance - LP available liquidity (totalDeposited - totalBorrowed).
+    /// @param token The token to claim revenue for.
+    /// @param to The recipient address.
+    function claimProtocolRevenue(address token, address to) external onlyOwner {
+        _accrueInterest(token);
+        LendingPool storage pool = lendingPools[token];
+        uint256 available = pool.totalDeposited - pool.totalBorrowed;
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance > available) {
+            uint256 revenue = balance - available;
+            IERC20(token).safeTransfer(to, revenue);
+        }
+    }
+
     // ============================================================
     //                     BORROWER FUNCTIONS
     // ============================================================
@@ -130,6 +159,7 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         uint256 bgtValue
     ) external nonReentrant returns (uint256 positionId) {
         if (value == 0) revert ZeroAmount();
+        if (!allowedPools[pool]) revert PoolNotAllowed();
 
         positionId = nextPositionId++;
 
@@ -199,8 +229,12 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         uint256 amount
     ) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
+        if (priceFeeds[token] == address(0)) revert NoPriceFeed();
         LoanPosition storage pos = positions[positionId];
         if (pos.borrower != msg.sender) revert NotPositionOwner();
+
+        // Validate token is a pool token (prevents invisible debt via non-pool borrows)
+        _validatePoolToken(pos.pool, token);
 
         // Accrue interest on this token's lending pool
         _accrueInterest(token);
@@ -282,10 +316,14 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         );
 
         // Check health after withdrawal (using risk-adjusted collateral)
-        if (pos.depositedValue > 0) {
+        uint256 debtUSD = borrowValueUSD(positionId);
+        if (debtUSD > 0) {
+            // Cannot withdraw all collateral while debt remains
+            if (pos.depositedValue == 0 && pos.depositedBgtValue == 0) {
+                revert HasOutstandingDebt();
+            }
             uint256 adjColUSD = adjustedCollateralValueUSD(positionId);
-            uint256 debtUSD = borrowValueUSD(positionId);
-            if (debtUSD > 0 && debtUSD * PRECISION > adjColUSD * MAX_LTV) {
+            if (debtUSD * PRECISION > adjColUSD * MAX_LTV) {
                 revert WithdrawalWouldLiquidate();
             }
         }
@@ -307,13 +345,13 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
 
         LendingPool storage pool = lendingPools[token];
 
-        // Calculate shares
-        uint256 shares;
-        if (pool.totalShares == 0) {
-            shares = amount;
-        } else {
-            shares = FullMath.mulDiv(amount, pool.totalShares, pool.totalDeposited);
-        }
+        // Calculate shares using virtual offset to prevent first-depositor inflation attack.
+        // shares = amount * (totalShares + VIRTUAL_SHARES) / (totalDeposited + VIRTUAL_DEPOSIT)
+        uint256 shares = FullMath.mulDiv(
+            amount,
+            pool.totalShares + VIRTUAL_SHARES,
+            pool.totalDeposited + VIRTUAL_DEPOSIT
+        );
 
         pool.totalDeposited += amount;
         pool.totalShares += shares;
@@ -335,7 +373,11 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
 
         LendingPool storage pool = lendingPools[token];
 
-        uint256 amount = FullMath.mulDiv(shares, pool.totalDeposited, pool.totalShares);
+        uint256 amount = FullMath.mulDiv(
+            shares,
+            pool.totalDeposited + VIRTUAL_DEPOSIT,
+            pool.totalShares + VIRTUAL_SHARES
+        );
 
         uint256 available = pool.totalDeposited - pool.totalBorrowed;
         if (amount > available) revert InsufficientLiquidity();
@@ -355,21 +397,26 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
 
     /// @notice Liquidate an unhealthy position.
     /// @dev Calls removeValue on Burve via the proxy, swaps tokens via router, repays debt.
+    ///      Debt tokens are enumerated internally — not caller-supplied.
     /// @param positionId The position to liquidate.
-    /// @param txData Swap calldata for each non-debt token (router calls).
-    /// @param debtTokens The tokens that are borrowed (to repay).
+    /// @param txData Swap calldata for each pool token (indexed by pool token order). Empty = skip.
     function liquidate(
         uint256 positionId,
-        bytes[MAX_TOKENS] memory txData,
-        address[] calldata debtTokens
+        bytes[MAX_TOKENS] memory txData
     ) external nonReentrant {
         LoanPosition storage pos = positions[positionId];
         if (pos.borrower == address(0)) revert PositionNotFound();
 
-        // Accrue interest on all debt tokens
-        for (uint256 i = 0; i < debtTokens.length; i++) {
-            _accrueInterest(debtTokens[i]);
-            _settlePositionBorrow(positionId, debtTokens[i]);
+        // Get pool tokens and accrue interest + settle for all tokens with borrows
+        address[] memory poolTokens = IBurveMultiSimplex(pos.pool).getTokens();
+        uint256[] memory owedPerToken = new uint256[](poolTokens.length);
+
+        for (uint256 i = 0; i < poolTokens.length; i++) {
+            if (tokenBorrows[positionId][poolTokens[i]] > 0) {
+                _accrueInterest(poolTokens[i]);
+                _settlePositionBorrow(positionId, poolTokens[i]);
+                owedPerToken[i] = tokenBorrows[positionId][poolTokens[i]];
+            }
         }
 
         // Check that position is unhealthy (using risk-adjusted collateral)
@@ -377,18 +424,21 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         uint256 debtUSD = borrowValueUSD(positionId);
         if (debtUSD * PRECISION <= adjColUSD * LIQUIDATION_LTV) revert PositionHealthy();
 
-        // Remove all value from Burve via proxy
+        // Snapshot all token balances before liquidation to detect output
+        uint256[] memory balBefore = new uint256[](poolTokens.length);
+        for (uint256 i = 0; i < poolTokens.length; i++) {
+            balBefore[i] = IERC20(poolTokens[i]).balanceOf(address(this));
+        }
+
+        // Remove all value from Burve via proxy (safe cast: depositedValue should fit uint128)
         uint256[MAX_TOKENS] memory minAmounts;
         PositionProxy(pos.proxy).execute(
             pos.pool,
             abi.encodeCall(
                 IBurveMultiValue.removeValue,
-                (pos.proxy, pos.closureId, uint128(pos.depositedValue), uint128(pos.depositedBgtValue), minAmounts)
+                (pos.proxy, pos.closureId, SafeCast.toUint128(pos.depositedValue), SafeCast.toUint128(pos.depositedBgtValue), minAmounts)
             )
         );
-
-        // Get pool tokens
-        address[] memory poolTokens = IBurveMultiSimplex(pos.pool).getTokens();
 
         // Transfer all received tokens from proxy to this contract
         for (uint256 i = 0; i < poolTokens.length; i++) {
@@ -406,48 +456,58 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
             IERC20(poolTokens[i]).forceApprove(router, bal);
             (bool success, ) = router.call(txData[i]);
             if (!success) revert RouterFailure();
+            IERC20(poolTokens[i]).forceApprove(router, 0);
         }
 
-        // Repay debts and calculate amounts
-        uint256 totalDebtRepaid;
-        for (uint256 i = 0; i < debtTokens.length; i++) {
-            uint256 owed = tokenBorrows[positionId][debtTokens[i]];
-            if (owed == 0) continue;
+        // Repay debts and verify sufficient tokens received
+        address borrower = pos.borrower;
+        for (uint256 i = 0; i < poolTokens.length; i++) {
+            if (owedPerToken[i] == 0) continue;
 
-            lendingPools[debtTokens[i]].totalBorrowed -= owed;
-            tokenBorrows[positionId][debtTokens[i]] = 0;
-            totalDebtRepaid += owed;
-        }
+            // Verify the contract has enough tokens to cover the debt
+            uint256 bal = IERC20(poolTokens[i]).balanceOf(address(this));
+            uint256 received = bal - balBefore[i];
+            if (received < owedPerToken[i]) revert LiquidationShortfall();
 
-        // Calculate liquidation penalty and bonus
-        // 3% to caller, 2% to protocol (retained in contract)
-        uint256 callerBonus;
-        for (uint256 i = 0; i < debtTokens.length; i++) {
-            uint256 bal = IERC20(debtTokens[i]).balanceOf(address(this));
-            uint256 owed = totalDebtRepaid; // simplified: single debt token most common
-            if (bal > owed) {
-                uint256 surplus = bal - owed;
-                uint256 bonus = FullMath.mulDiv(surplus, LIQUIDATION_CALLER_BONUS, LIQUIDATION_PENALTY);
-                if (bonus > surplus) bonus = surplus;
-                callerBonus += bonus;
-                // Send bonus to liquidator
-                IERC20(debtTokens[i]).safeTransfer(msg.sender, bonus);
-                // Remainder after protocol cut goes to borrower
-                uint256 protocolCut = surplus - bonus;
-                uint256 borrowerReturn = 0;
-                if (protocolCut > FullMath.mulDiv(surplus, LIQUIDATION_PENALTY - LIQUIDATION_CALLER_BONUS, LIQUIDATION_PENALTY)) {
-                    borrowerReturn = protocolCut - FullMath.mulDiv(surplus, LIQUIDATION_PENALTY - LIQUIDATION_CALLER_BONUS, LIQUIDATION_PENALTY);
-                    protocolCut -= borrowerReturn;
-                }
+            // Clear debt accounting
+            lendingPools[poolTokens[i]].totalBorrowed -= owedPerToken[i];
+            tokenBorrows[positionId][poolTokens[i]] = 0;
+
+            // Distribute surplus: 3% to liquidator, 2% to protocol, rest to borrower
+            uint256 surplus = received - owedPerToken[i];
+            if (surplus > 0) {
+                uint256 bonus = FullMath.mulDiv(surplus, LIQUIDATION_CALLER_BONUS, PRECISION);
+                uint256 protocolCut = FullMath.mulDiv(surplus, LIQUIDATION_PENALTY - LIQUIDATION_CALLER_BONUS, PRECISION);
+                uint256 borrowerReturn = surplus - bonus - protocolCut;
+                IERC20(poolTokens[i]).safeTransfer(msg.sender, bonus);
                 if (borrowerReturn > 0) {
-                    IERC20(debtTokens[i]).safeTransfer(pos.borrower, borrowerReturn);
+                    IERC20(poolTokens[i]).safeTransfer(borrower, borrowerReturn);
+                }
+                // protocolCut stays in the contract as protocol revenue
+            }
+        }
+
+        // Sweep non-debt token balances back to borrower
+        for (uint256 i = 0; i < poolTokens.length; i++) {
+            if (owedPerToken[i] > 0) continue;
+            uint256 bal = IERC20(poolTokens[i]).balanceOf(address(this));
+            uint256 received = bal - balBefore[i];
+            if (received > 0) {
+                // Apply penalty to non-debt token surplus as well
+                uint256 bonus = FullMath.mulDiv(received, LIQUIDATION_CALLER_BONUS, PRECISION);
+                uint256 protocolCut = FullMath.mulDiv(received, LIQUIDATION_PENALTY - LIQUIDATION_CALLER_BONUS, PRECISION);
+                uint256 borrowerReturn = received - bonus - protocolCut;
+                IERC20(poolTokens[i]).safeTransfer(msg.sender, bonus);
+                if (borrowerReturn > 0) {
+                    IERC20(poolTokens[i]).safeTransfer(borrower, borrowerReturn);
                 }
             }
         }
 
-        // Clean up position
+        // Clean up position fully (Finding 18: clear borrower to prevent reuse)
         pos.depositedValue = 0;
         pos.depositedBgtValue = 0;
+        pos.borrower = address(0);
 
         emit Liquidated(positionId, msg.sender, adjColUSD, debtUSD);
     }
@@ -524,7 +584,7 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
             uint256 owed = _currentBorrow(positionId, token);
             uint8 decimals = tokenDecimals[token];
             address feed = priceFeeds[token];
-            if (feed == address(0)) continue;
+            if (feed == address(0)) revert NoPriceFeed();
             totalUSD += PositionValuer.valueTokenUSD(token, owed, decimals, feed);
         }
     }
@@ -639,7 +699,6 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         LendingPool storage pool = lendingPools[token];
         if (pool.lastAccrualTimestamp == 0) {
             pool.borrowIndexX128 = X128;
-            pool.supplyIndexX128 = X128;
             pool.lastAccrualTimestamp = block.timestamp;
             return;
         }
@@ -665,16 +724,6 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         uint256 reserveCut = FullMath.mulDiv(interestEarned, InterestRateModel.RESERVE_FACTOR, PRECISION);
         pool.totalBorrowed += interestEarned;
         pool.totalDeposited += interestEarned - reserveCut;
-
-        // Update supply index
-        if (pool.totalShares > 0 && pool.totalDeposited > 0) {
-            uint256 supplyMultiplier = InterestRateModel.getSupplyMultiplierX128(
-                pool.totalBorrowed - interestEarned, // use pre-accrual for consistency
-                pool.totalDeposited - (interestEarned - reserveCut),
-                timeDelta
-            );
-            pool.supplyIndexX128 = FullMath.mulDiv(pool.supplyIndexX128, supplyMultiplier, X128);
-        }
 
         pool.lastAccrualTimestamp = block.timestamp;
     }
@@ -728,5 +777,14 @@ contract BurveLender is ReentrancyGuardTransient, Ownable {
         uint256 bgtValue
     ) internal view returns (uint256) {
         return PositionValuer.valuePositionUSD(pool, closureId, value, bgtValue, priceFeeds);
+    }
+
+    /// @dev Validate that a token is in the pool's token list.
+    function _validatePoolToken(address pool, address token) internal view {
+        address[] memory tokens = IBurveMultiSimplex(pool).getTokens();
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == token) return;
+        }
+        revert NotPoolToken();
     }
 }

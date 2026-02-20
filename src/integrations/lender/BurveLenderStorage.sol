@@ -16,7 +16,6 @@ struct LendingPool {
     uint256 totalDeposited;     // Total tokens deposited by LPs
     uint256 totalBorrowed;      // Total tokens currently borrowed
     uint256 borrowIndexX128;    // Cumulative interest index (Q128)
-    uint256 supplyIndexX128;    // Cumulative supply index (Q128)
     uint256 lastAccrualTimestamp;
     uint256 totalShares;        // LP share tracking
 }

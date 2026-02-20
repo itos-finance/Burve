@@ -45,6 +45,7 @@ contract TestBurveLooperFork is BurveForkableTest {
         if (!forking) return;
 
         lender = new BurveLender(MOCK_ROUTER);
+        lender.setPoolAllowed(diamond, true);
         looper = new BurveLooper(address(lender));
 
         // Setup mock oracles for first 3 tokens at $1.00

@@ -30,6 +30,8 @@ library InterestRateModel {
         if (totalDeposited == 0) return BASE_RATE;
 
         uint256 utilization = (totalBorrowed * PRECISION) / totalDeposited;
+        // Cap utilization at 100% (can exceed if totalBorrowed grows with interest)
+        if (utilization > PRECISION) utilization = PRECISION;
 
         if (utilization <= OPTIMAL_UTILIZATION) {
             // Linear interpolation: base + slope1 * (util / optimal)
@@ -40,23 +42,6 @@ library InterestRateModel {
             uint256 maxExcess = PRECISION - OPTIMAL_UTILIZATION;
             borrowRate = BASE_RATE + SLOPE1 + (SLOPE2 * excessUtil) / maxExcess;
         }
-    }
-
-    /// @notice Calculate the supply rate given the borrow rate and utilization.
-    /// @param totalBorrowed Total amount currently borrowed.
-    /// @param totalDeposited Total amount deposited by LPs.
-    /// @return supplyRate The annualized supply rate (1e18 = 100%).
-    function getSupplyRate(
-        uint256 totalBorrowed,
-        uint256 totalDeposited
-    ) internal pure returns (uint256 supplyRate) {
-        if (totalDeposited == 0) return 0;
-
-        uint256 borrowRate = getBorrowRate(totalBorrowed, totalDeposited);
-        uint256 utilization = (totalBorrowed * PRECISION) / totalDeposited;
-
-        // supplyRate = borrowRate * utilization * (1 - reserveFactor)
-        supplyRate = (borrowRate * utilization * (PRECISION - RESERVE_FACTOR)) / (PRECISION * PRECISION);
     }
 
     /// @notice Calculate the borrow index multiplier for a given time delta.
@@ -74,17 +59,4 @@ library InterestRateModel {
         borrowMultiplierX128 = X128 + (X128 * borrowRate * timeDelta) / (SECONDS_PER_YEAR * PRECISION);
     }
 
-    /// @notice Calculate the supply index multiplier for a given time delta.
-    /// @param totalBorrowed Total amount currently borrowed.
-    /// @param totalDeposited Total amount deposited by LPs.
-    /// @param timeDelta Seconds elapsed since last accrual.
-    /// @return supplyMultiplierX128 Multiplier to apply to supplyIndexX128 (Q128).
-    function getSupplyMultiplierX128(
-        uint256 totalBorrowed,
-        uint256 totalDeposited,
-        uint256 timeDelta
-    ) internal pure returns (uint256 supplyMultiplierX128) {
-        uint256 supplyRate = getSupplyRate(totalBorrowed, totalDeposited);
-        supplyMultiplierX128 = X128 + (X128 * supplyRate * timeDelta) / (SECONDS_PER_YEAR * PRECISION);
-    }
 }

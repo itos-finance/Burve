@@ -29,6 +29,7 @@ contract DeployLenderAnvil is Script {
 
         // Deploy BurveLender
         BurveLender lender = new BurveLender(MOCK_ROUTER);
+        lender.setPoolAllowed(DIAMOND, true);
         console2.log("BurveLender:", address(lender));
 
         // Deploy BurveLooper

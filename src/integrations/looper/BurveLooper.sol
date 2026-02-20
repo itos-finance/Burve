@@ -9,7 +9,6 @@ import {BurveLender} from "../lender/BurveLender.sol";
 import {IBurveMultiValue} from "../../multi/interfaces/IBurveMultiValue.sol";
 import {IBurveMultiSimplex} from "../../multi/interfaces/IBurveMultiSimplex.sol";
 import {ValueTokenFacet} from "../../multi/facets/ValueTokenFacet.sol";
-import {IAdjustor} from "../adjustor/IAdjustor.sol";
 import {MAX_TOKENS} from "../../multi/Constants.sol";
 import {FullMath} from "../../FullMath.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -28,6 +27,9 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
 
     /// @dev Transient storage for the pool address during RFT callbacks.
     address public transient _pool;
+
+    /// @notice Maps BurveLender position IDs to the user who created them via openLoop.
+    mapping(uint256 => address) public positionOwners;
 
     // --- Errors ---
     error InvalidIterations();
@@ -101,6 +103,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
 
         // Post initial value as collateral in BurveLender
         positionId = LENDER.depositCollateral(pool, closureId, valueReceived, 0);
+        positionOwners[positionId] = msg.sender;
 
         // Track the last value received for computing safe borrow amounts
         uint256 lastValueReceived = valueReceived;
@@ -165,8 +168,8 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         address outToken,
         uint256 minOutAmount
     ) external nonReentrant returns (uint256 outAmount) {
-        (address borrower, address pool, uint16 closureId,, uint256 depositedValue, uint256 depositedBgtValue) = LENDER.positions(positionId);
-        if (borrower != msg.sender) revert NotPositionOwner();
+        if (positionOwners[positionId] != msg.sender) revert NotPositionOwner();
+        (, address pool, uint16 closureId,, uint256 depositedValue, uint256 depositedBgtValue) = LENDER.positions(positionId);
 
         _pool = pool;
 
@@ -190,8 +193,8 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         IBurveMultiValue(pool).removeValue(
             address(this),
             closureId,
-            uint128(depositedValue),
-            uint128(depositedBgtValue),
+            SafeCast.toUint128(depositedValue),
+            SafeCast.toUint128(depositedBgtValue),
             minAmounts
         );
 
@@ -226,8 +229,8 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         address outToken,
         uint256 minOutAmount
     ) external nonReentrant returns (uint256 outAmount) {
-        (address borrower, address pool, uint16 closureId,,,) = LENDER.positions(positionId);
-        if (borrower != msg.sender) revert NotPositionOwner();
+        if (positionOwners[positionId] != msg.sender) revert NotPositionOwner();
+        (, address pool, uint16 closureId,,,) = LENDER.positions(positionId);
 
         _pool = pool;
 
@@ -239,7 +242,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         IBurveMultiValue(pool).removeValue(
             address(this),
             closureId,
-            uint128(reduceValueBy),
+            SafeCast.toUint128(reduceValueBy),
             0,
             minAmounts
         );
@@ -263,9 +266,26 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
             IERC20(outToken).safeTransfer(msg.sender, outAmount);
         }
 
+        // Sweep any remaining non-outToken balances back to user
+        for (uint256 i = 0; i < poolTokens.length; i++) {
+            if (poolTokens[i] == outToken) continue;
+            uint256 bal = IERC20(poolTokens[i]).balanceOf(address(this));
+            if (bal > 0) {
+                IERC20(poolTokens[i]).safeTransfer(msg.sender, bal);
+            }
+        }
+
         _pool = address(0);
 
         emit LoopReduced(positionId, reduceValueBy, outAmount);
+    }
+
+    /// @notice Collect Burve trading fee earnings from a looped position.
+    /// @param positionId The BurveLender position ID.
+    /// @param recipient Where to send the earnings.
+    function collectEarnings(uint256 positionId, address recipient) external nonReentrant {
+        if (positionOwners[positionId] != msg.sender) revert NotPositionOwner();
+        LENDER.collectPositionEarnings(positionId, recipient);
     }
 
     /// @notice Estimate the result of a loop before executing.
@@ -306,7 +326,7 @@ contract BurveLooper is RFTPayer, Auto165, ReentrancyGuardTransient {
         address[] calldata tokens,
         int256[] calldata requests,
         bytes calldata
-    ) external returns (bytes memory) {
+    ) external returns (bytes memory ret) {
         require(msg.sender == _pool, InvalidCaller());
 
         for (uint256 i = 0; i < tokens.length; i++) {
