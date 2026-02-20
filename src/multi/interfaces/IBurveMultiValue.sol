@@ -52,6 +52,17 @@ interface IBurveMultiValue {
         uint128 minValue
     ) external returns (uint256 valueReceived);
 
+    /// Add exact amounts of multiple tokens to add value to a given closure in a single call.
+    /// Emits a single AddValue event instead of one per token.
+    function addBatchSingleForValue(
+        address recipient,
+        uint16 _closureId,
+        address[] calldata tokens,
+        uint128[] calldata amounts,
+        uint256 bgtPercentX256,
+        uint128 minTotalValue
+    ) external returns (uint256 totalValueReceived);
+
     /// Remove an exact amount of a single token to remove value from a given closure.
     function removeSingleForValue(
         address recipient,

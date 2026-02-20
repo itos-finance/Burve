@@ -153,21 +153,35 @@ contract Opener is RFTPayer, Auto165, ReentrancyGuardTransient {
             amountLimits
         );
 
-        // Single deposit any remaining amounts of each token
-        for (uint256 i = 0; i < tokens.length; i++) {
-            uint128 balance = SafeCast.toUint128(IERC20(tokens[i]).balanceOf(address(this)));
-            uint256 spend = myBalances[i] - balance;
-            // If for some reason we have a large residual of any token, that means the prices were moved
-            // out of proportion from our expectations, potentially from a malicious actor.
-            if (spend < minSpend[i]) {
-                revert AmountSlippageExceeded();
+        // Batch deposit any remaining amounts of each token (single AddValue event)
+        {
+            uint256 batchCount;
+            for (uint256 i = 0; i < tokens.length; i++) {
+                uint128 balance = SafeCast.toUint128(IERC20(tokens[i]).balanceOf(address(this)));
+                uint256 spend = myBalances[i] - balance;
+                if (spend < minSpend[i]) {
+                    revert AmountSlippageExceeded();
+                }
+                if (balance > 0) batchCount++;
             }
-            if (balance > 0) {
-                addedValue += IBurveMultiValue(pool).addSingleForValue(
+
+            if (batchCount > 0) {
+                address[] memory batchTokens = new address[](batchCount);
+                uint128[] memory batchAmounts = new uint128[](batchCount);
+                uint256 idx;
+                for (uint256 i = 0; i < tokens.length; i++) {
+                    uint128 balance = SafeCast.toUint128(IERC20(tokens[i]).balanceOf(address(this)));
+                    if (balance > 0) {
+                        batchTokens[idx] = tokens[i];
+                        batchAmounts[idx] = balance;
+                        idx++;
+                    }
+                }
+                addedValue += IBurveMultiValue(pool).addBatchSingleForValue(
                     msg.sender,
                     closureId,
-                    tokens[i],
-                    balance,
+                    batchTokens,
+                    batchAmounts,
                     bgtPercentX256,
                     0
                 );

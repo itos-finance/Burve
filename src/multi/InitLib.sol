@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import {ValueFacet, ValueSingleFacet} from "./facets/ValueFacet.sol";
 import {AddTokenValueFacet, RemoveTokenValueFacet, QueryValueFacet} from "./facets/ValueFacet.sol";
+import {BatchValueFacet} from "./facets/BatchValueFacet.sol";
 import {ValueTokenFacet} from "./facets/ValueTokenFacet.sol";
 import {SimplexAdminFacet, SimplexSetFacet, SimplexGetFacet} from "./facets/SimplexFacet.sol";
 import {SwapFacet} from "./facets/SwapFacet.sol";
@@ -16,6 +17,7 @@ struct BurveFacets {
     address addTokenValueFacet;
     address removeTokenValueFacet;
     address queryValueFacet;
+    address batchValueFacet;
     // Simplex facets
     address simplexAdminFacet;
     address simplexSetFacet;
@@ -37,6 +39,7 @@ library InitLib {
         facets.addTokenValueFacet = address(new AddTokenValueFacet());
         facets.removeTokenValueFacet = address(new RemoveTokenValueFacet());
         facets.queryValueFacet = address(new QueryValueFacet());
+        facets.batchValueFacet = address(new BatchValueFacet());
 
         facets.simplexAdminFacet = address(new SimplexAdminFacet());
         facets.simplexSetFacet = address(new SimplexSetFacet());
