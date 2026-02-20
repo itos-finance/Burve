@@ -30,7 +30,6 @@ contract TestCondenser is BurveForkableTest {
     }
 
     /// Helper: deal tokens for a closure, approve the diamond, and addValue to open a position.
-    /// @return posValue The value of the opened position.
     function _openPosition(
         uint16 closureId,
         uint128 depositValue
@@ -56,8 +55,7 @@ contract TestCondenser is BurveForkableTest {
         );
     }
 
-    /// Open a position on the live Burve stablecoin pool (closure 3 = USDC+USDT),
-    /// collect earnings to the Condenser, then call swapAndForward to consolidate into USDC.
+    /// Collect earnings to this contract, approve condenser, swap via swapAndForward.
     function testSwapAndForwardTwoToken() public forkOnly {
         condenser = deployCondenserDeterministically();
 
@@ -65,39 +63,39 @@ contract TestCondenser is BurveForkableTest {
         uint16 closureId = 3; // USDC (idx 0) + USDT (idx 1)
         address outToken = poolTokens[0]; // USDC
 
-        // --- Open position ---
         uint256 posValue = _openPosition(closureId, 1e15);
         console2.log("opened position value", posValue);
         assertGt(posValue, 0, "position should exist");
 
-        // --- Collect earnings to Condenser ---
+        // Collect earnings to this contract (the caller)
         IBurveMultiValue(diamond).collectEarnings(
-            address(condenser),
+            address(this),
             closureId
         );
 
-        // --- swapAndForward ---
-        // No router txData — the outToken's portion from collectEarnings flows through.
-        // Non-outToken stays in the condenser (in production OogaBooga txData would swap it).
+        // Approve condenser for inTokens and build amounts
         address[] memory inTokens = new address[](1);
         inTokens[0] = poolTokens[1]; // USDT
+        uint256[] memory inAmounts = new uint256[](1);
+        inAmounts[0] = IERC20(poolTokens[1]).balanceOf(address(this));
         bytes[] memory txData = new bytes[](1);
-        // empty txData[0] — skip USDT swap
+        // empty txData[0] — skip USDT swap (no router call)
+
+        IERC20(poolTokens[1]).approve(address(condenser), inAmounts[0]);
 
         uint256 outBefore = IERC20(outToken).balanceOf(address(this));
         uint256 totalOut = condenser.swapAndForward(
             outToken,
             inTokens,
+            inAmounts,
             txData,
             0
         );
         uint256 outAfter = IERC20(outToken).balanceOf(address(this));
 
-        // --- Assertions ---
         assertEq(outAfter - outBefore, totalOut, "balance delta == totalOut");
         console2.log("USDC received from swapAndForward", totalOut);
 
-        // Position should still exist (we only collected earnings, not removed value).
         (uint256 posAfter, ) = ValueTokenFacet(diamond).balanceOf(
             address(this),
             closureId
@@ -113,34 +111,39 @@ contract TestCondenser is BurveForkableTest {
         uint16 closureId = 7; // USDC (idx 0) + USDT (idx 1) + HONEY (idx 2)
         address outToken = poolTokens[0]; // USDC
 
-        // --- Open position ---
         uint256 posValue = _openPosition(closureId, 1e15);
         console2.log("opened position value", posValue);
         assertGt(posValue, 0, "position should exist");
 
-        // --- Collect earnings to Condenser ---
+        // Collect earnings to this contract (the caller)
         IBurveMultiValue(diamond).collectEarnings(
-            address(condenser),
+            address(this),
             closureId
         );
 
-        // --- swapAndForward ---
+        // Approve condenser for inTokens and build amounts
         address[] memory inTokens = new address[](2);
         inTokens[0] = poolTokens[1]; // USDT
         inTokens[1] = poolTokens[2]; // HONEY
+        uint256[] memory inAmounts = new uint256[](2);
+        inAmounts[0] = IERC20(poolTokens[1]).balanceOf(address(this));
+        inAmounts[1] = IERC20(poolTokens[2]).balanceOf(address(this));
         bytes[] memory txData = new bytes[](2);
         // empty txData — skip all swaps
+
+        IERC20(poolTokens[1]).approve(address(condenser), inAmounts[0]);
+        IERC20(poolTokens[2]).approve(address(condenser), inAmounts[1]);
 
         uint256 outBefore = IERC20(outToken).balanceOf(address(this));
         uint256 totalOut = condenser.swapAndForward(
             outToken,
             inTokens,
+            inAmounts,
             txData,
             0
         );
         uint256 outAfter = IERC20(outToken).balanceOf(address(this));
 
-        // --- Assertions ---
         assertEq(outAfter - outBefore, totalOut, "balance delta == totalOut");
         console2.log("USDC received from swapAndForward", totalOut);
 
