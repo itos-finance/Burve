@@ -159,11 +159,12 @@ library VaultE4626Impl {
         // We don't check if we have enough assets for this cid to supply because
         // 1. The shares will underflow if we don't
         // 2. The outer check in vertex should suffice.
-        uint256 sharesToRemove = FullMath.mulDiv(
+        uint256 sharesToRemove = FullMath.mulDivRoundingUp(
             self.totalShares,
             amount,
             totalAssets
-        ); // Rounds down so someone can't repeatedly remove 1 wei and 1 share and inflate value of remaining shares.
+        ); // Round up so any positive withdrawal burns at least proportional shares,
+        // preventing zero-share withdrawals when totalAssets > totalShares.
         self.shares[cid] -= sharesToRemove;
         self.totalShares -= sharesToRemove;
         temp.vars[2] += amount;

@@ -411,8 +411,8 @@ src/integrations/looper/
 
 ```bash
 # Unit tests (no fork required)
-make test-lender          # 38 lender + 10 adapter = 48 tests
-make test-looper          # 11 tests
+make test-lender          # 41 lender + 11 adapter = 52 tests
+make test-looper          # 13 tests
 
 # Fork tests against live Berachain diamond
 make anvil-fork           # Start Anvil in terminal 1

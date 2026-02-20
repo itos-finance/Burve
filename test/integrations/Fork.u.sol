@@ -3,6 +3,8 @@ pragma solidity ^0.8.27;
 
 import {ForkableTest} from "../../lib/Commons/src/Test/ForkableTest.sol";
 import {IERC4626} from "openzeppelin-contracts/interfaces/IERC4626.sol";
+import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {Strings} from "openzeppelin-contracts/utils/Strings.sol";
 import {VaultType} from "../../src/multi/vertex/VaultProxy.sol";
 import {InitLib, BurveFacets} from "../../src/multi/InitLib.sol";
 import {SimplexDiamond} from "../../src/multi/Diamond.sol";
@@ -14,6 +16,8 @@ import {SwapFacet} from "../../src/multi/facets/SwapFacet.sol";
 import {LockFacet} from "../../src/multi/facets/LockFacet.sol";
 import {StoreManipulatorFacet} from "../facets/StoreManipulatorFacet.u.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC4626} from "../mocks/MockERC4626.sol";
 
 contract BurveForkableTest is ForkableTest {
     // Diamond and facets
@@ -54,13 +58,42 @@ contract BurveForkableTest is ForkableTest {
         swapFacet = SwapFacet(diamond);
         lockFacet = LockFacet(diamond);
 
-        string memory envJson = vm.readFile(envFile);
-        tokens = vm.parseJsonAddressArray(envJson, ".tokens");
-        vaults = vm.parseJsonAddressArray(envJson, ".vaults");
+        // Deploy 3 mock tokens
+        for (uint8 i = 0; i < 3; i++) {
+            string memory idx = Strings.toString(i);
+            tokens.push(
+                address(
+                    new MockERC20(
+                        string.concat("Test Token ", idx),
+                        string.concat("TEST", idx),
+                        18
+                    )
+                )
+            );
+        }
 
-        simplexFacet.addVertex(tokens[0], vaults[0], VaultType.E4626);
-        simplexFacet.addVertex(tokens[1], vaults[1], VaultType.E4626);
-        simplexFacet.addVertex(tokens[2], vaults[2], VaultType.E4626);
+        // Sort tokens ascending (required by addVertex)
+        for (uint256 i = 0; i < 3; i++) {
+            for (uint256 j = i + 1; j < 3; j++) {
+                if (tokens[i] > tokens[j]) {
+                    (tokens[i], tokens[j]) = (tokens[j], tokens[i]);
+                }
+            }
+        }
+
+        // Deploy mock ERC4626 vaults and add vertices
+        for (uint256 i = 0; i < 3; i++) {
+            string memory idx = Strings.toString(i);
+            address vault = address(
+                new MockERC4626(
+                    ERC20(tokens[i]),
+                    string.concat("Vault ", idx),
+                    string.concat("V", idx)
+                )
+            );
+            vaults.push(vault);
+            simplexFacet.addVertex(tokens[i], vault, VaultType.E4626);
+        }
 
         _initializeClosure(0x3, 1e18);
         _initializeClosure(0x4, 1e18);
@@ -86,7 +119,7 @@ contract BurveForkableTest is ForkableTest {
         // Mint ourselves enough to fund the initial target of the pool.
         for (uint256 i = 0; i < tokens.length; ++i) {
             if ((1 << i) & cid > 0) {
-                deal(tokens[i], address(this), initValue);
+                MockERC20(tokens[i]).mint(address(this), initValue);
                 IERC20(tokens[i]).approve(address(diamond), type(uint256).max);
             }
         }
