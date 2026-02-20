@@ -97,6 +97,50 @@ contract E4626Test is Test {
         assertEq(vault.totalVaultShares, 0);
     }
 
+    function testWithdrawAfterYieldAccrual() public {
+        ClosureId cid1 = ClosureId.wrap(1);
+        ClosureId cid2 = ClosureId.wrap(2);
+
+        // 1. Two closures each deposit 100e18 tokens
+        {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            vault.deposit(temp, cid1, 100e18);
+            vault.deposit(temp, cid2, 100e18);
+            vault.commit(temp);
+        }
+
+        uint256 sharesBefore1 = vault.shares[cid1];
+        uint256 sharesBefore2 = vault.shares[cid2];
+        uint256 totalSharesBefore = vault.totalShares;
+        assertGt(totalSharesBefore, 0);
+
+        // 2. Simulate yield: mint 100e18 extra tokens to the ERC4626 vault
+        //    This makes totalAssets = 300e18 while totalShares stays the same
+        //    (share price goes from 1.0 to 1.5)
+        MockERC20(address(token)).mint(address(e4626), 100e18);
+
+        // 3. Withdraw 1 wei from cid1 — at least 1 share must be burned
+        {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            vault.withdraw(temp, cid1, 1);
+            vault.commit(temp);
+        }
+        uint256 sharesAfter1 = vault.shares[cid1];
+        assertLt(sharesAfter1, sharesBefore1, "At least 1 share should be burned for 1 wei withdrawal");
+
+        // 4. Withdraw 1 wei 10 times from cid2 — at least 10 shares burned total
+        for (uint256 i = 0; i < 10; i++) {
+            VaultTemp memory temp;
+            vault.fetch(temp);
+            vault.withdraw(temp, cid2, 1);
+            vault.commit(temp);
+        }
+        uint256 sharesAfter2 = vault.shares[cid2];
+        assertLe(sharesAfter2, sharesBefore2 - 10, "At least 10 shares should be burned for 10x 1-wei withdrawals");
+    }
+
     function testMultipleDeposits() public {
         ClosureId cid1 = ClosureId.wrap(1);
         ClosureId cid2 = ClosureId.wrap(2);
