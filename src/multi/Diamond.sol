@@ -34,7 +34,7 @@ contract SimplexDiamond is IDiamond {
         AdminLib.initOwner(msg.sender);
         SimplexLib.init(name, symbol, facets.adjustor, 0, 0);
 
-        FacetCut[] memory cuts = new FacetCut[](15);
+        FacetCut[] memory cuts = new FacetCut[](16);
 
         {
             bytes4[] memory cutFunctionSelectors = new bytes4[](1);
@@ -248,6 +248,19 @@ contract SimplexDiamond is IDiamond {
                 facetAddress: facets.valueTokenFacet,
                 action: IDiamond.FacetCutAction.Add,
                 functionSelectors: selectors
+            });
+        }
+
+        {
+            bytes4[] memory batchSelectors = new bytes4[](1);
+            batchSelectors[0] = IBurveMultiValue
+                .addBatchSingleForValue
+                .selector;
+
+            cuts[15] = FacetCut({
+                facetAddress: facets.batchValueFacet,
+                action: FacetCutAction.Add,
+                functionSelectors: batchSelectors
             });
         }
 
